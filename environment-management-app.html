@@ -5402,11 +5402,17 @@ LIMIT 10</textarea
             // Add each config as a field in the edit form
             configs.forEach((c) => addEditConfigField(c.key, c.value));
 
-            // Build preview
+            // Build preview (escape HTML to prevent XSS)
             let previewHtml = `<table style="width: 100%; border-collapse: collapse; font-size: 0.8rem;">`;
             previewHtml += `<tr><th style="text-align: left; padding: 3px 8px; border-bottom: 1px solid var(--border-color); color: var(--text-secondary);">Key</th><th style="text-align: left; padding: 3px 8px; border-bottom: 1px solid var(--border-color); color: var(--text-secondary);">Value</th></tr>`;
             configs.forEach((c) => {
-              previewHtml += `<tr><td style="padding: 3px 8px; border-bottom: 1px solid var(--border-color);">${c.key}</td><td style="padding: 3px 8px; border-bottom: 1px solid var(--border-color);">${c.value}</td></tr>`;
+              const escapedKey = escapeHtml(c.key);
+              const escapedValue = escapeHtml(
+                c.value.length > 100
+                  ? c.value.substring(0, 100) + "..."
+                  : c.value,
+              );
+              previewHtml += `<tr><td style="padding: 3px 8px; border-bottom: 1px solid var(--border-color); word-break: break-word;">${escapedKey}</td><td style="padding: 3px 8px; border-bottom: 1px solid var(--border-color); word-break: break-word; white-space: pre-wrap;">${escapedValue}</td></tr>`;
             });
             previewHtml += `</table>`;
 
@@ -5438,16 +5444,17 @@ LIMIT 10</textarea
       }
 
       function parseEditConfigCsv(csvContent) {
-        const lines = csvContent.split("\n").filter((line) => line.trim());
-        if (lines.length < 2) {
+        // Parse CSV into rows respecting quoted fields
+        const rows = parseCSVRows(csvContent);
+
+        if (rows.length < 2) {
           throw new Error(
             "CSV must have a header row and at least one data row",
           );
         }
 
-        const headers = lines[0]
-          .split(",")
-          .map((h) => h.trim().replace(/"/g, "").toLowerCase());
+        // Parse headers
+        const headers = rows[0].map((h) => h.trim().toLowerCase());
 
         const keyIdx = headers.findIndex(
           (h) => h === "config_key" || h === "key",
@@ -5463,10 +5470,10 @@ LIMIT 10</textarea
         }
 
         const configs = [];
-        for (let i = 1; i < lines.length; i++) {
-          const values = parseCSVLine(lines[i]);
-          const key = (values[keyIdx] || "").trim().replace(/"/g, "");
-          const value = (values[valueIdx] || "").trim().replace(/"/g, "");
+        for (let i = 1; i < rows.length; i++) {
+          const row = rows[i];
+          const key = (row[keyIdx] || "").trim();
+          const value = (row[valueIdx] || "").trim();
 
           if (key && value) {
             configs.push({ key, value });
@@ -5474,6 +5481,74 @@ LIMIT 10</textarea
         }
 
         return configs;
+      }
+
+      // Robust CSV parser that handles quoted fields with special characters
+      function parseCSVRows(csvContent) {
+        const rows = [];
+        let currentRow = [];
+        let currentField = "";
+        let inQuotes = false;
+        let i = 0;
+
+        while (i < csvContent.length) {
+          const char = csvContent[i];
+          const nextChar = csvContent[i + 1];
+
+          if (char === '"') {
+            if (inQuotes && nextChar === '"') {
+              // Escaped quote ("" within quoted field)
+              currentField += '"';
+              i += 2;
+              continue;
+            } else {
+              // Toggle quote mode
+              inQuotes = !inQuotes;
+              i++;
+              continue;
+            }
+          }
+
+          if (!inQuotes) {
+            if (char === ",") {
+              // End of field
+              currentRow.push(currentField);
+              currentField = "";
+              i++;
+              continue;
+            } else if (char === "\n" || char === "\r") {
+              // End of row
+              currentRow.push(currentField);
+              if (currentRow.some((f) => f.trim())) {
+                // Only add non-empty rows
+                rows.push(currentRow);
+              }
+              currentRow = [];
+              currentField = "";
+              // Skip \r\n combination
+              if (char === "\r" && nextChar === "\n") {
+                i += 2;
+              } else {
+                i++;
+              }
+              continue;
+            }
+          }
+
+          // Regular character
+          currentField += char;
+          i++;
+        }
+
+        // Handle last field/row
+        if (currentField || currentRow.length > 0) {
+          currentRow.push(currentField);
+          if (currentRow.some((f) => f.trim())) {
+            rows.push(currentRow);
+          }
+        }
+
+        return rows;
       }
 
       function toggleConfigDetails() {
@@ -5486,6 +5561,13 @@ LIMIT 10</textarea
           details.style.display = "none";
           header.innerHTML = header.innerHTML.replace("[Hide]", "[Show]");
         }
+      }
+
+      // Helper function to escape HTML special characters
+      function escapeHtml(text) {
+        const div = document.createElement("div");
+        div.textContent = text;
+        return div.innerHTML;
       }
 
       // Bulk Import Functions
@@ -5604,22 +5686,22 @@ LIMIT 10</textarea
       }
 
       function parseCsvToEntities(csvContent) {
-        const lines = csvContent.split("\n").filter((line) => line.trim());
-        if (lines.length < 2) {
+        // Parse CSV into rows respecting quoted fields
+        const rows = parseCSVRows(csvContent);
+
+        if (rows.length < 2) {
           throw new Error(
             "CSV file must have headers and at least one data row",
           );
         }
 
         // Parse headers
-        const headers = lines[0]
-          .split(",")
-          .map((h) => h.trim().replace(/"/g, ""));
+        const headers = rows[0].map((h) => h.trim());
         const entities = [];
 
         // Parse each row
-        for (let i = 1; i < lines.length; i++) {
-          const values = parseCSVLine(lines[i]);
+        for (let i = 1; i < rows.length; i++) {
+          const values = rows[i];
           if (values.length === 0 || !values[0]) continue; // Skip empty rows
 
           const entity = {};
@@ -5745,34 +5827,6 @@ LIMIT 10</textarea
         });
 
         return entities;
-      }
-
-      // Helper function to properly parse CSV lines with quoted values
-      function parseCSVLine(line) {
-        const result = [];
-        let current = "";
-        let inQuotes = false;
-
-        for (let i = 0; i < line.length; i++) {
-          const char = line[i];
-          const nextChar = line[i + 1];
-
-          if (char === '"') {
-            if (inQuotes && nextChar === '"') {
-              current += '"';
-              i++; // Skip next quote
-            } else {
-              inQuotes = !inQuotes;
-            }
-          } else if (char === "," && !inQuotes) {
-            result.push(current);
-            current = "";
-          } else {
-            current += char;
-          }
-        }
-        result.push(current);
-        return result;
       }
 
       function formatBulkJson() {
