@@ -1010,18 +1010,42 @@
 
               <!-- Custom Configuration Section -->
               <div class="form-group">
-                <label class="form-label"
-                  >Custom Configuration (Optional)</label
+                <div
+                  style="
+                    display: flex;
+                    align-items: center;
+                    cursor: pointer;
+                    user-select: none;
+                    margin-bottom: 0.5rem;
+                  "
+                  onclick="toggleCreateConfigSection()"
                 >
-                <div class="config-container">
-                  <div id="config-list"></div>
-                  <button
-                    type="button"
-                    class="btn btn-secondary btn-sm"
-                    onclick="addConfigField()"
+                  <span
+                    id="create-config-toggle-icon"
+                    style="
+                      margin-right: 0.5rem;
+                      font-size: 0.75rem;
+                      transition: transform 0.2s;
+                    "
+                    >&#9654;</span
                   >
-                    Add Configuration
-                  </button>
+                  <label
+                    class="form-label"
+                    style="margin-bottom: 0; cursor: pointer"
+                    >Custom Configuration (Optional)</label
+                  >
+                </div>
+                <div id="create-config-section" style="display: none">
+                  <div class="config-container">
+                    <div id="config-list"></div>
+                    <button
+                      type="button"
+                      class="btn btn-secondary btn-sm"
+                      onclick="addConfigField()"
+                    >
+                      Add Configuration
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -1668,16 +1692,95 @@ LIMIT 10</textarea
           </div>
 
           <div class="form-group">
-            <label class="form-label">Custom Configuration</label>
-            <div class="config-container">
-              <div id="edit-config-list"></div>
-              <button
-                type="button"
-                class="btn btn-secondary btn-sm"
-                onclick="addEditConfigField()"
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                cursor: pointer;
+                user-select: none;
+                margin-bottom: 0.5rem;
+              "
+              onclick="toggleEditConfigSection()"
+            >
+              <span
+                id="edit-config-toggle-icon"
+                style="
+                  margin-right: 0.5rem;
+                  font-size: 0.75rem;
+                  transition: transform 0.2s;
+                "
+                >&#9654;</span
               >
-                Add Configuration
-              </button>
+              <label
+                class="form-label"
+                style="margin-bottom: 0; cursor: pointer"
+                >Custom Configuration</label
+              >
+            </div>
+            <div id="edit-config-section" style="display: none">
+              <div class="config-container">
+                <div id="edit-config-list"></div>
+                <div
+                  style="
+                    display: flex;
+                    gap: 0.5rem;
+                    flex-wrap: wrap;
+                    align-items: center;
+                  "
+                >
+                  <button
+                    type="button"
+                    class="btn btn-secondary btn-sm"
+                    onclick="addEditConfigField()"
+                  >
+                    Add Configuration
+                  </button>
+                  <span style="color: var(--text-secondary); font-size: 0.75rem"
+                    >or</span
+                  >
+                  <label
+                    class="btn btn-secondary btn-sm"
+                    style="cursor: pointer; margin: 0"
+                  >
+                    Upload CSV
+                    <input
+                      type="file"
+                      id="edit-config-csv-input"
+                      accept=".csv"
+                      style="display: none"
+                      onchange="handleEditConfigCsvUpload(event)"
+                    />
+                  </label>
+                </div>
+                <small
+                  style="
+                    color: var(--text-secondary);
+                    margin-top: 0.5rem;
+                    display: block;
+                    font-size: 0.75rem;
+                  "
+                >
+                  CSV format: <code>config_key, config_value</code> — one row
+                  per entry
+                </small>
+                <div
+                  id="edit-config-csv-preview"
+                  style="display: none; margin-top: 0.5rem"
+                >
+                  <div
+                    id="edit-config-csv-preview-content"
+                    style="
+                      max-height: 150px;
+                      overflow-y: auto;
+                      border: 1px solid var(--border-color);
+                      border-radius: 0.375rem;
+                      padding: 0.5rem;
+                      background: var(--bg-primary);
+                      font-size: 0.8rem;
+                    "
+                  ></div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -1699,11 +1802,11 @@ LIMIT 10</textarea
       // Configuration - Updated Lambda URLs from NeptuneEnvironmentStack
       const CONFIG = {
         INGEST_URL:
-          "https://fhv3h8dsr2.execute-api.us-east-1.amazonaws.com/prod/ingest",
+          "https://pavdiuem80.execute-api.us-east-1.amazonaws.com/prod/ingest",
         QUERY_URL:
-          "https://fhv3h8dsr2.execute-api.us-east-1.amazonaws.com/prod/query",
+          "https://pavdiuem80.execute-api.us-east-1.amazonaws.com/prod/query",
         CLEANUP_URL:
-          "https://fhv3h8dsr2.execute-api.us-east-1.amazonaws.com/prod/cleanup",
+          "https://pavdiuem80.execute-api.us-east-1.amazonaws.com/prod/cleanup",
       };
 
       // Global state
@@ -3711,10 +3814,10 @@ LIMIT 10</textarea
 
         // Build table-based tooltip
         let tooltipContent = `
-          <div style="font-weight: bold; margin-bottom: 8px; color: #ffffff;">
+          <div style="font-weight: 600; margin-bottom: 8px; color: #e2e8f0;">
             ${d.label || d.name || d.id}
           </div>
-          <div style="color: #a78bfa; font-size: 0.8rem; margin-bottom: 10px;">
+          <div style="color: #94a3b8; font-size: 0.8rem; margin-bottom: 10px;">
             ${d.type || "Unknown"}
           </div>
         `;
@@ -3755,8 +3858,8 @@ LIMIT 10</textarea
             <table style="width: 100%; border-collapse: collapse; margin-bottom: 10px;">
               <thead>
                 <tr>
-                  <th style="background: #374151; color: #9ca3af; padding: 4px 8px; text-align: left; font-size: 0.75rem; border-bottom: 1px solid #4b5563;">Property</th>
-                  <th style="background: #374151; color: #9ca3af; padding: 4px 8px; text-align: left; font-size: 0.75rem; border-bottom: 1px solid #4b5563;">Value</th>
+                  <th style="background: #1e293b; color: #94a3b8; padding: 4px 8px; text-align: left; font-size: 0.75rem; border-bottom: 1px solid #334155;">Property</th>
+                  <th style="background: #1e293b; color: #94a3b8; padding: 4px 8px; text-align: left; font-size: 0.75rem; border-bottom: 1px solid #334155;">Value</th>
                 </tr>
               </thead>
               <tbody>
@@ -3807,8 +3910,8 @@ LIMIT 10</textarea
 
             tooltipContent += `
               <tr>
-                <td style="padding: 3px 8px; border-bottom: 1px solid #374151; color: #d1d5db; font-size: 0.75rem; font-weight: 500;">${formattedProp}</td>
-                <td style="padding: 3px 8px; border-bottom: 1px solid #374151; color: #e5e7eb; font-size: 0.75rem;">${displayValue}</td>
+                <td style="padding: 3px 8px; border-bottom: 1px solid #1e293b; color: #94a3b8; font-size: 0.75rem; font-weight: 500;">${formattedProp}</td>
+                <td style="padding: 3px 8px; border-bottom: 1px solid #1e293b; color: #cbd5e1; font-size: 0.75rem;">${displayValue}</td>
               </tr>
             `;
           });
@@ -3856,15 +3959,17 @@ LIMIT 10</textarea
           typeof configurationsData === "object" &&
           Object.keys(configurationsData).length > 0
         ) {
+          const configCount = Object.keys(configurationsData).length;
           tooltipContent += `
-            <div style="color: #10b981; font-weight: bold; font-size: 0.8rem; margin-bottom: 5px;">
-              Custom Configuration
+            <div style="color: #94a3b8; font-weight: 600; font-size: 0.8rem; margin-bottom: 5px; cursor: pointer;" onclick="toggleConfigDetails()">
+              Custom Configuration (${configCount}) [Show]
             </div>
+            <div id="config-details" style="display: none;">
             <table style="width: 100%; border-collapse: collapse; margin-bottom: 10px;">
               <thead>
                 <tr>
-                  <th style="background: #065f46; color: #6ee7b7; padding: 4px 8px; text-align: left; font-size: 0.75rem; border-bottom: 1px solid #10b981;">Config Key</th>
-                  <th style="background: #065f46; color: #6ee7b7; padding: 4px 8px; text-align: left; font-size: 0.75rem; border-bottom: 1px solid #10b981;">Value</th>
+                  <th style="background: #1e293b; color: #64748b; padding: 4px 8px; text-align: left; font-size: 0.75rem; border-bottom: 1px solid #334155;">Config Key</th>
+                  <th style="background: #1e293b; color: #64748b; padding: 4px 8px; text-align: left; font-size: 0.75rem; border-bottom: 1px solid #334155;">Value</th>
                 </tr>
               </thead>
               <tbody>
@@ -3879,8 +3984,8 @@ LIMIT 10</textarea
 
               tooltipContent += `
                 <tr>
-                  <td style="padding: 3px 8px; border-bottom: 1px solid #047857; color: #a7f3d0; font-size: 0.75rem; font-weight: 500;">${key}</td>
-                  <td style="padding: 3px 8px; border-bottom: 1px solid #047857; color: #d1fae5; font-size: 0.75rem;">${displayValue}</td>
+                  <td style="padding: 3px 8px; border-bottom: 1px solid #1e293b; color: #94a3b8; font-size: 0.75rem; font-weight: 500;">${key}</td>
+                  <td style="padding: 3px 8px; border-bottom: 1px solid #1e293b; color: #cbd5e1; font-size: 0.75rem;">${displayValue}</td>
                 </tr>
               `;
             }
@@ -3889,32 +3994,32 @@ LIMIT 10</textarea
           tooltipContent += `
               </tbody>
             </table>
+            </div>
           `;
         }
 
         // Add download button and entity ID at the bottom
         tooltipContent += `
-          <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #374151; text-align: center;">
+          <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #1e293b; text-align: center;">
             <button 
               onclick="downloadNodeProperties('${d.id}')" 
               style="
-                background: linear-gradient(135deg, #3b82f6, #1d4ed8);
-                color: white;
-                border: none;
+                background: #334155;
+                color: #cbd5e1;
+                border: 1px solid #475569;
                 padding: 6px 12px;
                 border-radius: 4px;
                 font-size: 0.7rem;
                 cursor: pointer;
                 margin-bottom: 6px;
-                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
                 transition: all 0.2s;
               "
-              onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 4px 8px rgba(0, 0, 0, 0.3)';"
-              onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 2px 4px rgba(0, 0, 0, 0.2)';"
+              onmouseover="this.style.background='#475569'; this.style.color='#e2e8f0';"
+              onmouseout="this.style.background='#334155'; this.style.color='#cbd5e1';"
             >
               Download Properties
             </button>
-            <div style="color: #6b7280; font-size: 0.65rem;">
+            <div style="color: #475569; font-size: 0.65rem;">
               Entity ID: ${d.id}
             </div>
           </div>
@@ -3945,16 +4050,16 @@ LIMIT 10</textarea
 
             // Create history section HTML
             let historyHtml = `
-              <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid rgba(75, 85, 99, 0.4);">
-                <div style="color: #fbbf24; font-weight: bold; font-size: 0.8rem; margin-bottom: 8px; cursor: pointer;" onclick="toggleHistoryDetails()">
+              <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid #1e293b;">
+                <div style="color: #94a3b8; font-weight: 600; font-size: 0.8rem; margin-bottom: 8px; cursor: pointer;" onclick="toggleHistoryDetails()">
                   Change History (${history.length}) [Show]
                 </div>
                 <div id="history-details" style="display: none; max-height: 200px; overflow-y: auto;">
                   <table style="width: 100%; border-collapse: collapse;">
                     <thead>
                       <tr>
-                        <th style="background: #92400e; color: #fcd34d; padding: 4px 8px; text-align: left; font-size: 0.7rem;">Action</th>
-                        <th style="background: #92400e; color: #fcd34d; padding: 4px 8px; text-align: left; font-size: 0.7rem;">When</th>
+                        <th style="background: #1e293b; color: #64748b; padding: 4px 8px; text-align: left; font-size: 0.7rem;">Action</th>
+                        <th style="background: #1e293b; color: #64748b; padding: 4px 8px; text-align: left; font-size: 0.7rem;">When</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -3966,10 +4071,10 @@ LIMIT 10</textarea
 
               historyHtml += `
                 <tr>
-                  <td style="padding: 4px 8px; font-size: 0.7rem; border-bottom: 1px solid rgba(251, 191, 36, 0.2);">
+                  <td style="padding: 4px 8px; font-size: 0.7rem; color: #cbd5e1; border-bottom: 1px solid #1e293b;">
                     ${event.action}
                   </td>
-                  <td style="padding: 4px 8px; font-size: 0.7rem; color: #d1d5db; border-bottom: 1px solid rgba(251, 191, 36, 0.2);">
+                  <td style="padding: 4px 8px; font-size: 0.7rem; color: #94a3b8; border-bottom: 1px solid #1e293b;">
                     ${timeAgo}
                   </td>
                 </tr>
@@ -3984,7 +4089,7 @@ LIMIT 10</textarea
                 if (changesStr) {
                   historyHtml += `
                     <tr>
-                      <td colspan="2" style="padding: 4px 8px 8px 24px; font-size: 0.65rem; color: #9ca3af; font-style: italic; border-bottom: 1px solid rgba(251, 191, 36, 0.2);">
+                      <td colspan="2" style="padding: 4px 8px 8px 24px; font-size: 0.65rem; color: #64748b; font-style: italic; border-bottom: 1px solid #1e293b;">
                         ${changesStr}
                       </td>
                     </tr>
@@ -4005,6 +4110,30 @@ LIMIT 10</textarea
           }
         } catch (error) {
           console.error("Error fetching history:", error);
+        }
+      }
+
+      function toggleCreateConfigSection() {
+        const section = document.getElementById("create-config-section");
+        const icon = document.getElementById("create-config-toggle-icon");
+        if (section.style.display === "none") {
+          section.style.display = "block";
+          icon.style.transform = "rotate(90deg)";
+        } else {
+          section.style.display = "none";
+          icon.style.transform = "rotate(0deg)";
+        }
+      }
+
+      function toggleEditConfigSection() {
+        const section = document.getElementById("edit-config-section");
+        const icon = document.getElementById("edit-config-toggle-icon");
+        if (section.style.display === "none") {
+          section.style.display = "block";
+          icon.style.transform = "rotate(90deg)";
+        } else {
+          section.style.display = "none";
+          icon.style.transform = "rotate(0deg)";
         }
       }
 
@@ -4491,7 +4620,10 @@ LIMIT 10</textarea
         const padding = 60;
 
         // Compute bounding box of all nodes
-        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        let minX = Infinity,
+          minY = Infinity,
+          maxX = -Infinity,
+          maxY = -Infinity;
         networkData.nodes.forEach((d) => {
           if (d.x < minX) minX = d.x;
           if (d.y < minY) minY = d.y;
@@ -4507,7 +4639,7 @@ LIMIT 10</textarea
         const scale = Math.min(
           (width - padding * 2) / (graphWidth || 1),
           (height - padding * 2) / (graphHeight || 1),
-          2 // cap max zoom so it doesn't over-zoom on small graphs
+          2, // cap max zoom so it doesn't over-zoom on small graphs
         );
 
         const centerX = (minX + maxX) / 2;
@@ -4521,10 +4653,7 @@ LIMIT 10</textarea
           .scale(scale);
 
         const zoomBehavior = currentZoom || d3.zoom();
-        svg
-          .transition()
-          .duration(750)
-          .call(zoomBehavior.transform, transform);
+        svg.transition().duration(750).call(zoomBehavior.transform, transform);
       }
 
       function toggleEdgeLabels() {
@@ -4984,6 +5113,24 @@ LIMIT 10</textarea
               }
             });
 
+            // Auto-expand config section if there are custom configs
+            const customConfigCount = Object.keys(configurations).filter(
+              (k) => !excludeConfigKeys.includes(k),
+            ).length;
+            if (customConfigCount > 0) {
+              document.getElementById("edit-config-section").style.display =
+                "block";
+              document.getElementById(
+                "edit-config-toggle-icon",
+              ).style.transform = "rotate(90deg)";
+            } else {
+              document.getElementById("edit-config-section").style.display =
+                "none";
+              document.getElementById(
+                "edit-config-toggle-icon",
+              ).style.transform = "rotate(0deg)";
+            }
+
             // Show modal
             document.getElementById("edit-modal").style.display = "block";
             showAlert("edit-alerts", "", "");
@@ -5008,6 +5155,10 @@ LIMIT 10</textarea
         document.getElementById("edit-modal").style.display = "none";
         document.getElementById("edit-entity-form").reset();
         document.getElementById("edit-config-list").innerHTML = "";
+        document.getElementById("edit-config-csv-preview").style.display =
+          "none";
+        document.getElementById("edit-config-csv-preview-content").innerHTML =
+          "";
       }
 
       function addEditConfigField(key = "", value = "") {
@@ -5219,6 +5370,121 @@ LIMIT 10</textarea
         } catch (error) {
           document.getElementById("admin-results").innerHTML =
             `<div class="alert alert-error">Error: ${error.message}</div>`;
+        }
+      }
+
+      // CSV Config Upload in Edit Modal
+      function handleEditConfigCsvUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        if (!file.name.toLowerCase().endsWith(".csv")) {
+          showAlert("edit-alerts", "Please upload a .csv file", "error");
+          event.target.value = "";
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          try {
+            const content = e.target.result;
+            const configs = parseEditConfigCsv(content);
+
+            if (configs.length === 0) {
+              showAlert(
+                "edit-alerts",
+                "No valid config entries found in CSV",
+                "error",
+              );
+              return;
+            }
+
+            // Add each config as a field in the edit form
+            configs.forEach((c) => addEditConfigField(c.key, c.value));
+
+            // Build preview
+            let previewHtml = `<table style="width: 100%; border-collapse: collapse; font-size: 0.8rem;">`;
+            previewHtml += `<tr><th style="text-align: left; padding: 3px 8px; border-bottom: 1px solid var(--border-color); color: var(--text-secondary);">Key</th><th style="text-align: left; padding: 3px 8px; border-bottom: 1px solid var(--border-color); color: var(--text-secondary);">Value</th></tr>`;
+            configs.forEach((c) => {
+              previewHtml += `<tr><td style="padding: 3px 8px; border-bottom: 1px solid var(--border-color);">${c.key}</td><td style="padding: 3px 8px; border-bottom: 1px solid var(--border-color);">${c.value}</td></tr>`;
+            });
+            previewHtml += `</table>`;
+
+            document.getElementById(
+              "edit-config-csv-preview-content",
+            ).innerHTML = previewHtml;
+            document.getElementById("edit-config-csv-preview").style.display =
+              "block";
+
+            showAlert(
+              "edit-alerts",
+              `Loaded ${configs.length} config entries from CSV. Click "Save Changes" to apply.`,
+              "success",
+            );
+          } catch (error) {
+            showAlert(
+              "edit-alerts",
+              "Error parsing CSV: " + error.message,
+              "error",
+            );
+          }
+          event.target.value = "";
+        };
+        reader.onerror = function () {
+          showAlert("edit-alerts", "Failed to read CSV file", "error");
+          event.target.value = "";
+        };
+        reader.readAsText(file);
+      }
+
+      function parseEditConfigCsv(csvContent) {
+        const lines = csvContent.split("\n").filter((line) => line.trim());
+        if (lines.length < 2) {
+          throw new Error(
+            "CSV must have a header row and at least one data row",
+          );
+        }
+
+        const headers = lines[0]
+          .split(",")
+          .map((h) => h.trim().replace(/"/g, "").toLowerCase());
+
+        const keyIdx = headers.findIndex(
+          (h) => h === "config_key" || h === "key",
+        );
+        const valueIdx = headers.findIndex(
+          (h) => h === "config_value" || h === "value",
+        );
+
+        if (keyIdx === -1 || valueIdx === -1) {
+          throw new Error(
+            "CSV must have columns: config_key (or key), config_value (or value)",
+          );
+        }
+
+        const configs = [];
+        for (let i = 1; i < lines.length; i++) {
+          const values = parseCSVLine(lines[i]);
+          const key = (values[keyIdx] || "").trim().replace(/"/g, "");
+          const value = (values[valueIdx] || "").trim().replace(/"/g, "");
+
+          if (key && value) {
+            configs.push({ key, value });
+          }
+        }
+
+        return configs;
+      }
+
+      function toggleConfigDetails() {
+        const details = document.getElementById("config-details");
+        const header = details.previousElementSibling;
+        if (details.style.display === "none") {
+          details.style.display = "block";
+          header.innerHTML = header.innerHTML.replace("[Show]", "[Hide]");
+        } else {
+          details.style.display = "none";
+          header.innerHTML = header.innerHTML.replace("[Hide]", "[Show]");
         }
       }
 
