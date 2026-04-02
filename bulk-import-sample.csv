@@ -1,0 +1,5 @@
+type,name,description,owner,region,endpoint,version,sourceService,targetService,protocol,sourceEntity,relationshipType,targetEntity,config_key1,config_value1,config_key2,config_value2
+Environment,production-aws,Production AWS Environment,DevOps Team,us-east-1,https://prod-aws.example.com,,,,,,,cluster-type,kubernetes,timeout,60s
+Environment,staging-azure,Staging Azure Environment,DevOps Team,eastus,https://staging-azure.example.com,,,,,,,cluster-type,kubernetes,timeout,45s
+Application,customer-api,Customer Management API,Backend Team,,,,v2.1.0,,,,,,,replicas,3,memory-limit,1Gi
+Integration,api-gateway,API Gateway Integration,Platform Team,,,,api-gateway,customer-api,HTTPS,production-aws,integrates,customer-api,timeout,30s,max-retries,5

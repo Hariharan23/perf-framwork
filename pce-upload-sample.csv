@@ -1,0 +1,11 @@
+environment_name,property_key,property_value
+web-portal-qa,paymentGatewayService.endpointPaymentUri,https://gateway-qa.corp.internal:8443/payments/process
+web-portal-qa,userProfileService.endpointProfileUri,https://identity-qa.corp.internal:8443/users/profile
+web-portal-qa,catalogService.endpointCatalogUri,http://localhost:8080/catalog/search
+web-portal-qa,notificationService.endpointEmailUri,https://notify-qa.corp.internal:8080/email/send
+web-portal-qa,app.database.maxPoolSize,50
+web-portal-qa,app.cache.ttlSeconds,300
+checkout-svc-qa,paymentGatewayService.endpointPaymentUri,https://gateway-qa.corp.internal:8443/payments/process
+checkout-svc-qa,inventoryService.endpointStockUri,https://warehouse-qa.corp.internal:8443/stock/reserve
+checkout-svc-qa,shippingService.endpointShipUri,http://127.0.0.1:9090/shipping/estimate
+checkout-svc-qa,app.database.maxPoolSize,100
