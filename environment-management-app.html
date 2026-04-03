@@ -818,25 +818,143 @@
         color: #334155;
         white-space: nowrap;
       }
-      .env-filter-select {
-        padding: 4px 28px 4px 10px;
+      .env-multi-select {
+        position: relative;
+        min-width: 240px;
+        max-width: 400px;
+      }
+      .env-multi-trigger {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 4px 8px 4px 10px;
         border: 1px solid #cbd5e1;
         border-radius: 4px;
         font-size: 12px;
         color: #334155;
         background: white;
         cursor: pointer;
-        min-width: 200px;
-        appearance: none;
-        -webkit-appearance: none;
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23475569' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
-        background-repeat: no-repeat;
-        background-position: right 8px center;
+        min-height: 28px;
+        gap: 4px;
       }
-      .env-filter-select:focus {
-        outline: none;
+      .env-multi-trigger:hover {
+        border-color: #94a3b8;
+      }
+      .env-multi-trigger.open {
         border-color: #3b82f6;
         box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+      }
+      .env-multi-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 3px;
+        flex: 1;
+        min-width: 0;
+      }
+      .env-multi-placeholder {
+        color: #94a3b8;
+        font-size: 12px;
+        white-space: nowrap;
+      }
+      .env-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        padding: 1px 6px;
+        background: #e0f2fe;
+        border: 1px solid #7dd3fc;
+        border-radius: 3px;
+        font-size: 11px;
+        color: #0369a1;
+        white-space: nowrap;
+        max-width: 140px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .env-chip-remove {
+        cursor: pointer;
+        font-size: 13px;
+        line-height: 1;
+        color: #0369a1;
+        opacity: 0.7;
+        flex-shrink: 0;
+      }
+      .env-chip-remove:hover {
+        opacity: 1;
+        color: #dc2626;
+      }
+      .env-multi-arrow {
+        color: #475569;
+        font-size: 11px;
+        flex-shrink: 0;
+        transition: transform 0.2s;
+      }
+      .env-multi-trigger.open .env-multi-arrow {
+        transform: rotate(180deg);
+      }
+      .env-multi-dropdown {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        margin-top: 2px;
+        background: white;
+        border: 1px solid #cbd5e1;
+        border-radius: 4px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        z-index: 1000;
+        max-height: 260px;
+        overflow: hidden;
+        flex-direction: column;
+      }
+      .env-multi-dropdown.open {
+        display: flex;
+      }
+      .env-multi-search {
+        padding: 6px 10px;
+        border: none;
+        border-bottom: 1px solid #e2e8f0;
+        font-size: 12px;
+        color: #334155;
+        outline: none;
+        background: #f8fafc;
+        flex-shrink: 0;
+      }
+      .env-multi-search::placeholder {
+        color: #94a3b8;
+      }
+      .env-multi-options {
+        overflow-y: auto;
+        max-height: 200px;
+        padding: 2px 0;
+      }
+      .env-multi-option {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 10px;
+        font-size: 12px;
+        color: #334155;
+        cursor: pointer;
+        transition: background 0.15s;
+      }
+      .env-multi-option:hover {
+        background: #f1f5f9;
+      }
+      .env-multi-option.selected {
+        background: #eff6ff;
+        font-weight: 600;
+      }
+      .env-multi-option input[type="checkbox"] {
+        accent-color: #3b82f6;
+        cursor: pointer;
+        flex-shrink: 0;
+      }
+      .env-multi-option-label {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
       .env-filter-info {
         font-size: 11px;
@@ -1982,13 +2100,31 @@ LIMIT 10</textarea
               style="display: none"
             >
               <label>Environment:</label>
-              <select
-                id="env-filter-select"
-                class="env-filter-select"
-                onchange="applyEnvFilter()"
-              >
-                <option value="">— Show All Environments —</option>
-              </select>
+              <div class="env-multi-select" id="env-multi-select">
+                <div
+                  class="env-multi-trigger"
+                  onclick="toggleEnvDropdown(event)"
+                >
+                  <div class="env-multi-chips" id="env-selected-chips">
+                    <span
+                      class="env-multi-placeholder"
+                      id="env-multi-placeholder"
+                      >— Show All Environments —</span
+                    >
+                  </div>
+                  <span class="env-multi-arrow">▾</span>
+                </div>
+                <div class="env-multi-dropdown" id="env-multi-dropdown">
+                  <input
+                    type="text"
+                    class="env-multi-search"
+                    id="env-multi-search"
+                    placeholder="Search environments..."
+                    oninput="filterEnvDropdownOptions()"
+                  />
+                  <div class="env-multi-options" id="env-multi-options"></div>
+                </div>
+              </div>
               <select
                 id="env-filter-depth"
                 class="env-filter-depth"
@@ -5779,13 +5915,133 @@ LIMIT 10</textarea
       }
 
       // --- Environment Filter ---
-      function populateEnvFilter(nodes) {
-        const select = document.getElementById("env-filter-select");
-        if (!select) return;
+      // --- Multi-select environment dropdown functions ---
+      let envMultiSelectData = []; // [{id, label}]
+      let envSelectedIds = new Set();
 
-        while (select.options.length > 1) {
-          select.remove(1);
+      function toggleEnvDropdown(e) {
+        if (e) e.stopPropagation();
+        const dropdown = document.getElementById("env-multi-dropdown");
+        const trigger = document.querySelector(".env-multi-trigger");
+        const isOpen = dropdown.classList.contains("open");
+        if (isOpen) {
+          dropdown.classList.remove("open");
+          trigger.classList.remove("open");
+        } else {
+          dropdown.classList.add("open");
+          trigger.classList.add("open");
+          const searchInput = document.getElementById("env-multi-search");
+          searchInput.value = "";
+          filterEnvDropdownOptions();
+          setTimeout(() => searchInput.focus(), 50);
         }
+      }
+
+      function closeEnvDropdown() {
+        const dropdown = document.getElementById("env-multi-dropdown");
+        const trigger = document.querySelector(".env-multi-trigger");
+        if (dropdown) dropdown.classList.remove("open");
+        if (trigger) trigger.classList.remove("open");
+      }
+
+      // Close dropdown when clicking outside
+      document.addEventListener("click", function (e) {
+        const container = document.getElementById("env-multi-select");
+        if (container && !container.contains(e.target)) {
+          closeEnvDropdown();
+        }
+      });
+
+      function filterEnvDropdownOptions() {
+        const search = (
+          document.getElementById("env-multi-search").value || ""
+        ).toLowerCase();
+        const optionsContainer = document.getElementById("env-multi-options");
+        const options = optionsContainer.querySelectorAll(".env-multi-option");
+        options.forEach((opt) => {
+          const label = opt.getAttribute("data-label").toLowerCase();
+          opt.style.display = label.includes(search) ? "flex" : "none";
+        });
+      }
+
+      function toggleEnvOption(envId) {
+        if (envSelectedIds.has(envId)) {
+          envSelectedIds.delete(envId);
+        } else {
+          envSelectedIds.add(envId);
+        }
+        renderEnvChips();
+        renderEnvOptionStates();
+        applyEnvFilter();
+      }
+
+      function removeEnvChip(envId, e) {
+        if (e) e.stopPropagation();
+        envSelectedIds.delete(envId);
+        renderEnvChips();
+        renderEnvOptionStates();
+        applyEnvFilter();
+      }
+
+      function renderEnvChips() {
+        const chipsContainer = document.getElementById("env-selected-chips");
+        const placeholder = document.getElementById("env-multi-placeholder");
+        chipsContainer.innerHTML = "";
+        if (envSelectedIds.size === 0) {
+          const span = document.createElement("span");
+          span.className = "env-multi-placeholder";
+          span.id = "env-multi-placeholder";
+          span.textContent = "— Show All Environments —";
+          chipsContainer.appendChild(span);
+          return;
+        }
+        envSelectedIds.forEach((id) => {
+          const item = envMultiSelectData.find((d) => d.id === id);
+          if (!item) return;
+          const chip = document.createElement("span");
+          chip.className = "env-chip";
+          chip.title = item.label;
+          const text = document.createElement("span");
+          text.textContent = item.label;
+          text.style.overflow = "hidden";
+          text.style.textOverflow = "ellipsis";
+          const remove = document.createElement("span");
+          remove.className = "env-chip-remove";
+          remove.innerHTML = "×";
+          remove.onclick = (e) => removeEnvChip(id, e);
+          chip.appendChild(text);
+          chip.appendChild(remove);
+          chipsContainer.appendChild(chip);
+        });
+      }
+
+      function renderEnvOptionStates() {
+        const optionsContainer = document.getElementById("env-multi-options");
+        const options = optionsContainer.querySelectorAll(".env-multi-option");
+        options.forEach((opt) => {
+          const id = opt.getAttribute("data-id");
+          const cb = opt.querySelector('input[type="checkbox"]');
+          if (envSelectedIds.has(id)) {
+            opt.classList.add("selected");
+            cb.checked = true;
+          } else {
+            opt.classList.remove("selected");
+            cb.checked = false;
+          }
+        });
+      }
+
+      function getSelectedEnvIds() {
+        return Array.from(envSelectedIds);
+      }
+
+      function populateEnvFilter(nodes) {
+        const optionsContainer = document.getElementById("env-multi-options");
+        if (!optionsContainer) return;
+
+        optionsContainer.innerHTML = "";
+        envSelectedIds.clear();
+        envMultiSelectData = [];
 
         const envNodes = nodes
           .filter((n) => n.type === "Environment")
@@ -5796,11 +6052,31 @@ LIMIT 10</textarea
           );
 
         envNodes.forEach((env) => {
-          const option = document.createElement("option");
-          option.value = env.id;
-          option.textContent = env.label || env.name || env.id;
-          select.appendChild(option);
+          const label = env.label || env.name || env.id;
+          envMultiSelectData.push({ id: env.id, label });
+
+          const opt = document.createElement("div");
+          opt.className = "env-multi-option";
+          opt.setAttribute("data-id", env.id);
+          opt.setAttribute("data-label", label);
+          opt.onclick = () => toggleEnvOption(env.id);
+
+          const cb = document.createElement("input");
+          cb.type = "checkbox";
+          cb.onclick = (e) => e.stopPropagation();
+          cb.onchange = () => toggleEnvOption(env.id);
+
+          const span = document.createElement("span");
+          span.className = "env-multi-option-label";
+          span.textContent = label;
+          span.title = label;
+
+          opt.appendChild(cb);
+          opt.appendChild(span);
+          optionsContainer.appendChild(opt);
         });
+
+        renderEnvChips();
 
         // Compute max hop depth from graph diameter
         const maxHops = computeGraphMaxHops(nodes);
@@ -5934,7 +6210,7 @@ LIMIT 10</textarea
         return connectedIds;
       }
 
-      function getEnvConnectivity(startEnvId, nodes, links) {
+      function getEnvConnectivity(startEnvId, nodes, links, immediateOnly) {
         const nodeMap = new Map();
         nodes.forEach((n) => nodeMap.set(n.id, n));
         const envNodes = new Set();
@@ -5946,9 +6222,6 @@ LIMIT 10</textarea
 
         while (envQueue.length > 0) {
           const currentEnv = envQueue.shift();
-          // BFS through intermediaries tracking direction from first hop
-          // Each queue item: { nodeId, direction } where direction = 'forward' | 'reverse'
-          // forward: currentEnv is the source; reverse: currentEnv is the target
           const queue = [{ nodeId: currentEnv, direction: null }];
           const localVisited = new Set([currentEnv]);
 
@@ -5960,7 +6233,7 @@ LIMIT 10</textarea
               const targetId =
                 typeof link.target === "object" ? link.target.id : link.target;
               let neighborId = null;
-              let stepForward = null; // true if we follow source->target
+              let stepForward = null;
               if (sourceId === nodeId) {
                 neighborId = targetId;
                 stepForward = true;
@@ -5971,7 +6244,6 @@ LIMIT 10</textarea
 
               if (neighborId && !localVisited.has(neighborId)) {
                 localVisited.add(neighborId);
-                // Direction is set by the first hop from currentEnv
                 const dir =
                   inheritedDir !== null
                     ? inheritedDir
@@ -5988,7 +6260,10 @@ LIMIT 10</textarea
                   if (!visited.has(neighborId)) {
                     envNodes.add(neighborId);
                     visited.add(neighborId);
-                    envQueue.push(neighborId);
+                    // Only recurse into found envs if NOT immediateOnly
+                    if (!immediateOnly) {
+                      envQueue.push(neighborId);
+                    }
                   }
                 } else {
                   queue.push({ nodeId: neighborId, direction: dir });
@@ -6001,9 +6276,8 @@ LIMIT 10</textarea
       }
 
       function applyEnvFilter() {
-        const select = document.getElementById("env-filter-select");
         const depthSelect = document.getElementById("env-filter-depth");
-        const selectedEnvId = select.value;
+        const selectedIds = getSelectedEnvIds();
         const clearBtn = document.getElementById("env-filter-clear-btn");
         const infoSpan = document.getElementById("env-filter-info");
         const svg = d3.select("#network-graph");
@@ -6024,24 +6298,25 @@ LIMIT 10</textarea
           document.getElementById("health-reset-btn").style.display = "none";
         }
 
-        if (!selectedEnvId && !connectivityOnly) {
+        if (selectedIds.length === 0 && !connectivityOnly) {
           clearEnvFilter();
           return;
         }
 
-        if (!selectedEnvId && connectivityOnly) {
+        // Gather all nodes and links from the graph
+        const allLinks = [];
+        svg.selectAll("line:not(.env-overlay-link)").each(function (d) {
+          allLinks.push(d);
+        });
+        const allNodes = [];
+        svg.selectAll(".node").each(function (d) {
+          allNodes.push(d);
+        });
+
+        if (selectedIds.length === 0 && connectivityOnly) {
           // Show all environments with inter-env links, hide everything else
           currentEnvFilter = null;
           clearBtn.style.display = "inline-block";
-
-          const allLinks = [];
-          svg.selectAll("line:not(.env-overlay-link)").each(function (d) {
-            allLinks.push(d);
-          });
-          const allNodes = [];
-          svg.selectAll(".node").each(function (d) {
-            allNodes.push(d);
-          });
 
           const envNodeIds = new Set();
           allNodes.forEach((n) => {
@@ -6052,7 +6327,12 @@ LIMIT 10</textarea
           const allEnvLinks = [];
           const seenLinks = new Set();
           envNodeIds.forEach((envId) => {
-            const { envLinks } = getEnvConnectivity(envId, allNodes, allLinks);
+            const { envLinks } = getEnvConnectivity(
+              envId,
+              allNodes,
+              allLinks,
+              true,
+            );
             envLinks.forEach((l) => {
               const key = l.source + "->" + l.target;
               if (!seenLinks.has(key)) {
@@ -6090,107 +6370,53 @@ LIMIT 10</textarea
             d3.select(this).transition().duration(400).attr("opacity", 0);
           });
 
-          const nodeMap = new Map();
-          allNodes.forEach((n) => nodeMap.set(n.id, n));
-          const overlayG = svg.select("g");
-
-          allEnvLinks.forEach((link) => {
-            const srcNode = nodeMap.get(link.source);
-            const tgtNode = nodeMap.get(link.target);
-            if (!srcNode || !tgtNode) return;
-            overlayG
-              .append("line")
-              .attr("class", "env-overlay-link")
-              .attr("data-source", link.source)
-              .attr("data-target", link.target)
-              .attr("x1", srcNode.x)
-              .attr("y1", srcNode.y)
-              .attr("x2", tgtNode.x)
-              .attr("y2", tgtNode.y)
-              .attr("stroke", "#059669")
-              .attr("stroke-width", 2)
-              .attr("stroke-dasharray", "6,3")
-              .attr("marker-end", "url(#arrow-green)")
-              .attr("opacity", 0)
-              .transition()
-              .duration(400)
-              .attr("opacity", 0.7);
-          });
-
-          if (simulation) {
-            simulation.on("tick.envOverlay", () => {
-              svg.selectAll(".env-overlay-link").each(function () {
-                const el = d3.select(this);
-                const src = nodeMap.get(el.attr("data-source"));
-                const tgt = nodeMap.get(el.attr("data-target"));
-                if (src && tgt) {
-                  el.attr("x1", src.x)
-                    .attr("y1", src.y)
-                    .attr("x2", tgt.x)
-                    .attr("y2", tgt.y);
-                }
-              });
-            });
-          }
+          drawEnvOverlayLinks(allEnvLinks, allNodes, svg, null);
 
           const visibleNodes = allNodes.filter((n) => envNodeIds.has(n.id));
           updateHealthStatusBar(visibleNodes);
           return;
         }
 
-        currentEnvFilter = selectedEnvId;
+        // One or more environments selected
+        const selectedSet = new Set(selectedIds);
+        currentEnvFilter = selectedIds[0]; // keep backward compat
         clearBtn.style.display = "inline-block";
 
-        const allLinks = [];
-        svg.selectAll("line:not(.env-overlay-link)").each(function (d) {
-          allLinks.push(d);
-        });
-
-        const allNodes = [];
-        svg.selectAll(".node").each(function (d) {
-          allNodes.push(d);
-        });
-
-        // Auto-set hop to max reachable depth from selected environment
-        if (applyEnvFilter._lastEnvId !== selectedEnvId) {
-          applyEnvFilter._lastEnvId = selectedEnvId;
-          const maxReachable = computeMaxHopsFrom(
-            selectedEnvId,
-            allNodes,
-            allLinks,
-          );
-          if (maxReachable > 0) {
-            const maxDropdown =
-              parseInt(
-                depthSelect.options[depthSelect.options.length - 1]?.value,
-              ) || 1;
-            depthSelect.value = String(Math.min(maxReachable, maxDropdown));
-          }
-        }
-
-        const depth = parseInt(depthSelect.value) || 2;
-
         if (connectivityOnly) {
-          // Env-connectivity-only mode: show only environment nodes and virtual links
-          const { envNodes, envLinks } = getEnvConnectivity(
-            selectedEnvId,
-            allNodes,
-            allLinks,
-          );
+          // Env-connectivity-only mode: show immediate connections for each selected env
+          const combinedEnvNodes = new Set();
+          const combinedEnvLinks = [];
+          const seenLinks = new Set();
 
-          infoSpan.textContent = `Showing ${envNodes.size} connected environment${envNodes.size > 1 ? "s" : ""} (connectivity only)`;
+          selectedIds.forEach((envId) => {
+            const { envNodes, envLinks } = getEnvConnectivity(
+              envId,
+              allNodes,
+              allLinks,
+              true,
+            );
+            envNodes.forEach((id) => combinedEnvNodes.add(id));
+            envLinks.forEach((l) => {
+              const key = l.source + "->" + l.target;
+              if (!seenLinks.has(key)) {
+                seenLinks.add(key);
+                combinedEnvLinks.push(l);
+              }
+            });
+          });
 
-          // Fade out all non-env nodes, show env nodes
+          infoSpan.textContent = `Showing ${combinedEnvNodes.size} connected environment${combinedEnvNodes.size > 1 ? "s" : ""} (connectivity only)`;
+
           svg.selectAll(".node").each(function (d) {
             const el = d3.select(this);
-            if (envNodes.has(d.id)) {
+            if (combinedEnvNodes.has(d.id)) {
               el.transition()
                 .duration(400)
                 .attr("opacity", 1)
-                .attr("stroke-width", d.id === selectedEnvId ? 3.5 : 2)
+                .attr("stroke-width", selectedSet.has(d.id) ? 3.5 : 2)
                 .attr(
                   "stroke",
-                  d.id === selectedEnvId
+                  selectedSet.has(d.id)
                     ? "#1e293b"
                     : d3.rgb(getNodeColor(d.type)).darker(),
                 );
@@ -6201,17 +6427,16 @@ LIMIT 10</textarea
 
           svg.selectAll(".node-label").each(function (d) {
             const el = d3.select(this);
-            if (envNodes.has(d.id)) {
+            if (combinedEnvNodes.has(d.id)) {
               el.transition()
                 .duration(400)
                 .attr("opacity", 1)
-                .attr("font-weight", d.id === selectedEnvId ? "700" : "400");
+                .attr("font-weight", selectedSet.has(d.id) ? "700" : "400");
             } else {
               el.transition().duration(400).attr("opacity", 0.02);
             }
           });
 
-          // Hide all existing links
           svg.selectAll("line:not(.env-overlay-link)").each(function () {
             d3.select(this).transition().duration(400).attr("opacity", 0.02);
           });
@@ -6219,77 +6444,23 @@ LIMIT 10</textarea
             d3.select(this).transition().duration(400).attr("opacity", 0);
           });
 
-          // Draw overlay links between connected environments with directional arrows
-          const nodeMap = new Map();
-          allNodes.forEach((n) => nodeMap.set(n.id, n));
-          const uniqueLinks = new Map();
-          const overlayG = svg.select("g");
+          drawEnvOverlayLinks(combinedEnvLinks, allNodes, svg, selectedSet);
 
-          envLinks.forEach((link) => {
-            const key = link.source + "->" + link.target;
-            const reverseKey = link.target + "->" + link.source;
-            // Avoid duplicate in same direction; keep both directions if they exist
-            if (!uniqueLinks.has(key) && !uniqueLinks.has(reverseKey)) {
-              uniqueLinks.set(key, link);
-            }
-          });
-
-          uniqueLinks.forEach((link) => {
-            const srcNode = nodeMap.get(link.source);
-            const tgtNode = nodeMap.get(link.target);
-            if (!srcNode || !tgtNode) return;
-
-            overlayG
-              .append("line")
-              .attr("class", "env-overlay-link")
-              .attr("data-source", link.source)
-              .attr("data-target", link.target)
-              .attr("x1", srcNode.x)
-              .attr("y1", srcNode.y)
-              .attr("x2", tgtNode.x)
-              .attr("y2", tgtNode.y)
-              .attr("stroke", "#059669")
-              .attr("stroke-width", 2)
-              .attr("stroke-dasharray", "6,3")
-              .attr("marker-end", "url(#arrow-green)")
-              .attr("opacity", 0)
-              .transition()
-              .duration(400)
-              .attr("opacity", 0.7);
-          });
-
-          // Update overlay positions on simulation tick
-          if (simulation) {
-            simulation.on("tick.envOverlay", () => {
-              svg.selectAll(".env-overlay-link").each(function () {
-                const el = d3.select(this);
-                const srcId = el.attr("data-source");
-                const tgtId = el.attr("data-target");
-                if (srcId && tgtId) {
-                  const src = nodeMap.get(srcId);
-                  const tgt = nodeMap.get(tgtId);
-                  if (src && tgt) {
-                    el.attr("x1", src.x)
-                      .attr("y1", src.y)
-                      .attr("x2", tgt.x)
-                      .attr("y2", tgt.y);
-                  }
-                }
-              });
-            });
-          }
-
-          const visibleNodes = allNodes.filter((n) => envNodes.has(n.id));
+          const visibleNodes = allNodes.filter((n) =>
+            combinedEnvNodes.has(n.id),
+          );
           updateHealthStatusBar(visibleNodes);
           return;
         }
 
-        const visibleIds = getConnectedNodeIds(
-          selectedEnvId,
-          allNodes,
-          allLinks,
-          depth,
-        );
+        // Normal mode (not connectivity-only): union of connected nodes for all selected envs
+        const depth = parseInt(depthSelect.value) || 2;
+        const visibleIds = new Set();
+
+        selectedIds.forEach((envId) => {
+          const ids = getConnectedNodeIds(envId, allNodes, allLinks, depth);
+          ids.forEach((id) => visibleIds.add(id));
+        });
 
         let envCount = 0,
           appCount = 0,
@@ -6310,10 +6481,10 @@ LIMIT 10</textarea
             el.transition()
               .duration(400)
               .attr("opacity", 1)
-              .attr("stroke-width", d.id === selectedEnvId ? 3.5 : 2)
+              .attr("stroke-width", selectedSet.has(d.id) ? 3.5 : 2)
               .attr(
                 "stroke",
-                d.id === selectedEnvId
+                selectedSet.has(d.id)
                   ? "#1e293b"
                   : d3.rgb(getNodeColor(d.type)).darker(),
               );
@@ -6328,7 +6499,7 @@ LIMIT 10</textarea
             el.transition()
               .duration(400)
               .attr("opacity", 1)
-              .attr("font-weight", d.id === selectedEnvId ? "700" : "400");
+              .attr("font-weight", selectedSet.has(d.id) ? "700" : "400");
           } else {
             el.transition().duration(400).attr("opacity", 0.02);
           }
@@ -6366,6 +6537,62 @@ LIMIT 10</textarea
         updateHealthStatusBar(visibleNodes);
       }
 
+      // Helper: draw green dashed overlay links between environments
+      function drawEnvOverlayLinks(envLinks, allNodes, svg, selectedSet) {
+        const nodeMap = new Map();
+        allNodes.forEach((n) => nodeMap.set(n.id, n));
+        const uniqueLinks = new Map();
+        const overlayG = svg.select("g");
+
+        envLinks.forEach((link) => {
+          const key = link.source + "->" + link.target;
+          const reverseKey = link.target + "->" + link.source;
+          if (!uniqueLinks.has(key) && !uniqueLinks.has(reverseKey)) {
+            uniqueLinks.set(key, link);
+          }
+        });
+
+        uniqueLinks.forEach((link) => {
+          const srcNode = nodeMap.get(link.source);
+          const tgtNode = nodeMap.get(link.target);
+          if (!srcNode || !tgtNode) return;
+
+          overlayG
+            .append("line")
+            .attr("class", "env-overlay-link")
+            .attr("data-source", link.source)
+            .attr("data-target", link.target)
+            .attr("x1", srcNode.x)
+            .attr("y1", srcNode.y)
+            .attr("x2", tgtNode.x)
+            .attr("y2", tgtNode.y)
+            .attr("stroke", "#059669")
+            .attr("stroke-width", 2)
+            .attr("stroke-dasharray", "6,3")
+            .attr("marker-end", "url(#arrow-green)")
+            .attr("opacity", 0)
+            .transition()
+            .duration(400)
+            .attr("opacity", 0.7);
+        });
+
+        if (simulation) {
+          simulation.on("tick.envOverlay", () => {
+            svg.selectAll(".env-overlay-link").each(function () {
+              const el = d3.select(this);
+              const src = nodeMap.get(el.attr("data-source"));
+              const tgt = nodeMap.get(el.attr("data-target"));
+              if (src && tgt) {
+                el.attr("x1", src.x)
+                  .attr("y1", src.y)
+                  .attr("x2", tgt.x)
+                  .attr("y2", tgt.y);
+              }
+            });
+          });
+        }
+      }
+
       function clearEnvFilter() {
         currentEnvFilter = null;
         envConnectivityOnly = false;
@@ -6374,7 +6601,13 @@ LIMIT 10</textarea
           "env-connectivity-only",
         );
         if (connectivityCheckbox) connectivityCheckbox.checked = false;
-        const select = document.getElementById("env-filter-select");
+
+        // Clear multi-select state
+        envSelectedIds.clear();
+        renderEnvChips();
+        renderEnvOptionStates();
+        closeEnvDropdown();
+
         const clearBtn = document.getElementById("env-filter-clear-btn");
         const infoSpan = document.getElementById("env-filter-info");
         const svg = d3.select("#network-graph");
@@ -6383,7 +6616,6 @@ LIMIT 10</textarea
         svg.selectAll(".env-overlay-link").remove();
         if (simulation) simulation.on("tick.envOverlay", null);
 
-        if (select) select.value = "";
         if (clearBtn) clearBtn.style.display = "none";
         if (infoSpan) infoSpan.textContent = "";
 
