@@ -185,7 +185,7 @@ export class HostnameResolver {
   }
 
   /**
-   * Search Neptune for an Environment whose name is a substring of the hostname
+   * Search Neptune for an Environment whose name exactly matches the hostname
    */
   private async searchNeptuneForHostname(hostname: string): Promise<string | null> {
     try {
@@ -194,9 +194,8 @@ export class HostnameResolver {
         SELECT ?name WHERE {
           ?entity env:type "Environment" ;
                   env:name ?name .
-          FILTER(CONTAINS(LCASE("${hostname}"), LCASE(?name)))
+          FILTER(LCASE(?name) = LCASE("${hostname}"))
         }
-        ORDER BY DESC(STRLEN(?name))
         LIMIT 1
       `;
       const result = await this.neptuneClient.executeSparqlQuery(query);
