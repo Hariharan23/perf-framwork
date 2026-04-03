@@ -320,9 +320,55 @@
 
       .alert {
         padding: 0.75rem 1rem;
-        border-radius: 0.375rem;
+        border-radius: 0.5rem;
         margin-bottom: 1rem;
         font-size: 0.875rem;
+        display: flex;
+        align-items: flex-start;
+        gap: 0.625rem;
+        position: relative;
+        animation: alertSlideIn 0.25s ease-out;
+        line-height: 1.6;
+      }
+
+      .alert-icon {
+        flex-shrink: 0;
+        width: 18px;
+        height: 18px;
+        margin-top: 1px;
+      }
+
+      .alert-body {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .alert-close {
+        flex-shrink: 0;
+        background: none;
+        border: none;
+        cursor: pointer;
+        opacity: 0.5;
+        font-size: 1.125rem;
+        line-height: 1;
+        padding: 0 0.25rem;
+        color: inherit;
+        transition: opacity 0.15s;
+      }
+
+      .alert-close:hover {
+        opacity: 1;
+      }
+
+      @keyframes alertSlideIn {
+        from {
+          opacity: 0;
+          transform: translateY(-8px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
       }
 
       .alert-success {
@@ -335,6 +381,12 @@
         background: #fee2e2;
         color: #991b1b;
         border: 1px solid #fecaca;
+      }
+
+      .alert-warning {
+        background: #fef3c7;
+        color: #92400e;
+        border: 1px solid #fde68a;
       }
 
       .alert-info {
@@ -430,6 +482,95 @@
         border-radius: 0.375rem;
         background: var(--bg-primary);
         position: relative;
+      }
+
+      /* Node Info Panel - right-top overlay on graph */
+      .node-info-panel {
+        display: none;
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        width: 280px;
+        max-height: 420px;
+        overflow-y: auto;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        border-radius: 0.5rem;
+        box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+        z-index: 100;
+        font-size: 0.8rem;
+      }
+      .node-info-panel .nip-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.6rem 0.75rem;
+        border-bottom: 1px solid var(--border-color);
+        background: var(--bg-tertiary);
+        border-radius: 0.5rem 0.5rem 0 0;
+      }
+      .node-info-panel .nip-header .nip-title {
+        font-weight: 700;
+        font-size: 0.85rem;
+        color: var(--text-primary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 210px;
+      }
+      .node-info-panel .nip-close {
+        cursor: pointer;
+        color: var(--text-secondary);
+        font-size: 1rem;
+        line-height: 1;
+        padding: 2px 6px;
+        border-radius: 4px;
+        transition: background 0.15s;
+      }
+      .node-info-panel .nip-close:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: var(--text-primary);
+      }
+      .node-info-panel .nip-section {
+        padding: 0.55rem 0.75rem;
+        border-bottom: 1px solid var(--border-color);
+      }
+      .node-info-panel .nip-section:last-child {
+        border-bottom: none;
+      }
+      .node-info-panel .nip-section-label {
+        font-size: 0.65rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #60a5fa;
+        margin-bottom: 0.3rem;
+      }
+      .node-info-panel .nip-section-value {
+        color: var(--text-primary);
+        word-break: break-word;
+        line-height: 1.4;
+      }
+      .node-info-panel .nip-section-value .nip-chip {
+        display: inline-block;
+        background: rgba(96, 165, 250, 0.15);
+        color: #93c5fd;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 0.72rem;
+        margin: 2px 3px 2px 0;
+      }
+      .node-info-panel .nip-empty {
+        color: var(--text-secondary);
+        font-style: italic;
+        font-size: 0.75rem;
+      }
+      .node-info-panel .nip-update-item {
+        padding: 4px 0;
+        border-bottom: 1px dashed rgba(255, 255, 255, 0.06);
+      }
+      .node-info-panel .nip-update-item:last-child {
+        border-bottom: none;
       }
 
       .graph-stats {
@@ -564,6 +705,196 @@
         stroke: white;
         stroke-width: 1;
         stroke-linejoin: round;
+      }
+
+      /* Health-based node highlighting */
+      @keyframes pulse-critical {
+        0%,
+        100% {
+          opacity: 1;
+          filter: drop-shadow(0 0 6px #ef4444);
+        }
+        50% {
+          opacity: 0.7;
+          filter: drop-shadow(0 0 12px #ef4444);
+        }
+      }
+      @keyframes pulse-warning {
+        0%,
+        100% {
+          opacity: 1;
+          filter: drop-shadow(0 0 4px #f59e0b);
+        }
+        50% {
+          opacity: 0.8;
+          filter: drop-shadow(0 0 8px #f59e0b);
+        }
+      }
+
+      /* Health status bar */
+      .health-status-bar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 6px 14px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        font-size: 12px;
+        color: #475569;
+        flex-wrap: wrap;
+      }
+      .health-status-bar .health-chip {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 11px;
+        cursor: pointer;
+        user-select: none;
+        transition: transform 0.15s ease;
+      }
+      .health-chip:hover {
+        transform: scale(1.05);
+      }
+      .health-chip-critical {
+        background: #fef2f2;
+        color: #dc2626;
+        border: 1px solid #fecaca;
+      }
+      .health-chip-major {
+        background: #fff7ed;
+        color: #ea580c;
+        border: 1px solid #fed7aa;
+      }
+      .health-chip-warning {
+        background: #fefce8;
+        color: #ca8a04;
+        border: 1px solid #fef08a;
+      }
+      .health-chip-healthy {
+        background: #f0fdf4;
+        color: #16a34a;
+        border: 1px solid #bbf7d0;
+      }
+      .health-toggle-btn {
+        padding: 4px 10px;
+        border-radius: 4px;
+        border: 1px solid #cbd5e1;
+        background: white;
+        font-size: 11px;
+        cursor: pointer;
+        font-weight: 500;
+        color: #475569;
+        transition: all 0.2s;
+      }
+      .health-toggle-btn.active {
+        background: #1e293b;
+        color: white;
+        border-color: #1e293b;
+      }
+      .health-toggle-btn:hover {
+        border-color: #94a3b8;
+      }
+
+      /* Environment filter */
+      .env-filter-container {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 14px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        font-size: 12px;
+        color: #475569;
+        margin-bottom: 8px;
+        flex-wrap: wrap;
+      }
+      .env-filter-container label {
+        font-weight: 600;
+        color: #334155;
+        white-space: nowrap;
+      }
+      .env-filter-select {
+        padding: 4px 28px 4px 10px;
+        border: 1px solid #cbd5e1;
+        border-radius: 4px;
+        font-size: 12px;
+        color: #334155;
+        background: white;
+        cursor: pointer;
+        min-width: 200px;
+        appearance: none;
+        -webkit-appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23475569' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 8px center;
+      }
+      .env-filter-select:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+      }
+      .env-filter-info {
+        font-size: 11px;
+        color: #94a3b8;
+        font-style: italic;
+      }
+      .env-filter-depth {
+        padding: 4px 8px;
+        border: 1px solid #cbd5e1;
+        border-radius: 4px;
+        font-size: 11px;
+        color: #334155;
+        background: white;
+        cursor: pointer;
+        min-width: 80px;
+      }
+      .env-filter-clear {
+        padding: 3px 8px;
+        border-radius: 4px;
+        border: 1px solid #cbd5e1;
+        background: white;
+        font-size: 11px;
+        cursor: pointer;
+        color: #475569;
+        font-weight: 500;
+        transition: all 0.2s;
+      }
+      .env-filter-clear:hover {
+        background: #fee2e2;
+        border-color: #fca5a5;
+        color: #dc2626;
+      }
+      .env-connectivity-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        cursor: pointer;
+        font-size: 11px;
+        color: #475569;
+        white-space: nowrap;
+        padding: 3px 8px;
+        border: 1px solid #cbd5e1;
+        border-radius: 4px;
+        background: white;
+        transition: all 0.2s;
+        user-select: none;
+      }
+      .env-connectivity-toggle:hover {
+        background: #f1f5f9;
+        border-color: #94a3b8;
+      }
+      .env-connectivity-toggle input:checked + span {
+        color: #059669;
+        font-weight: 600;
+      }
+      .env-connectivity-toggle input {
+        accent-color: #059669;
+        cursor: pointer;
       }
 
       .tooltip {
@@ -825,6 +1156,7 @@
         <button class="nav-tab active" data-tab="add-entity">Add Entity</button>
         <button class="nav-tab" data-tab="query-data">Query Data</button>
         <button class="nav-tab" data-tab="visualize">Visualize</button>
+        <button class="nav-tab" data-tab="ai-query">AI Query</button>
         <button class="nav-tab" data-tab="relationships">Relationships</button>
         <button class="nav-tab" data-tab="delete-entity">
           Manage Entities
@@ -1008,6 +1340,65 @@
                 </div>
               </div>
 
+              <!-- Optional Entity Properties (common to all types) -->
+              <div id="optional-entity-fields" style="display: none">
+                <div class="form-group">
+                  <label class="form-label" for="entity-primary-usage"
+                    >Primary Usage</label
+                  >
+                  <input
+                    type="text"
+                    id="entity-primary-usage"
+                    class="form-input"
+                    placeholder="e.g., Production workload, Staging tests (optional)"
+                  />
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="entity-current-usage"
+                    >Current Usage</label
+                  >
+                  <input
+                    type="text"
+                    id="entity-current-usage"
+                    class="form-input"
+                    placeholder="e.g., Active development, Migration target (optional)"
+                  />
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="entity-collaborators"
+                    >Collaborators</label
+                  >
+                  <input
+                    type="text"
+                    id="entity-collaborators"
+                    class="form-input"
+                    placeholder="Comma-separated names, e.g., Team A, Team B (optional)"
+                  />
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="entity-current-build"
+                    >Current Build</label
+                  >
+                  <input
+                    type="text"
+                    id="entity-current-build"
+                    class="form-input"
+                    placeholder="e.g., build-2024-01-15, v3.2.1 (optional)"
+                  />
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="entity-scheduled-updates"
+                    >Scheduled Updates</label
+                  >
+                  <textarea
+                    id="entity-scheduled-updates"
+                    class="form-textarea"
+                    rows="2"
+                    placeholder="e.g., 2024-02-01: Patch update, 2024-03-15: Major upgrade (optional)"
+                  ></textarea>
+                </div>
+              </div>
+
               <!-- Custom Configuration Section -->
               <div class="form-group">
                 <div
@@ -1045,6 +1436,416 @@
                     >
                       Add Configuration
                     </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Stats Section (Optional monitoring/health data) -->
+              <div class="form-group" id="create-stats-wrapper">
+                <div
+                  style="
+                    display: flex;
+                    align-items: center;
+                    cursor: pointer;
+                    user-select: none;
+                    margin-bottom: 0.5rem;
+                  "
+                  onclick="toggleCreateStatsSection()"
+                >
+                  <span
+                    id="create-stats-toggle-icon"
+                    style="
+                      margin-right: 0.5rem;
+                      font-size: 0.75rem;
+                      transition: transform 0.2s;
+                    "
+                    >&#9654;</span
+                  >
+                  <label
+                    class="form-label"
+                    style="margin-bottom: 0; cursor: pointer"
+                    >Infrastructure Monitoring (Optional)</label
+                  >
+                </div>
+                <div id="create-stats-section" style="display: none">
+                  <div
+                    style="
+                      display: grid;
+                      grid-template-columns: 1fr 1fr;
+                      gap: 0.75rem;
+                    "
+                  >
+                    <!-- ScienceLogic Meta Fields -->
+                    <div
+                      style="
+                        grid-column: 1 / -1;
+                        margin-bottom: 0.25rem;
+                        margin-top: 0.25rem;
+                      "
+                    >
+                      <span
+                        style="
+                          font-size: 0.75rem;
+                          color: #60a5fa;
+                          font-weight: 600;
+                        "
+                        >Device Meta</span
+                      >
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0.5rem">
+                      <label
+                        class="form-label"
+                        for="stats-deviceName"
+                        style="font-size: 0.8rem"
+                        >Device Name</label
+                      >
+                      <input
+                        type="text"
+                        id="stats-deviceName"
+                        class="form-input"
+                        placeholder="e.g., prod-web-01"
+                      />
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0.5rem">
+                      <label
+                        class="form-label"
+                        for="stats-deviceDescription"
+                        style="font-size: 0.8rem"
+                        >Description</label
+                      >
+                      <input
+                        type="text"
+                        id="stats-deviceDescription"
+                        class="form-input"
+                        placeholder="e.g., Production web server"
+                      />
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0.5rem">
+                      <label
+                        class="form-label"
+                        for="stats-ipAddress"
+                        style="font-size: 0.8rem"
+                        >IP Address</label
+                      >
+                      <input
+                        type="text"
+                        id="stats-ipAddress"
+                        class="form-input"
+                        placeholder="e.g., 10.0.1.25"
+                      />
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0.5rem">
+                      <label
+                        class="form-label"
+                        for="stats-deviceHostname"
+                        style="font-size: 0.8rem"
+                        >Device Hostname</label
+                      >
+                      <input
+                        type="text"
+                        id="stats-deviceHostname"
+                        class="form-input"
+                        placeholder="e.g., prod-web-01.example.com"
+                      />
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0.5rem">
+                      <label
+                        class="form-label"
+                        for="stats-deviceClass"
+                        style="font-size: 0.8rem"
+                        >Device Class</label
+                      >
+                      <input
+                        type="text"
+                        id="stats-deviceClass"
+                        class="form-input"
+                        placeholder="e.g., server, switch, router"
+                      />
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0.5rem">
+                      <label
+                        class="form-label"
+                        for="stats-subClass"
+                        style="font-size: 0.8rem"
+                        >Sub-Class</label
+                      >
+                      <input
+                        type="text"
+                        id="stats-subClass"
+                        class="form-input"
+                        placeholder="e.g., Linux, Windows"
+                      />
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0.5rem">
+                      <label
+                        class="form-label"
+                        for="stats-category"
+                        style="font-size: 0.8rem"
+                        >Category</label
+                      >
+                      <input
+                        type="text"
+                        id="stats-category"
+                        class="form-input"
+                        placeholder="e.g., Server, Network, Storage"
+                      />
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0.5rem">
+                      <label
+                        class="form-label"
+                        for="stats-organization"
+                        style="font-size: 0.8rem"
+                        >Organization</label
+                      >
+                      <input
+                        type="text"
+                        id="stats-organization"
+                        class="form-input"
+                        placeholder="e.g., Production, Engineering"
+                      />
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0.5rem">
+                      <label
+                        class="form-label"
+                        for="stats-managedType"
+                        style="font-size: 0.8rem"
+                        >Managed Type</label
+                      >
+                      <input
+                        type="text"
+                        id="stats-managedType"
+                        class="form-input"
+                        placeholder="e.g., SNMP, AWS API"
+                      />
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0.5rem">
+                      <label
+                        class="form-label"
+                        for="stats-collectionMode"
+                        style="font-size: 0.8rem"
+                        >Collection Mode</label
+                      >
+                      <input
+                        type="text"
+                        id="stats-collectionMode"
+                        class="form-input"
+                        placeholder="e.g., Active, Passive"
+                      />
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0.5rem">
+                      <label
+                        class="form-label"
+                        for="stats-collectorGroup"
+                        style="font-size: 0.8rem"
+                        >Collector / Group</label
+                      >
+                      <input
+                        type="text"
+                        id="stats-collectorGroup"
+                        class="form-input"
+                        placeholder="e.g., DC1-Collector-01"
+                      />
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0.5rem">
+                      <label
+                        class="form-label"
+                        for="stats-uptime"
+                        style="font-size: 0.8rem"
+                        >Uptime</label
+                      >
+                      <input
+                        type="text"
+                        id="stats-uptime"
+                        class="form-input"
+                        placeholder="e.g., 45d 12h 30m"
+                      />
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0.5rem">
+                      <label
+                        class="form-label"
+                        for="stats-collectionTime"
+                        style="font-size: 0.8rem"
+                        >Collection Time</label
+                      >
+                      <input
+                        type="text"
+                        id="stats-collectionTime"
+                        class="form-input"
+                        placeholder="e.g., 2026-03-24T10:30:00Z"
+                      />
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0.5rem">
+                      <label
+                        class="form-label"
+                        for="stats-sourceSystem"
+                        style="font-size: 0.8rem"
+                        >Source System</label
+                      >
+                      <input
+                        type="text"
+                        id="stats-sourceSystem"
+                        class="form-input"
+                        placeholder="e.g., ScienceLogic, Datadog"
+                      />
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0.5rem">
+                      <label
+                        class="form-label"
+                        for="stats-sourceId"
+                        style="font-size: 0.8rem"
+                        >Source ID</label
+                      >
+                      <input
+                        type="text"
+                        id="stats-sourceId"
+                        class="form-input"
+                        placeholder="e.g., SL-12345"
+                      />
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0.5rem">
+                      <label
+                        class="form-label"
+                        for="stats-lastSyncedAt"
+                        style="font-size: 0.8rem"
+                        >Last Synced At</label
+                      >
+                      <input
+                        type="text"
+                        id="stats-lastSyncedAt"
+                        class="form-input"
+                        placeholder="e.g., 2026-03-24T10:30:00Z"
+                      />
+                    </div>
+
+                    <!-- ScienceLogic Stats Fields -->
+                    <div
+                      style="
+                        grid-column: 1 / -1;
+                        margin-bottom: 0.25rem;
+                        margin-top: 0.5rem;
+                      "
+                    >
+                      <span
+                        style="
+                          font-size: 0.75rem;
+                          color: #34d399;
+                          font-weight: 600;
+                        "
+                        >Performance Stats</span
+                      >
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0.5rem">
+                      <label
+                        class="form-label"
+                        for="stats-currentState"
+                        style="font-size: 0.8rem"
+                        >Current State</label
+                      >
+                      <input
+                        type="text"
+                        id="stats-currentState"
+                        class="form-input"
+                        placeholder="e.g., Active, Warning, Critical"
+                      />
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0.5rem">
+                      <label
+                        class="form-label"
+                        for="stats-availability"
+                        style="font-size: 0.8rem"
+                        >Availability (%)</label
+                      >
+                      <input
+                        type="text"
+                        id="stats-availability"
+                        class="form-input"
+                        placeholder="e.g., 99.9"
+                      />
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0.5rem">
+                      <label
+                        class="form-label"
+                        for="stats-latency"
+                        style="font-size: 0.8rem"
+                        >Latency (ms)</label
+                      >
+                      <input
+                        type="text"
+                        id="stats-latency"
+                        class="form-input"
+                        placeholder="e.g., 12.5"
+                      />
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0.5rem">
+                      <label
+                        class="form-label"
+                        for="stats-cpu"
+                        style="font-size: 0.8rem"
+                        >CPU Usage (%)</label
+                      >
+                      <input
+                        type="text"
+                        id="stats-cpu"
+                        class="form-input"
+                        placeholder="e.g., 45.2"
+                      />
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0.5rem">
+                      <label
+                        class="form-label"
+                        for="stats-memory"
+                        style="font-size: 0.8rem"
+                        >Memory Usage (%)</label
+                      >
+                      <input
+                        type="text"
+                        id="stats-memory"
+                        class="form-input"
+                        placeholder="e.g., 72.5"
+                      />
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0.5rem">
+                      <label
+                        class="form-label"
+                        for="stats-swap"
+                        style="font-size: 0.8rem"
+                        >Swap Usage (%)</label
+                      >
+                      <input
+                        type="text"
+                        id="stats-swap"
+                        class="form-input"
+                        placeholder="e.g., 15.0"
+                      />
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0.5rem">
+                      <label
+                        class="form-label"
+                        for="stats-storage"
+                        style="font-size: 0.8rem"
+                        >Storage Usage (%)</label
+                      >
+                      <input
+                        type="text"
+                        id="stats-storage"
+                        class="form-input"
+                        placeholder="e.g., 60.0"
+                      />
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0.5rem">
+                      <label
+                        class="form-label"
+                        for="stats-healthScore"
+                        style="font-size: 0.8rem"
+                        >Health Score (0-100)</label
+                      >
+                      <input
+                        type="text"
+                        id="stats-healthScore"
+                        class="form-input"
+                        placeholder="e.g., 95"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1174,6 +1975,141 @@ LIMIT 10</textarea
               </button>
             </div>
 
+            <!-- Environment Filter Bar -->
+            <div
+              id="env-filter-bar"
+              class="env-filter-container"
+              style="display: none"
+            >
+              <label>Environment:</label>
+              <select
+                id="env-filter-select"
+                class="env-filter-select"
+                onchange="applyEnvFilter()"
+              >
+                <option value="">— Show All Environments —</option>
+              </select>
+              <select
+                id="env-filter-depth"
+                class="env-filter-depth"
+                onchange="applyEnvFilter()"
+                title="How many levels of connected nodes to show"
+              ></select>
+              <label
+                class="env-connectivity-toggle"
+                title="Show only environment-to-environment connectivity, hiding intermediate integrations and applications"
+              >
+                <input
+                  type="checkbox"
+                  id="env-connectivity-only"
+                  onchange="applyEnvFilter()"
+                />
+                <span>Env Connectivity Only</span>
+              </label>
+              <span id="env-filter-info" class="env-filter-info"></span>
+              <button
+                id="env-filter-clear-btn"
+                class="env-filter-clear"
+                onclick="clearEnvFilter()"
+                style="display: none"
+              >
+                ✕ Clear Filter
+              </button>
+            </div>
+
+            <!-- Health Status Bar -->
+            <div
+              id="health-status-bar"
+              class="health-status-bar"
+              style="display: none; margin-bottom: 8px"
+            >
+              <span style="font-weight: 600; color: #334155">Health:</span>
+              <span
+                id="health-chip-critical"
+                class="health-chip health-chip-critical"
+                onclick="filterByHealth('critical')"
+                title="Click to isolate critical nodes"
+              >
+                <span
+                  style="
+                    width: 7px;
+                    height: 7px;
+                    border-radius: 50%;
+                    background: #dc2626;
+                    display: inline-block;
+                  "
+                ></span>
+                <span id="health-count-critical">0</span> Critical
+              </span>
+              <span
+                id="health-chip-major"
+                class="health-chip health-chip-major"
+                onclick="filterByHealth('major')"
+                title="Click to isolate major nodes"
+              >
+                <span
+                  style="
+                    width: 7px;
+                    height: 7px;
+                    border-radius: 50%;
+                    background: #ea580c;
+                    display: inline-block;
+                  "
+                ></span>
+                <span id="health-count-major">0</span> Major
+              </span>
+              <span
+                id="health-chip-warning"
+                class="health-chip health-chip-warning"
+                onclick="filterByHealth('warning')"
+                title="Click to isolate warning nodes"
+              >
+                <span
+                  style="
+                    width: 7px;
+                    height: 7px;
+                    border-radius: 50%;
+                    background: #ca8a04;
+                    display: inline-block;
+                  "
+                ></span>
+                <span id="health-count-warning">0</span> Warning
+              </span>
+              <span
+                id="health-chip-healthy"
+                class="health-chip health-chip-healthy"
+              >
+                <span
+                  style="
+                    width: 7px;
+                    height: 7px;
+                    border-radius: 50%;
+                    background: #16a34a;
+                    display: inline-block;
+                  "
+                ></span>
+                <span id="health-count-healthy">0</span> Healthy
+              </span>
+              <span style="border-left: 1px solid #e2e8f0; height: 20px"></span>
+              <button
+                id="health-highlight-btn"
+                class="health-toggle-btn"
+                onclick="toggleHealthHighlight()"
+                title="Dim healthy nodes to spotlight issues"
+              >
+                Highlight Unhealthy
+              </button>
+              <button
+                id="health-reset-btn"
+                class="health-toggle-btn"
+                onclick="resetHealthFilter()"
+                style="display: none"
+                title="Show all nodes"
+              >
+                ✕ Reset
+              </button>
+            </div>
+
             <div class="graph-stats">
               <div class="stat-item">Nodes: <span id="node-count">0</span></div>
               <div class="stat-item">Edges: <span id="edge-count">0</span></div>
@@ -1181,6 +2117,328 @@ LIMIT 10</textarea
 
             <div class="graph-container">
               <svg id="network-graph"></svg>
+              <!-- Node Info Panel -->
+              <div id="node-info-panel" class="node-info-panel">
+                <div class="nip-header">
+                  <span class="nip-title" id="nip-title"></span>
+                  <span
+                    class="nip-close"
+                    onclick="closeNodeInfoPanel()"
+                    title="Close"
+                    >&times;</span
+                  >
+                </div>
+                <div class="nip-section">
+                  <div class="nip-section-label">Owner</div>
+                  <div class="nip-section-value" id="nip-owner"></div>
+                </div>
+                <div class="nip-section">
+                  <div class="nip-section-label">Collaborators</div>
+                  <div class="nip-section-value" id="nip-collaborators"></div>
+                </div>
+                <div class="nip-section">
+                  <div class="nip-section-label">Scheduled Updates</div>
+                  <div
+                    class="nip-section-value"
+                    id="nip-scheduled-updates"
+                  ></div>
+                </div>
+                <div class="nip-section">
+                  <div class="nip-section-label">Last Updated</div>
+                  <div class="nip-section-value" id="nip-last-updated"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- AI Query Tab -->
+        <div id="ai-query" class="tab-pane">
+          <div class="card">
+            <div id="ai-query-alerts"></div>
+
+            <!-- Search bar area -->
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                gap: 0.75rem;
+                margin-bottom: 1rem;
+              "
+            >
+              <textarea
+                id="ai-query-input"
+                class="form-control"
+                rows="1"
+                placeholder="Ask about your infrastructure... e.g. Show all active environments"
+                style="
+                  resize: none;
+                  font-family: inherit;
+                  flex: 1;
+                  padding: 0.6rem 0.85rem;
+                  font-size: 0.95rem;
+                  border-radius: 6px;
+                "
+                onkeydown="
+                  if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault();
+                    executeAiQuery();
+                  }
+                "
+              ></textarea>
+              <button
+                type="button"
+                class="btn btn-primary"
+                onclick="executeAiQuery()"
+                id="ai-query-btn"
+                style="padding: 0.6rem 1.25rem; white-space: nowrap"
+              >
+                Ask
+              </button>
+            </div>
+
+            <!-- Quick suggestions -->
+            <div
+              style="
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.4rem;
+                margin-bottom: 1.25rem;
+              "
+            >
+              <button
+                class="btn btn-secondary btn-sm"
+                style="
+                  font-size: 0.75rem;
+                  padding: 0.25rem 0.65rem;
+                  border-radius: 12px;
+                  opacity: 0.8;
+                "
+                onclick="useExampleQuery('Show all active environments')"
+              >
+                Active environments
+              </button>
+              <button
+                class="btn btn-secondary btn-sm"
+                style="
+                  font-size: 0.75rem;
+                  padding: 0.25rem 0.65rem;
+                  border-radius: 12px;
+                  opacity: 0.8;
+                "
+                onclick="useExampleQuery('List all applications')"
+              >
+                All applications
+              </button>
+              <button
+                class="btn btn-secondary btn-sm"
+                style="
+                  font-size: 0.75rem;
+                  padding: 0.25rem 0.65rem;
+                  border-radius: 12px;
+                  opacity: 0.8;
+                "
+                onclick="useExampleQuery('What integrations exist?')"
+              >
+                Integrations
+              </button>
+              <button
+                class="btn btn-secondary btn-sm"
+                style="
+                  font-size: 0.75rem;
+                  padding: 0.25rem 0.65rem;
+                  border-radius: 12px;
+                  opacity: 0.8;
+                "
+                onclick="useExampleQuery('Count total entities')"
+              >
+                Count entities
+              </button>
+              <button
+                class="btn btn-secondary btn-sm"
+                style="
+                  font-size: 0.75rem;
+                  padding: 0.25rem 0.65rem;
+                  border-radius: 12px;
+                  opacity: 0.8;
+                "
+                onclick="
+                  useExampleQuery('Which apps are deployed to production?')
+                "
+              >
+                Production apps
+              </button>
+            </div>
+
+            <!-- Options row -->
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                margin-bottom: 1.5rem;
+                padding-bottom: 1rem;
+                border-bottom: 1px solid var(--border-color);
+              "
+            >
+              <div style="display: flex; align-items: center; gap: 1rem">
+                <button
+                  type="button"
+                  class="btn btn-secondary btn-sm"
+                  onclick="clearAiQuery()"
+                  style="font-size: 0.8rem"
+                >
+                  Clear
+                </button>
+                <label
+                  style="
+                    display: flex;
+                    align-items: center;
+                    gap: 0.4rem;
+                    cursor: pointer;
+                    font-size: 0.8rem;
+                    color: var(--text-secondary);
+                  "
+                >
+                  <input type="checkbox" id="show-sparql-toggle" />
+                  Show SPARQL
+                </label>
+              </div>
+              <span
+                style="
+                  font-size: 0.7rem;
+                  color: var(--text-secondary);
+                  opacity: 0.7;
+                "
+                >Powered by Amazon Nova Micro</span
+              >
+            </div>
+
+            <!-- Loading Indicator -->
+            <div
+              id="ai-query-loading"
+              style="display: none; text-align: center; padding: 3rem"
+            >
+              <div class="spinner"></div>
+              <p
+                style="
+                  margin-top: 1rem;
+                  color: var(--text-secondary);
+                  font-size: 0.9rem;
+                "
+              >
+                Processing your query...
+              </p>
+            </div>
+
+            <!-- Results -->
+            <div id="ai-query-results" style="display: none">
+              <div
+                style="
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: center;
+                  margin-bottom: 0.75rem;
+                "
+              >
+                <div
+                  id="ai-results-count"
+                  style="
+                    color: var(--text-secondary);
+                    font-size: 0.85rem;
+                    font-weight: 500;
+                  "
+                ></div>
+                <div style="display: flex; gap: 0.4rem">
+                  <button
+                    class="btn btn-secondary btn-sm"
+                    style="font-size: 0.75rem; padding: 0.2rem 0.6rem"
+                    onclick="toggleAiResultsView('table')"
+                  >
+                    Table
+                  </button>
+                  <button
+                    class="btn btn-secondary btn-sm"
+                    style="font-size: 0.75rem; padding: 0.2rem 0.6rem"
+                    onclick="toggleAiResultsView('formatted')"
+                  >
+                    Formatted
+                  </button>
+                  <button
+                    class="btn btn-secondary btn-sm"
+                    style="font-size: 0.75rem; padding: 0.2rem 0.6rem"
+                    onclick="toggleAiResultsView('json')"
+                  >
+                    JSON
+                  </button>
+                </div>
+              </div>
+
+              <!-- Generated SPARQL (collapsible) -->
+              <div
+                id="generated-sparql-section"
+                style="display: none; margin-bottom: 1rem"
+              >
+                <details>
+                  <summary
+                    style="
+                      cursor: pointer;
+                      color: var(--primary-color);
+                      font-weight: 500;
+                      margin-bottom: 0.5rem;
+                      font-size: 0.85rem;
+                    "
+                  >
+                    Generated SPARQL
+                  </summary>
+                  <pre
+                    id="generated-sparql"
+                    style="
+                      background: var(--bg-secondary);
+                      padding: 0.75rem;
+                      border-radius: 4px;
+                      overflow-x: auto;
+                      font-size: 0.8rem;
+                      border: 1px solid var(--border-color);
+                    "
+                  ></pre>
+                </details>
+              </div>
+
+              <!-- Results Views -->
+              <div id="ai-results-table-view"></div>
+              <div id="ai-results-formatted-view" style="display: none"></div>
+              <div id="ai-results-json-view" style="display: none"></div>
+            </div>
+
+            <!-- Query History -->
+            <div
+              id="ai-query-history"
+              style="margin-top: 1.5rem; display: none"
+            >
+              <div
+                style="
+                  display: flex;
+                  align-items: center;
+                  justify-content: space-between;
+                  margin-bottom: 0.75rem;
+                "
+              >
+                <h3
+                  style="
+                    font-size: 0.9rem;
+                    font-weight: 600;
+                    color: var(--text-primary);
+                    margin: 0;
+                  "
+                >
+                  Recent Queries
+                </h3>
+                <span style="font-size: 0.75rem; color: var(--text-secondary)"
+                  >Last 10</span
+                >
+              </div>
+              <div id="ai-history-list"></div>
             </div>
           </div>
         </div>
@@ -1359,14 +2617,6 @@ LIMIT 10</textarea
             <h2 class="card-title">Bulk Import Entities</h2>
             <div id="bulk-alerts"></div>
 
-            <p style="margin-bottom: 1.5rem; color: var(--text-secondary)">
-              Import multiple entities at once by uploading a
-              <strong>JSON, CSV, or Excel</strong> file, or pasting JSON data.
-              Each entity should have: <code>type</code>, <code>name</code>,
-              <code>description</code>, and optionally
-              <code>configurations</code>, <code>relationships</code>.
-            </p>
-
             <div class="form-group">
               <label class="form-label"
                 >Upload File (JSON, CSV, or Excel)</label
@@ -1381,16 +2631,32 @@ LIMIT 10</textarea
               <small
                 style="
                   color: var(--text-secondary);
-                  margin-top: 0.25rem;
-                  display: block;
+                  margin-top: 0.5rem;
+                  display: flex;
+                  gap: 1rem;
+                  align-items: center;
                 "
               >
-                CSV/Excel Format:
-                <code
-                  >type, name, description, owner, region/version/sourceService,
-                  endpoint/targetService, protocol, sourceEntity,
-                  relationshipType, targetEntity, config_key1, config_value1,
-                  config_key2, config_value2, ...</code
+                Download sample:
+                <a
+                  href="bulk-import-sample.csv"
+                  download
+                  style="
+                    color: var(--primary-color);
+                    text-decoration: none;
+                    font-weight: 500;
+                  "
+                  >Entity CSV</a
+                >
+                <a
+                  href="pce-upload-sample.csv"
+                  download
+                  style="
+                    color: var(--success-color);
+                    text-decoration: none;
+                    font-weight: 500;
+                  "
+                  >PCE Discovery CSV</a
                 >
               </small>
             </div>
@@ -1645,6 +2911,63 @@ LIMIT 10</textarea
             </select>
           </div>
 
+          <!-- Optional Entity Properties -->
+          <div class="form-group">
+            <label class="form-label" for="edit-entity-primary-usage"
+              >Primary Usage</label
+            >
+            <input
+              type="text"
+              id="edit-entity-primary-usage"
+              class="form-input"
+              placeholder="e.g., Production workload, Staging tests"
+            />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="edit-entity-current-usage"
+              >Current Usage</label
+            >
+            <input
+              type="text"
+              id="edit-entity-current-usage"
+              class="form-input"
+              placeholder="e.g., Active development, Migration target"
+            />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="edit-entity-collaborators"
+              >Collaborators</label
+            >
+            <input
+              type="text"
+              id="edit-entity-collaborators"
+              class="form-input"
+              placeholder="Comma-separated names, e.g., Team A, Team B"
+            />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="edit-entity-current-build"
+              >Current Build</label
+            >
+            <input
+              type="text"
+              id="edit-entity-current-build"
+              class="form-input"
+              placeholder="e.g., build-2024-01-15, v3.2.1"
+            />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="edit-entity-scheduled-updates"
+              >Scheduled Updates</label
+            >
+            <textarea
+              id="edit-entity-scheduled-updates"
+              class="form-textarea"
+              rows="2"
+              placeholder="e.g., 2024-02-01: Patch update, 2024-03-15: Major upgrade"
+            ></textarea>
+          </div>
+
           <!-- Environment specific fields -->
           <div id="edit-environment-fields" style="display: none">
             <div class="form-group">
@@ -1688,6 +3011,356 @@ LIMIT 10</textarea
                 >Target Service</label
               >
               <input type="text" id="edit-int-target" class="form-input" />
+            </div>
+          </div>
+
+          <!-- Infrastructure Monitoring Section (Edit) -->
+          <div class="form-group" id="edit-stats-wrapper">
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                cursor: pointer;
+                user-select: none;
+                margin-bottom: 0.5rem;
+              "
+              onclick="toggleEditStatsSection()"
+            >
+              <span
+                id="edit-stats-toggle-icon"
+                style="
+                  margin-right: 0.5rem;
+                  font-size: 0.75rem;
+                  transition: transform 0.2s;
+                "
+                >&#9654;</span
+              >
+              <label
+                class="form-label"
+                style="margin-bottom: 0; cursor: pointer"
+                >Infrastructure Monitoring (Optional)</label
+              >
+            </div>
+            <div id="edit-stats-section" style="display: none">
+              <div
+                style="
+                  display: grid;
+                  grid-template-columns: 1fr 1fr;
+                  gap: 0.75rem;
+                "
+              >
+                <!-- ScienceLogic Meta Fields -->
+                <div
+                  style="
+                    grid-column: 1 / -1;
+                    margin-bottom: 0.25rem;
+                    margin-top: 0.25rem;
+                  "
+                >
+                  <span
+                    style="font-size: 0.75rem; color: #60a5fa; font-weight: 600"
+                    >Device Meta</span
+                  >
+                </div>
+                <div class="form-group" style="margin-bottom: 0">
+                  <label class="form-label" for="edit-stats-deviceName"
+                    >Device Name</label
+                  >
+                  <input
+                    type="text"
+                    id="edit-stats-deviceName"
+                    class="form-input"
+                    placeholder="e.g. prod-web-01"
+                  />
+                </div>
+                <div class="form-group" style="margin-bottom: 0">
+                  <label class="form-label" for="edit-stats-deviceDescription"
+                    >Description</label
+                  >
+                  <input
+                    type="text"
+                    id="edit-stats-deviceDescription"
+                    class="form-input"
+                    placeholder="e.g. Production web server"
+                  />
+                </div>
+                <div class="form-group" style="margin-bottom: 0">
+                  <label class="form-label" for="edit-stats-ipAddress"
+                    >IP Address</label
+                  >
+                  <input
+                    type="text"
+                    id="edit-stats-ipAddress"
+                    class="form-input"
+                    placeholder="e.g. 10.0.1.50"
+                  />
+                </div>
+                <div class="form-group" style="margin-bottom: 0">
+                  <label class="form-label" for="edit-stats-deviceHostname"
+                    >Device Hostname</label
+                  >
+                  <input
+                    type="text"
+                    id="edit-stats-deviceHostname"
+                    class="form-input"
+                    placeholder="e.g. prod-web-01.example.com"
+                  />
+                </div>
+                <div class="form-group" style="margin-bottom: 0">
+                  <label class="form-label" for="edit-stats-deviceClass"
+                    >Device Class</label
+                  >
+                  <input
+                    type="text"
+                    id="edit-stats-deviceClass"
+                    class="form-input"
+                    placeholder="e.g. Server"
+                  />
+                </div>
+                <div class="form-group" style="margin-bottom: 0">
+                  <label class="form-label" for="edit-stats-subClass"
+                    >Sub-Class</label
+                  >
+                  <input
+                    type="text"
+                    id="edit-stats-subClass"
+                    class="form-input"
+                    placeholder="e.g. Linux, Windows"
+                  />
+                </div>
+                <div class="form-group" style="margin-bottom: 0">
+                  <label class="form-label" for="edit-stats-category"
+                    >Category</label
+                  >
+                  <input
+                    type="text"
+                    id="edit-stats-category"
+                    class="form-input"
+                    placeholder="e.g. Server, Network"
+                  />
+                </div>
+                <div class="form-group" style="margin-bottom: 0">
+                  <label class="form-label" for="edit-stats-organization"
+                    >Organization</label
+                  >
+                  <input
+                    type="text"
+                    id="edit-stats-organization"
+                    class="form-input"
+                    placeholder="e.g. Production"
+                  />
+                </div>
+                <div class="form-group" style="margin-bottom: 0">
+                  <label class="form-label" for="edit-stats-managedType"
+                    >Managed Type</label
+                  >
+                  <input
+                    type="text"
+                    id="edit-stats-managedType"
+                    class="form-input"
+                    placeholder="e.g. SNMP, AWS API"
+                  />
+                </div>
+                <div class="form-group" style="margin-bottom: 0">
+                  <label class="form-label" for="edit-stats-collectionMode"
+                    >Collection Mode</label
+                  >
+                  <input
+                    type="text"
+                    id="edit-stats-collectionMode"
+                    class="form-input"
+                    placeholder="e.g. Active, Passive"
+                  />
+                </div>
+                <div class="form-group" style="margin-bottom: 0">
+                  <label class="form-label" for="edit-stats-collectorGroup"
+                    >Collector / Group</label
+                  >
+                  <input
+                    type="text"
+                    id="edit-stats-collectorGroup"
+                    class="form-input"
+                    placeholder="e.g. DC1-Collector-01"
+                  />
+                </div>
+                <div class="form-group" style="margin-bottom: 0">
+                  <label class="form-label" for="edit-stats-uptime"
+                    >Uptime</label
+                  >
+                  <input
+                    type="text"
+                    id="edit-stats-uptime"
+                    class="form-input"
+                    placeholder="e.g. 45d 12h 30m"
+                  />
+                </div>
+                <div class="form-group" style="margin-bottom: 0">
+                  <label class="form-label" for="edit-stats-collectionTime"
+                    >Collection Time</label
+                  >
+                  <input
+                    type="text"
+                    id="edit-stats-collectionTime"
+                    class="form-input"
+                    placeholder="e.g. 2026-03-24T10:30:00Z"
+                  />
+                </div>
+                <div class="form-group" style="margin-bottom: 0">
+                  <label class="form-label" for="edit-stats-sourceSystem"
+                    >Source System</label
+                  >
+                  <input
+                    type="text"
+                    id="edit-stats-sourceSystem"
+                    class="form-input"
+                    placeholder="e.g. ScienceLogic"
+                  />
+                </div>
+                <div class="form-group" style="margin-bottom: 0">
+                  <label class="form-label" for="edit-stats-sourceId"
+                    >Source ID</label
+                  >
+                  <input
+                    type="text"
+                    id="edit-stats-sourceId"
+                    class="form-input"
+                    placeholder="e.g. SL-12345"
+                  />
+                </div>
+                <div class="form-group" style="margin-bottom: 0">
+                  <label class="form-label" for="edit-stats-lastSyncedAt"
+                    >Last Synced At</label
+                  >
+                  <input
+                    type="text"
+                    id="edit-stats-lastSyncedAt"
+                    class="form-input"
+                    placeholder="e.g. 2026-03-24T10:30:00Z"
+                  />
+                </div>
+
+                <!-- ScienceLogic Stats Fields -->
+                <div
+                  style="
+                    grid-column: 1 / -1;
+                    margin-bottom: 0.25rem;
+                    margin-top: 0.5rem;
+                  "
+                >
+                  <span
+                    style="font-size: 0.75rem; color: #34d399; font-weight: 600"
+                    >Performance Stats</span
+                  >
+                </div>
+                <div class="form-group" style="margin-bottom: 0">
+                  <label class="form-label" for="edit-stats-currentState"
+                    >Current State</label
+                  >
+                  <input
+                    type="text"
+                    id="edit-stats-currentState"
+                    class="form-input"
+                    placeholder="e.g. Active, Warning, Critical"
+                  />
+                </div>
+                <div class="form-group" style="margin-bottom: 0">
+                  <label class="form-label" for="edit-stats-availability"
+                    >Availability (%)</label
+                  >
+                  <input
+                    type="number"
+                    id="edit-stats-availability"
+                    class="form-input"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    placeholder="e.g. 99.95"
+                  />
+                </div>
+                <div class="form-group" style="margin-bottom: 0">
+                  <label class="form-label" for="edit-stats-latency"
+                    >Latency (ms)</label
+                  >
+                  <input
+                    type="number"
+                    id="edit-stats-latency"
+                    class="form-input"
+                    min="0"
+                    step="0.1"
+                    placeholder="e.g. 12.5"
+                  />
+                </div>
+                <div class="form-group" style="margin-bottom: 0">
+                  <label class="form-label" for="edit-stats-cpu"
+                    >CPU Usage (%)</label
+                  >
+                  <input
+                    type="number"
+                    id="edit-stats-cpu"
+                    class="form-input"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    placeholder="e.g. 45.2"
+                  />
+                </div>
+                <div class="form-group" style="margin-bottom: 0">
+                  <label class="form-label" for="edit-stats-memory"
+                    >Memory Usage (%)</label
+                  >
+                  <input
+                    type="number"
+                    id="edit-stats-memory"
+                    class="form-input"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    placeholder="e.g. 62.8"
+                  />
+                </div>
+                <div class="form-group" style="margin-bottom: 0">
+                  <label class="form-label" for="edit-stats-swap"
+                    >Swap Usage (%)</label
+                  >
+                  <input
+                    type="number"
+                    id="edit-stats-swap"
+                    class="form-input"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    placeholder="e.g. 15.0"
+                  />
+                </div>
+                <div class="form-group" style="margin-bottom: 0">
+                  <label class="form-label" for="edit-stats-storage"
+                    >Storage Usage (%)</label
+                  >
+                  <input
+                    type="number"
+                    id="edit-stats-storage"
+                    class="form-input"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    placeholder="e.g. 78.5"
+                  />
+                </div>
+                <div class="form-group" style="margin-bottom: 0">
+                  <label class="form-label" for="edit-stats-healthScore"
+                    >Health Score (0-100)</label
+                  >
+                  <input
+                    type="number"
+                    id="edit-stats-healthScore"
+                    class="form-input"
+                    min="0"
+                    max="100"
+                    step="1"
+                    placeholder="e.g. 85"
+                  />
+                </div>
+              </div>
             </div>
           </div>
 
@@ -1802,11 +3475,15 @@ LIMIT 10</textarea
       // Configuration - Updated Lambda URLs from NeptuneEnvironmentStack
       const CONFIG = {
         INGEST_URL:
-          "https://pavdiuem80.execute-api.us-east-1.amazonaws.com/prod/ingest",
+          "https://xo03yi0fj1.execute-api.us-east-1.amazonaws.com/prod/ingest",
         QUERY_URL:
-          "https://pavdiuem80.execute-api.us-east-1.amazonaws.com/prod/query",
+          "https://xo03yi0fj1.execute-api.us-east-1.amazonaws.com/prod/query",
         CLEANUP_URL:
-          "https://pavdiuem80.execute-api.us-east-1.amazonaws.com/prod/cleanup",
+          "https://xo03yi0fj1.execute-api.us-east-1.amazonaws.com/prod/cleanup",
+        BEDROCK_QUERY_URL:
+          "https://l24aq8cxa7.execute-api.us-east-1.amazonaws.com/prod/query",
+        PCE_DISCOVERY_URL:
+          "https://4inemh9fm4.execute-api.us-east-1.amazonaws.com/prod/pce-discovery/upload-csv",
       };
 
       // Global state
@@ -1931,6 +3608,11 @@ LIMIT 10</textarea
               type === "Application" ? "block" : "none";
             document.getElementById("integration-fields").style.display =
               type === "Integration" ? "block" : "none";
+            document.getElementById("optional-entity-fields").style.display =
+              type ? "block" : "none";
+            // Hide stats section for Integrations (only Environments and Applications have health stats)
+            document.getElementById("create-stats-wrapper").style.display =
+              type === "Integration" ? "none" : "block";
 
             // Load entities for integration dropdowns when Integration is selected
             if (type === "Integration") {
@@ -2218,6 +3900,67 @@ LIMIT 10</textarea
         });
 
         return configurations;
+      }
+
+      // Stats helper functions
+      const STAT_FIELD_IDS = [
+        // ScienceLogic Meta
+        "deviceName",
+        "deviceDescription",
+        "ipAddress",
+        "deviceClass",
+        "organization",
+        "collectionMode",
+        "deviceHostname",
+        "managedType",
+        "category",
+        "subClass",
+        "uptime",
+        "collectionTime",
+        "collectorGroup",
+        "sourceId",
+        "sourceSystem",
+        "lastSyncedAt",
+        // ScienceLogic Stats
+        "availability",
+        "latency",
+        "cpu",
+        "memory",
+        "swap",
+        "currentState",
+        // Derived
+        "storage",
+        "healthScore",
+      ];
+
+      function getStats() {
+        const stats = {};
+        STAT_FIELD_IDS.forEach((field) => {
+          const el = document.getElementById("stats-" + field);
+          if (el && el.value.trim()) {
+            stats[field] = el.value.trim();
+          }
+        });
+        return stats;
+      }
+
+      function clearStatsFields() {
+        STAT_FIELD_IDS.forEach((field) => {
+          const el = document.getElementById("stats-" + field);
+          if (el) el.value = "";
+        });
+      }
+
+      function toggleCreateStatsSection() {
+        const section = document.getElementById("create-stats-section");
+        const icon = document.getElementById("create-stats-toggle-icon");
+        if (section.style.display === "none") {
+          section.style.display = "block";
+          icon.style.transform = "rotate(90deg)";
+        } else {
+          section.style.display = "none";
+          icon.style.transform = "rotate(0deg)";
+        }
       }
 
       // Refresh entity dropdowns manually
@@ -2941,24 +4684,60 @@ LIMIT 10</textarea
       }
 
       // Utility functions
-      function showAlert(containerId, message, type = "info") {
+      function showAlert(
+        containerId,
+        message,
+        type = "info",
+        { isHtml = false, timeout = 5000 } = {},
+      ) {
         const container = document.getElementById(containerId);
         const alert = document.createElement("div");
         alert.className = `alert alert-${type}`;
-        alert.textContent = message;
+
+        const iconSvgs = {
+          success:
+            '<svg class="alert-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>',
+          error:
+            '<svg class="alert-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>',
+          warning:
+            '<svg class="alert-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>',
+          info: '<svg class="alert-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zm-1 4a1 1 0 00-1 1v3a1 1 0 102 0v-3a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>',
+        };
+
+        const icon = iconSvgs[type] || iconSvgs.info;
+        const bodyEl = document.createElement("span");
+        bodyEl.className = "alert-body";
+        if (isHtml) {
+          bodyEl.innerHTML = message;
+        } else {
+          bodyEl.textContent = message;
+        }
+
+        alert.innerHTML = icon;
+        alert.appendChild(bodyEl);
+
+        const closeBtn = document.createElement("button");
+        closeBtn.className = "alert-close";
+        closeBtn.innerHTML = "&times;";
+        closeBtn.onclick = () => dismissAlert(alert, container);
+        alert.appendChild(closeBtn);
+
         container.innerHTML = "";
         container.appendChild(alert);
 
+        if (timeout > 0) {
+          setTimeout(() => dismissAlert(alert, container), timeout);
+        }
+      }
+
+      function dismissAlert(alert, container) {
+        if (!alert.parentNode) return;
+        alert.style.opacity = "0";
+        alert.style.transform = "translateY(-8px)";
+        alert.style.transition = "opacity 0.2s, transform 0.2s";
         setTimeout(() => {
-          if (alert.parentNode) {
-            alert.style.opacity = "0";
-            setTimeout(() => {
-              if (alert.parentNode) {
-                container.removeChild(alert);
-              }
-            }, 300);
-          }
-        }, 5000);
+          if (alert.parentNode) container.removeChild(alert);
+        }, 200);
       }
 
       async function makeApiCall(url, operation, data = {}) {
@@ -3071,6 +4850,28 @@ LIMIT 10</textarea
           entityData.owner = document.getElementById("int-owner").value;
         }
 
+        // Add optional entity properties
+        const primaryUsage = document
+          .getElementById("entity-primary-usage")
+          .value.trim();
+        const currentUsage = document
+          .getElementById("entity-current-usage")
+          .value.trim();
+        const collaborators = document
+          .getElementById("entity-collaborators")
+          .value.trim();
+        const currentBuild = document
+          .getElementById("entity-current-build")
+          .value.trim();
+        const scheduledUpdates = document
+          .getElementById("entity-scheduled-updates")
+          .value.trim();
+        if (primaryUsage) entityData.primaryUsage = primaryUsage;
+        if (currentUsage) entityData.currentUsage = currentUsage;
+        if (collaborators) entityData.collaborators = collaborators;
+        if (currentBuild) entityData.currentBuild = currentBuild;
+        if (scheduledUpdates) entityData.scheduledUpdates = scheduledUpdates;
+
         // Add custom configurations
         const configurations = getConfigurations();
         console.log("Configurations collected from form:", configurations);
@@ -3080,6 +4881,13 @@ LIMIT 10</textarea
             "Added configurations to entityData:",
             entityData.configurations,
           );
+        }
+
+        // Add stats (optional monitoring/health data)
+        const stats = getStats();
+        if (Object.keys(stats).length > 0) {
+          entityData.stats = stats;
+          console.log("Added stats to entityData:", entityData.stats);
         }
 
         // Add relationships
@@ -3107,8 +4915,9 @@ LIMIT 10</textarea
               "success",
             );
             document.getElementById("add-entity-form").reset();
-            // Clear configuration fields
+            // Clear configuration fields and stats
             document.getElementById("config-list").innerHTML = "";
+            clearStatsFields();
             document
               .getElementById("entity-type")
               .dispatchEvent(new Event("change"));
@@ -3649,6 +5458,7 @@ LIMIT 10</textarea
           .attr("r", (d) => Math.sqrt((d.size || 10) * 2))
           .attr("fill", (d) => getNodeColor(d.type))
           .attr("stroke", (d) => d3.rgb(getNodeColor(d.type)).darker())
+          .attr("stroke-width", 2)
           .call(
             d3
               .drag()
@@ -3657,7 +5467,12 @@ LIMIT 10</textarea
               .on("end", dragended),
           )
           .on("mouseover", showTooltip)
-          .on("mouseout", hideTooltip);
+          .on("mouseout", hideTooltip)
+          .on("click", function (event, d) {
+            if (d.type === "Environment") {
+              showNodeInfoPanel(d);
+            }
+          });
 
         const labels = g
           .append("g")
@@ -3686,7 +5501,7 @@ LIMIT 10</textarea
           .style("background", "white")
           .style("padding", "2px")
           .style("cursor", "pointer")
-          .style("opacity", edgeLabelsVisible ? 1 : 0) // Respect current visibility state
+          .attr("opacity", edgeLabelsVisible ? 1 : 0) // Respect current visibility state
           .on("contextmenu", (event, d) => {
             event.preventDefault();
             showEdgeContextMenu(event, d);
@@ -3713,6 +5528,15 @@ LIMIT 10</textarea
         simulation.on("end", () => {
           fitGraphToViewport();
         });
+
+        // Populate environment filter dropdown and health status bar
+        populateEnvFilter(networkData.nodes);
+        updateHealthStatusBar(networkData.nodes);
+
+        // Reset filter states on re-render
+        currentEnvFilter = null;
+        healthHighlightActive = false;
+        healthFilterState = null;
       }
 
       function getNodeColor(type) {
@@ -3722,6 +5546,854 @@ LIMIT 10</textarea
           Integration: "#d97706",
         };
         return colors[type] || "#64748b";
+      }
+
+      // --- Health state detection ---
+      let healthHighlightActive = false;
+      let healthFilterState = null;
+      let currentEnvFilter = null;
+      let envConnectivityOnly = false;
+
+      function getNodeHealthState(d) {
+        if (!d.stats) return "healthy";
+        const state = (d.stats.currentState || "").toLowerCase();
+        const healthScore = parseFloat(d.stats.healthScore);
+
+        if (["critical", "down", "error", "unreachable"].includes(state))
+          return "critical";
+        if (["major"].includes(state)) return "major";
+        if (["warning", "degraded"].includes(state)) return "warning";
+
+        if (!isNaN(healthScore)) {
+          if (healthScore < 40) return "critical";
+          if (healthScore < 60) return "major";
+          if (healthScore < 75) return "warning";
+        }
+
+        const cpu = parseFloat(d.stats.cpu);
+        const memory = parseFloat(d.stats.memory);
+        const storage = parseFloat(d.stats.storage);
+        if (cpu > 95 || memory > 95 || storage > 95) return "critical";
+        if (cpu > 85 || memory > 85 || storage > 85) return "warning";
+
+        const availability = parseFloat(d.stats.availability);
+        if (!isNaN(availability) && availability < 95) return "critical";
+        if (!isNaN(availability) && availability < 99) return "warning";
+
+        return "healthy";
+      }
+
+      function updateHealthStatusBar(nodes) {
+        // Only count Environments and Applications for health stats (not Integrations)
+        const healthNodes = nodes.filter((d) => d.type !== "Integration");
+        const counts = { critical: 0, major: 0, warning: 0, healthy: 0 };
+        healthNodes.forEach((d) => {
+          const state = getNodeHealthState(d);
+          counts[state] = (counts[state] || 0) + 1;
+        });
+
+        document.getElementById("health-count-critical").textContent =
+          counts.critical;
+        document.getElementById("health-count-major").textContent =
+          counts.major;
+        document.getElementById("health-count-warning").textContent =
+          counts.warning;
+        document.getElementById("health-count-healthy").textContent =
+          counts.healthy;
+
+        const bar = document.getElementById("health-status-bar");
+        if (bar) bar.style.display = "flex";
+
+        document.getElementById("health-chip-critical").style.display =
+          counts.critical > 0 ? "flex" : "none";
+        document.getElementById("health-chip-major").style.display =
+          counts.major > 0 ? "flex" : "none";
+        document.getElementById("health-chip-warning").style.display =
+          counts.warning > 0 ? "flex" : "none";
+      }
+
+      function toggleHealthHighlight() {
+        healthHighlightActive = !healthHighlightActive;
+        const btn = document.getElementById("health-highlight-btn");
+        const svg = d3.select("#network-graph");
+
+        if (healthHighlightActive) {
+          btn.classList.add("active");
+          btn.textContent = "Highlighting Unhealthy";
+
+          svg.selectAll(".node").each(function (d) {
+            const el = d3.select(this);
+            const state = getNodeHealthState(d);
+            const currentOpacity = parseFloat(el.attr("opacity"));
+            if (currentEnvFilter && currentOpacity < 0.1) return;
+
+            if (state === "healthy") {
+              el.transition().duration(300).attr("opacity", 0.15);
+            } else {
+              el.transition()
+                .duration(300)
+                .attr("opacity", 1)
+                .attr(
+                  "stroke",
+                  state === "critical"
+                    ? "#ef4444"
+                    : state === "major"
+                      ? "#f97316"
+                      : "#eab308",
+                )
+                .attr("stroke-width", 3);
+            }
+          });
+
+          svg.selectAll(".node-label").each(function (d) {
+            const el = d3.select(this);
+            const state = getNodeHealthState(d);
+            const currentOpacity = parseFloat(el.attr("opacity"));
+            if (currentEnvFilter && currentOpacity < 0.1) return;
+            el.transition()
+              .duration(300)
+              .attr("opacity", state === "healthy" ? 0 : 1)
+              .attr("font-weight", state !== "healthy" ? "700" : "400");
+          });
+
+          svg.selectAll("line").each(function () {
+            const el = d3.select(this);
+            const currentOpacity = parseFloat(el.attr("opacity"));
+            if (currentEnvFilter && currentOpacity < 0.1) return;
+            el.transition().duration(300).attr("opacity", 0.05);
+          });
+
+          svg.selectAll(".edge-label").each(function () {
+            const el = d3.select(this);
+            const currentOpacity = parseFloat(el.attr("opacity"));
+            if (currentEnvFilter && currentOpacity < 0.05) return;
+            el.transition().duration(300).attr("opacity", 0);
+          });
+        } else {
+          btn.classList.remove("active");
+          btn.textContent = "Highlight Unhealthy";
+          if (currentEnvFilter) {
+            applyEnvFilter();
+          } else {
+            resetHealthVisuals(svg);
+          }
+        }
+      }
+
+      function filterByHealth(targetState) {
+        if (healthFilterState === targetState) {
+          resetHealthFilter();
+          return;
+        }
+
+        healthFilterState = targetState;
+        healthHighlightActive = true;
+        const btn = document.getElementById("health-highlight-btn");
+        btn.classList.add("active");
+        btn.textContent =
+          "Filtering: " +
+          targetState.charAt(0).toUpperCase() +
+          targetState.slice(1);
+        document.getElementById("health-reset-btn").style.display =
+          "inline-block";
+
+        const svg = d3.select("#network-graph");
+
+        svg.selectAll(".node").each(function (d) {
+          const el = d3.select(this);
+          const state = getNodeHealthState(d);
+          const currentOpacity = parseFloat(el.attr("opacity"));
+          const isEnvHidden = currentEnvFilter && currentOpacity < 0.1;
+
+          if (state === targetState && !isEnvHidden) {
+            el.transition()
+              .duration(300)
+              .attr("opacity", 1)
+              .attr(
+                "stroke",
+                targetState === "critical"
+                  ? "#ef4444"
+                  : targetState === "major"
+                    ? "#f97316"
+                    : "#eab308",
+              )
+              .attr("stroke-width", 3);
+          } else {
+            el.transition()
+              .duration(300)
+              .attr("opacity", isEnvHidden ? 0.04 : 0.05);
+          }
+        });
+
+        svg.selectAll(".node-label").each(function (d) {
+          const el = d3.select(this);
+          const state = getNodeHealthState(d);
+          const currentOpacity = parseFloat(el.attr("opacity"));
+          const isEnvHidden = currentEnvFilter && currentOpacity < 0.1;
+          el.transition()
+            .duration(300)
+            .attr("opacity", state === targetState && !isEnvHidden ? 1 : 0.03)
+            .attr("font-weight", state === targetState ? "700" : "400");
+        });
+
+        svg.selectAll("line").transition().duration(300).attr("opacity", 0.03);
+      }
+
+      function resetHealthFilter() {
+        healthFilterState = null;
+        healthHighlightActive = false;
+        const btn = document.getElementById("health-highlight-btn");
+        btn.classList.remove("active");
+        btn.textContent = "Highlight Unhealthy";
+        document.getElementById("health-reset-btn").style.display = "none";
+
+        if (currentEnvFilter) {
+          applyEnvFilter();
+        } else {
+          const svg = d3.select("#network-graph");
+          resetHealthVisuals(svg);
+        }
+      }
+
+      function resetHealthVisuals(svg) {
+        svg.selectAll(".node").each(function (d) {
+          d3.select(this)
+            .transition()
+            .duration(300)
+            .attr("opacity", 1)
+            .attr("stroke", d3.rgb(getNodeColor(d.type)).darker())
+            .attr("stroke-width", 2);
+        });
+        svg
+          .selectAll(".node-label")
+          .transition()
+          .duration(300)
+          .attr("opacity", 1)
+          .attr("font-weight", "400");
+        svg.selectAll("line").transition().duration(300).attr("opacity", 0.6);
+        svg
+          .selectAll(".edge-label")
+          .transition()
+          .duration(300)
+          .attr("opacity", edgeLabelsVisible ? 1 : 0);
+      }
+
+      // --- Environment Filter ---
+      function populateEnvFilter(nodes) {
+        const select = document.getElementById("env-filter-select");
+        if (!select) return;
+
+        while (select.options.length > 1) {
+          select.remove(1);
+        }
+
+        const envNodes = nodes
+          .filter((n) => n.type === "Environment")
+          .sort((a, b) =>
+            (a.label || a.name || a.id).localeCompare(
+              b.label || b.name || b.id,
+            ),
+          );
+
+        envNodes.forEach((env) => {
+          const option = document.createElement("option");
+          option.value = env.id;
+          option.textContent = env.label || env.name || env.id;
+          select.appendChild(option);
+        });
+
+        // Compute max hop depth from graph diameter
+        const maxHops = computeGraphMaxHops(nodes);
+        populateHopDropdown(maxHops);
+
+        const bar = document.getElementById("env-filter-bar");
+        if (bar) bar.style.display = envNodes.length > 0 ? "flex" : "none";
+      }
+
+      function computeGraphMaxHops(nodes) {
+        const svg = d3.select("#network-graph");
+        const links = [];
+        svg.selectAll("line").each(function (d) {
+          links.push(d);
+        });
+        if (links.length === 0 || nodes.length === 0) return 1;
+
+        // Build adjacency list
+        const adj = {};
+        nodes.forEach((n) => {
+          adj[n.id] = [];
+        });
+        links.forEach((link) => {
+          const s =
+            typeof link.source === "object" ? link.source.id : link.source;
+          const t =
+            typeof link.target === "object" ? link.target.id : link.target;
+          if (adj[s]) adj[s].push(t);
+          if (adj[t]) adj[t].push(s);
+        });
+
+        // BFS from each node to find max shortest path (graph diameter)
+        let diameter = 1;
+        const nodeIds = Object.keys(adj);
+        nodeIds.forEach((startId) => {
+          const visited = new Set();
+          visited.add(startId);
+          let frontier = [startId];
+          let depth = 0;
+          while (frontier.length > 0) {
+            const next = [];
+            frontier.forEach((id) => {
+              (adj[id] || []).forEach((nb) => {
+                if (!visited.has(nb)) {
+                  visited.add(nb);
+                  next.push(nb);
+                }
+              });
+            });
+            if (next.length > 0) depth++;
+            frontier = next;
+          }
+          if (depth > diameter) diameter = depth;
+        });
+        return diameter;
+      }
+
+      function populateHopDropdown(maxHops) {
+        const depthSelect = document.getElementById("env-filter-depth");
+        if (!depthSelect) return;
+        const currentVal = depthSelect.value;
+        depthSelect.innerHTML = "";
+        for (let i = 1; i <= maxHops; i++) {
+          const opt = document.createElement("option");
+          opt.value = i;
+          opt.textContent = i + " hop" + (i > 1 ? "s" : "");
+          depthSelect.appendChild(opt);
+        }
+        // Restore previous selection if valid, otherwise default to max
+        if (currentVal && parseInt(currentVal) <= maxHops) {
+          depthSelect.value = currentVal;
+        } else {
+          depthSelect.value = String(maxHops);
+        }
+      }
+
+      function computeMaxHopsFrom(startId, nodes, links) {
+        const adj = {};
+        nodes.forEach((n) => {
+          adj[n.id] = [];
+        });
+        links.forEach((link) => {
+          const s =
+            typeof link.source === "object" ? link.source.id : link.source;
+          const t =
+            typeof link.target === "object" ? link.target.id : link.target;
+          if (adj[s]) adj[s].push(t);
+          if (adj[t]) adj[t].push(s);
+        });
+        const visited = new Set([startId]);
+        let frontier = [startId];
+        let depth = 0;
+        while (frontier.length > 0) {
+          const next = [];
+          frontier.forEach((id) => {
+            (adj[id] || []).forEach((nb) => {
+              if (!visited.has(nb)) {
+                visited.add(nb);
+                next.push(nb);
+              }
+            });
+          });
+          if (next.length > 0) depth++;
+          frontier = next;
+        }
+        return depth;
+      }
+
+      function getConnectedNodeIds(targetId, nodes, links, maxDepth) {
+        const connectedIds = new Set();
+        connectedIds.add(targetId);
+
+        for (let depth = 0; depth < maxDepth; depth++) {
+          const newIds = new Set();
+          links.forEach((link) => {
+            const sourceId =
+              typeof link.source === "object" ? link.source.id : link.source;
+            const targetNodeId =
+              typeof link.target === "object" ? link.target.id : link.target;
+
+            if (connectedIds.has(sourceId) && !connectedIds.has(targetNodeId)) {
+              newIds.add(targetNodeId);
+            }
+            if (connectedIds.has(targetNodeId) && !connectedIds.has(sourceId)) {
+              newIds.add(sourceId);
+            }
+          });
+          newIds.forEach((id) => connectedIds.add(id));
+          if (newIds.size === 0) break;
+        }
+        return connectedIds;
+      }
+
+      function getEnvConnectivity(startEnvId, nodes, links) {
+        const nodeMap = new Map();
+        nodes.forEach((n) => nodeMap.set(n.id, n));
+        const envNodes = new Set();
+        envNodes.add(startEnvId);
+        const envLinks = [];
+        const visited = new Set();
+        visited.add(startEnvId);
+        const envQueue = [startEnvId];
+
+        while (envQueue.length > 0) {
+          const currentEnv = envQueue.shift();
+          // BFS through intermediaries tracking direction from first hop
+          // Each queue item: { nodeId, direction } where direction = 'forward' | 'reverse'
+          // forward: currentEnv is the source; reverse: currentEnv is the target
+          const queue = [{ nodeId: currentEnv, direction: null }];
+          const localVisited = new Set([currentEnv]);
+
+          while (queue.length > 0) {
+            const { nodeId, direction: inheritedDir } = queue.shift();
+            links.forEach((link) => {
+              const sourceId =
+                typeof link.source === "object" ? link.source.id : link.source;
+              const targetId =
+                typeof link.target === "object" ? link.target.id : link.target;
+              let neighborId = null;
+              let stepForward = null; // true if we follow source->target
+              if (sourceId === nodeId) {
+                neighborId = targetId;
+                stepForward = true;
+              } else if (targetId === nodeId) {
+                neighborId = sourceId;
+                stepForward = false;
+              }
+
+              if (neighborId && !localVisited.has(neighborId)) {
+                localVisited.add(neighborId);
+                // Direction is set by the first hop from currentEnv
+                const dir =
+                  inheritedDir !== null
+                    ? inheritedDir
+                    : stepForward
+                      ? "forward"
+                      : "reverse";
+                const neighborNode = nodeMap.get(neighborId);
+                if (neighborNode && neighborNode.type === "Environment") {
+                  if (dir === "forward") {
+                    envLinks.push({ source: currentEnv, target: neighborId });
+                  } else {
+                    envLinks.push({ source: neighborId, target: currentEnv });
+                  }
+                  if (!visited.has(neighborId)) {
+                    envNodes.add(neighborId);
+                    visited.add(neighborId);
+                    envQueue.push(neighborId);
+                  }
+                } else {
+                  queue.push({ nodeId: neighborId, direction: dir });
+                }
+              }
+            });
+          }
+        }
+        return { envNodes, envLinks };
+      }
+
+      function applyEnvFilter() {
+        const select = document.getElementById("env-filter-select");
+        const depthSelect = document.getElementById("env-filter-depth");
+        const selectedEnvId = select.value;
+        const clearBtn = document.getElementById("env-filter-clear-btn");
+        const infoSpan = document.getElementById("env-filter-info");
+        const svg = d3.select("#network-graph");
+        const connectivityOnly = document.getElementById(
+          "env-connectivity-only",
+        ).checked;
+        envConnectivityOnly = connectivityOnly;
+
+        // Remove previous overlay lines
+        svg.selectAll(".env-overlay-link").remove();
+
+        if (healthHighlightActive) {
+          healthFilterState = null;
+          healthHighlightActive = false;
+          const hBtn = document.getElementById("health-highlight-btn");
+          hBtn.classList.remove("active");
+          hBtn.textContent = "Highlight Unhealthy";
+          document.getElementById("health-reset-btn").style.display = "none";
+        }
+
+        if (!selectedEnvId && !connectivityOnly) {
+          clearEnvFilter();
+          return;
+        }
+
+        if (!selectedEnvId && connectivityOnly) {
+          // Show all environments with inter-env links, hide everything else
+          currentEnvFilter = null;
+          clearBtn.style.display = "inline-block";
+
+          const allLinks = [];
+          svg.selectAll("line:not(.env-overlay-link)").each(function (d) {
+            allLinks.push(d);
+          });
+          const allNodes = [];
+          svg.selectAll(".node").each(function (d) {
+            allNodes.push(d);
+          });
+
+          const envNodeIds = new Set();
+          allNodes.forEach((n) => {
+            if (n.type === "Environment") envNodeIds.add(n.id);
+          });
+
+          // Build env-to-env links by traversing through intermediaries for every env
+          const allEnvLinks = [];
+          const seenLinks = new Set();
+          envNodeIds.forEach((envId) => {
+            const { envLinks } = getEnvConnectivity(envId, allNodes, allLinks);
+            envLinks.forEach((l) => {
+              const key = l.source + "->" + l.target;
+              if (!seenLinks.has(key)) {
+                seenLinks.add(key);
+                allEnvLinks.push(l);
+              }
+            });
+          });
+
+          infoSpan.textContent = `Showing ${envNodeIds.size} environments (connectivity only)`;
+
+          svg.selectAll(".node").each(function (d) {
+            const el = d3.select(this);
+            if (envNodeIds.has(d.id)) {
+              el.transition()
+                .duration(400)
+                .attr("opacity", 1)
+                .attr("stroke-width", 2);
+            } else {
+              el.transition().duration(400).attr("opacity", 0.04);
+            }
+          });
+
+          svg.selectAll(".node-label").each(function (d) {
+            const el = d3.select(this);
+            el.transition()
+              .duration(400)
+              .attr("opacity", envNodeIds.has(d.id) ? 1 : 0.02);
+          });
+
+          svg.selectAll("line:not(.env-overlay-link)").each(function () {
+            d3.select(this).transition().duration(400).attr("opacity", 0.02);
+          });
+          svg.selectAll(".edge-label").each(function () {
+            d3.select(this).transition().duration(400).attr("opacity", 0);
+          });
+
+          const nodeMap = new Map();
+          allNodes.forEach((n) => nodeMap.set(n.id, n));
+          const overlayG = svg.select("g");
+
+          allEnvLinks.forEach((link) => {
+            const srcNode = nodeMap.get(link.source);
+            const tgtNode = nodeMap.get(link.target);
+            if (!srcNode || !tgtNode) return;
+            overlayG
+              .append("line")
+              .attr("class", "env-overlay-link")
+              .attr("data-source", link.source)
+              .attr("data-target", link.target)
+              .attr("x1", srcNode.x)
+              .attr("y1", srcNode.y)
+              .attr("x2", tgtNode.x)
+              .attr("y2", tgtNode.y)
+              .attr("stroke", "#059669")
+              .attr("stroke-width", 2)
+              .attr("stroke-dasharray", "6,3")
+              .attr("marker-end", "url(#arrow-green)")
+              .attr("opacity", 0)
+              .transition()
+              .duration(400)
+              .attr("opacity", 0.7);
+          });
+
+          if (simulation) {
+            simulation.on("tick.envOverlay", () => {
+              svg.selectAll(".env-overlay-link").each(function () {
+                const el = d3.select(this);
+                const src = nodeMap.get(el.attr("data-source"));
+                const tgt = nodeMap.get(el.attr("data-target"));
+                if (src && tgt) {
+                  el.attr("x1", src.x)
+                    .attr("y1", src.y)
+                    .attr("x2", tgt.x)
+                    .attr("y2", tgt.y);
+                }
+              });
+            });
+          }
+
+          const visibleNodes = allNodes.filter((n) => envNodeIds.has(n.id));
+          updateHealthStatusBar(visibleNodes);
+          return;
+        }
+
+        currentEnvFilter = selectedEnvId;
+        clearBtn.style.display = "inline-block";
+
+        const allLinks = [];
+        svg.selectAll("line:not(.env-overlay-link)").each(function (d) {
+          allLinks.push(d);
+        });
+
+        const allNodes = [];
+        svg.selectAll(".node").each(function (d) {
+          allNodes.push(d);
+        });
+
+        // Auto-set hop to max reachable depth from selected environment
+        if (applyEnvFilter._lastEnvId !== selectedEnvId) {
+          applyEnvFilter._lastEnvId = selectedEnvId;
+          const maxReachable = computeMaxHopsFrom(
+            selectedEnvId,
+            allNodes,
+            allLinks,
+          );
+          if (maxReachable > 0) {
+            const maxDropdown =
+              parseInt(
+                depthSelect.options[depthSelect.options.length - 1]?.value,
+              ) || 1;
+            depthSelect.value = String(Math.min(maxReachable, maxDropdown));
+          }
+        }
+
+        const depth = parseInt(depthSelect.value) || 2;
+
+        if (connectivityOnly) {
+          // Env-connectivity-only mode: show only environment nodes and virtual links
+          const { envNodes, envLinks } = getEnvConnectivity(
+            selectedEnvId,
+            allNodes,
+            allLinks,
+          );
+
+          infoSpan.textContent = `Showing ${envNodes.size} connected environment${envNodes.size > 1 ? "s" : ""} (connectivity only)`;
+
+          // Fade out all non-env nodes, show env nodes
+          svg.selectAll(".node").each(function (d) {
+            const el = d3.select(this);
+            if (envNodes.has(d.id)) {
+              el.transition()
+                .duration(400)
+                .attr("opacity", 1)
+                .attr("stroke-width", d.id === selectedEnvId ? 3.5 : 2)
+                .attr(
+                  "stroke",
+                  d.id === selectedEnvId
+                    ? "#1e293b"
+                    : d3.rgb(getNodeColor(d.type)).darker(),
+                );
+            } else {
+              el.transition().duration(400).attr("opacity", 0.04);
+            }
+          });
+
+          svg.selectAll(".node-label").each(function (d) {
+            const el = d3.select(this);
+            if (envNodes.has(d.id)) {
+              el.transition()
+                .duration(400)
+                .attr("opacity", 1)
+                .attr("font-weight", d.id === selectedEnvId ? "700" : "400");
+            } else {
+              el.transition().duration(400).attr("opacity", 0.02);
+            }
+          });
+
+          // Hide all existing links
+          svg.selectAll("line:not(.env-overlay-link)").each(function () {
+            d3.select(this).transition().duration(400).attr("opacity", 0.02);
+          });
+          svg.selectAll(".edge-label").each(function () {
+            d3.select(this).transition().duration(400).attr("opacity", 0);
+          });
+
+          // Draw overlay links between connected environments with directional arrows
+          const nodeMap = new Map();
+          allNodes.forEach((n) => nodeMap.set(n.id, n));
+          const uniqueLinks = new Map();
+          const overlayG = svg.select("g");
+
+          envLinks.forEach((link) => {
+            const key = link.source + "->" + link.target;
+            const reverseKey = link.target + "->" + link.source;
+            // Avoid duplicate in same direction; keep both directions if they exist
+            if (!uniqueLinks.has(key) && !uniqueLinks.has(reverseKey)) {
+              uniqueLinks.set(key, link);
+            }
+          });
+
+          uniqueLinks.forEach((link) => {
+            const srcNode = nodeMap.get(link.source);
+            const tgtNode = nodeMap.get(link.target);
+            if (!srcNode || !tgtNode) return;
+
+            overlayG
+              .append("line")
+              .attr("class", "env-overlay-link")
+              .attr("data-source", link.source)
+              .attr("data-target", link.target)
+              .attr("x1", srcNode.x)
+              .attr("y1", srcNode.y)
+              .attr("x2", tgtNode.x)
+              .attr("y2", tgtNode.y)
+              .attr("stroke", "#059669")
+              .attr("stroke-width", 2)
+              .attr("stroke-dasharray", "6,3")
+              .attr("marker-end", "url(#arrow-green)")
+              .attr("opacity", 0)
+              .transition()
+              .duration(400)
+              .attr("opacity", 0.7);
+          });
+
+          // Update overlay positions on simulation tick
+          if (simulation) {
+            simulation.on("tick.envOverlay", () => {
+              svg.selectAll(".env-overlay-link").each(function () {
+                const el = d3.select(this);
+                const srcId = el.attr("data-source");
+                const tgtId = el.attr("data-target");
+                if (srcId && tgtId) {
+                  const src = nodeMap.get(srcId);
+                  const tgt = nodeMap.get(tgtId);
+                  if (src && tgt) {
+                    el.attr("x1", src.x)
+                      .attr("y1", src.y)
+                      .attr("x2", tgt.x)
+                      .attr("y2", tgt.y);
+                  }
+                }
+              });
+            });
+          }
+
+          const visibleNodes = allNodes.filter((n) => envNodes.has(n.id));
+          updateHealthStatusBar(visibleNodes);
+          return;
+        }
+
+        const visibleIds = getConnectedNodeIds(
+          selectedEnvId,
+          allNodes,
+          allLinks,
+          depth,
+        );
+
+        let envCount = 0,
+          appCount = 0,
+          intCount = 0;
+        allNodes.forEach((n) => {
+          if (visibleIds.has(n.id)) {
+            if (n.type === "Environment") envCount++;
+            else if (n.type === "Application") appCount++;
+            else intCount++;
+          }
+        });
+
+        infoSpan.textContent = `Showing ${visibleIds.size} nodes (${envCount} env, ${appCount} app, ${intCount} int) within ${depth} hop${depth > 1 ? "s" : ""}`;
+
+        svg.selectAll(".node").each(function (d) {
+          const el = d3.select(this);
+          if (visibleIds.has(d.id)) {
+            el.transition()
+              .duration(400)
+              .attr("opacity", 1)
+              .attr("stroke-width", d.id === selectedEnvId ? 3.5 : 2)
+              .attr(
+                "stroke",
+                d.id === selectedEnvId
+                  ? "#1e293b"
+                  : d3.rgb(getNodeColor(d.type)).darker(),
+              );
+          } else {
+            el.transition().duration(400).attr("opacity", 0.04);
+          }
+        });
+
+        svg.selectAll(".node-label").each(function (d) {
+          const el = d3.select(this);
+          if (visibleIds.has(d.id)) {
+            el.transition()
+              .duration(400)
+              .attr("opacity", 1)
+              .attr("font-weight", d.id === selectedEnvId ? "700" : "400");
+          } else {
+            el.transition().duration(400).attr("opacity", 0.02);
+          }
+        });
+
+        svg.selectAll("line").each(function (d) {
+          const el = d3.select(this);
+          const sourceId =
+            typeof d.source === "object" ? d.source.id : d.source;
+          const targetId =
+            typeof d.target === "object" ? d.target.id : d.target;
+          if (visibleIds.has(sourceId) && visibleIds.has(targetId)) {
+            el.transition().duration(400).attr("opacity", 0.6);
+          } else {
+            el.transition().duration(400).attr("opacity", 0.02);
+          }
+        });
+
+        svg.selectAll(".edge-label").each(function (d) {
+          const el = d3.select(this);
+          const sourceId =
+            typeof d.source === "object" ? d.source.id : d.source;
+          const targetId =
+            typeof d.target === "object" ? d.target.id : d.target;
+          if (visibleIds.has(sourceId) && visibleIds.has(targetId)) {
+            el.transition()
+              .duration(400)
+              .attr("opacity", edgeLabelsVisible ? 1 : 0);
+          } else {
+            el.transition().duration(400).attr("opacity", 0);
+          }
+        });
+
+        const visibleNodes = allNodes.filter((n) => visibleIds.has(n.id));
+        updateHealthStatusBar(visibleNodes);
+      }
+
+      function clearEnvFilter() {
+        currentEnvFilter = null;
+        envConnectivityOnly = false;
+        applyEnvFilter._lastEnvId = null;
+        const connectivityCheckbox = document.getElementById(
+          "env-connectivity-only",
+        );
+        if (connectivityCheckbox) connectivityCheckbox.checked = false;
+        const select = document.getElementById("env-filter-select");
+        const clearBtn = document.getElementById("env-filter-clear-btn");
+        const infoSpan = document.getElementById("env-filter-info");
+        const svg = d3.select("#network-graph");
+
+        // Remove overlay lines and tick handler
+        svg.selectAll(".env-overlay-link").remove();
+        if (simulation) simulation.on("tick.envOverlay", null);
+
+        if (select) select.value = "";
+        if (clearBtn) clearBtn.style.display = "none";
+        if (infoSpan) infoSpan.textContent = "";
+
+        resetHealthVisuals(svg);
+
+        const allNodes = [];
+        svg.selectAll(".node").each(function (d) {
+          allNodes.push(d);
+        });
+        updateHealthStatusBar(allNodes);
       }
 
       function getEdgeColor(relationshipType) {
@@ -3839,7 +6511,6 @@ LIMIT 10</textarea
           "configurations",
           "properties",
           "status",
-          "owner",
         ];
 
         const properties = Object.keys(d).filter(
@@ -3851,6 +6522,21 @@ LIMIT 10</textarea
             d[key] !== "" &&
             typeof d[key] !== "object", // Exclude nested objects
         );
+
+        // Sort so timestamp fields (createdAt, updatedAt) appear last
+        const timestampProps = [
+          "createdAt",
+          "updatedAt",
+          "created_at",
+          "updated_at",
+        ];
+        properties.sort((a, b) => {
+          const aIsTs = timestampProps.includes(a);
+          const bIsTs = timestampProps.includes(b);
+          if (aIsTs && !bIsTs) return 1;
+          if (!aIsTs && bIsTs) return -1;
+          return 0;
+        });
 
         // Create properties table if there are any properties
         if (properties.length > 0) {
@@ -3925,6 +6611,217 @@ LIMIT 10</textarea
         // Create configurations table - look for config_ properties directly on the node
         let configurationsData = null;
 
+        // Display stats section if the node has stats
+        if (
+          d.stats &&
+          typeof d.stats === "object" &&
+          Object.keys(d.stats).length > 0
+        ) {
+          const metaLabels = {
+            deviceName: "Device Name",
+            deviceDescription: "Description",
+            ipAddress: "IP Address",
+            deviceHostname: "Hostname",
+            deviceClass: "Device Class",
+            subClass: "Sub-Class",
+            category: "Category",
+            organization: "Organization",
+            managedType: "Managed Type",
+            collectionMode: "Collection Mode",
+            collectorGroup: "Collector/Group",
+            uptime: "Uptime",
+            collectionTime: "Collection Time",
+            sourceId: "Source ID",
+            sourceSystem: "Source System",
+          };
+
+          const healthLabels = {
+            currentState: "Current State",
+            availability: "Availability",
+            latency: "Latency",
+            cpu: "CPU",
+            memory: "Memory",
+            swap: "Swap",
+            storage: "Storage",
+            healthScore: "Health Score",
+          };
+
+          const metaKeys = Object.keys(metaLabels);
+          const healthKeys = Object.keys(healthLabels);
+
+          // Separate stats into meta and health entries
+          const metaEntries = Object.entries(d.stats).filter(
+            ([key, value]) =>
+              metaKeys.includes(key) &&
+              value !== null &&
+              value !== undefined &&
+              value !== "",
+          );
+          const healthEntries = Object.entries(d.stats).filter(
+            ([key, value]) =>
+              healthKeys.includes(key) &&
+              value !== null &&
+              value !== undefined &&
+              value !== "",
+          );
+
+          const totalStatsCount = metaEntries.length + healthEntries.length;
+
+          if (totalStatsCount > 0) {
+            let syncLine = "";
+            if (d.stats.lastSyncedAt) {
+              const syncDate = new Date(d.stats.lastSyncedAt);
+              if (!isNaN(syncDate.getTime())) {
+                const syncDisplay = syncDate.toLocaleString(undefined, {
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                });
+                syncLine = `<div style="color: #64748b; font-size: 0.7rem; margin: 2px 0 6px 0;">Last synced: ${syncDisplay}</div>`;
+              }
+            }
+            tooltipContent += `
+              <div style="color: #60a5fa; font-weight: 600; font-size: 0.8rem; margin-bottom: 2px; cursor: pointer;" onclick="toggleStatsDetails()">
+                Infrastructure Monitoring (${totalStatsCount}) [Show]
+              </div>
+              ${syncLine}
+              <div id="stats-details" style="display: none;">
+            `;
+
+            // --- Device Meta subsection ---
+            if (metaEntries.length > 0) {
+              tooltipContent += `
+                <div style="color: #94a3b8; font-weight: 600; font-size: 0.75rem; margin: 6px 0 4px 8px; cursor: pointer;" onclick="toggleStatsMetaDetails(event)">
+                  Device Meta (${metaEntries.length}) [Show]
+                </div>
+                <div id="stats-meta-details" style="display: none;">
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 8px;">
+                  <thead>
+                    <tr>
+                      <th style="background: #1e293b; color: #60a5fa; padding: 4px 8px; text-align: left; font-size: 0.75rem; border-bottom: 1px solid #334155;">Field</th>
+                      <th style="background: #1e293b; color: #60a5fa; padding: 4px 8px; text-align: left; font-size: 0.75rem; border-bottom: 1px solid #334155;">Value</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+              `;
+
+              metaEntries.forEach(([key, value]) => {
+                const label = metaLabels[key] || key;
+                tooltipContent += `
+                  <tr>
+                    <td style="padding: 3px 8px; border-bottom: 1px solid #1e293b; color: #94a3b8; font-size: 0.75rem; font-weight: 500;">${label}</td>
+                    <td style="padding: 3px 8px; border-bottom: 1px solid #1e293b; font-size: 0.75rem; color: #cbd5e1;">${String(value)}</td>
+                  </tr>
+                `;
+              });
+
+              tooltipContent += `
+                  </tbody>
+                </table>
+                </div>
+              `;
+            }
+
+            // --- Performance Stats subsection ---
+            if (healthEntries.length > 0) {
+              tooltipContent += `
+                <div style="color: #94a3b8; font-weight: 600; font-size: 0.75rem; margin: 6px 0 4px 8px; cursor: pointer;" onclick="toggleStatsHealthDetails(event)">
+                  Performance Stats (${healthEntries.length}) [Show]
+                </div>
+                <div id="stats-health-details" style="display: none;">
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 8px;">
+                  <thead>
+                    <tr>
+                      <th style="background: #1e293b; color: #60a5fa; padding: 4px 8px; text-align: left; font-size: 0.75rem; border-bottom: 1px solid #334155;">Metric</th>
+                      <th style="background: #1e293b; color: #60a5fa; padding: 4px 8px; text-align: left; font-size: 0.75rem; border-bottom: 1px solid #334155;">Value</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+              `;
+
+              healthEntries.forEach(([key, value]) => {
+                const label = healthLabels[key] || key;
+                let displayVal = String(value);
+
+                // Add % suffix for percentage fields, color code health
+                let valueStyle = "color: #cbd5e1;";
+                if (["cpu", "memory", "storage", "swap"].includes(key)) {
+                  displayVal += "%";
+                  const num = parseFloat(value);
+                  if (num > 90)
+                    valueStyle = "color: #f87171; font-weight: 600;";
+                  else if (num > 70) valueStyle = "color: #fbbf24;";
+                  else valueStyle = "color: #34d399;";
+                } else if (key === "availability") {
+                  const num = parseFloat(value);
+                  let bucket = "";
+                  if (num >= 99.9) {
+                    valueStyle = "color: #34d399; font-weight: 600;";
+                    bucket = "Excellent";
+                  } else if (num >= 99.0) {
+                    valueStyle = "color: #34d399;";
+                    bucket = "Good";
+                  } else if (num >= 97.0) {
+                    valueStyle = "color: #eab308;";
+                    bucket = "Fair";
+                  } else if (num >= 95.0) {
+                    valueStyle = "color: #f97316; font-weight: 600;";
+                    bucket = "Poor";
+                  } else {
+                    valueStyle = "color: #ef4444; font-weight: 600;";
+                    bucket = "Critical";
+                  }
+                  displayVal = num.toFixed(2) + "%";
+                } else if (key === "latency") {
+                  displayVal += " ms";
+                  const num = parseFloat(value);
+                  if (num <= 50) valueStyle = "color: #34d399;";
+                  else if (num <= 200) valueStyle = "color: #fbbf24;";
+                  else valueStyle = "color: #f87171; font-weight: 600;";
+                } else if (key === "healthScore") {
+                  const num = parseFloat(value);
+                  if (num >= 80)
+                    valueStyle = "color: #34d399; font-weight: 600;";
+                  else if (num >= 50) valueStyle = "color: #fbbf24;";
+                  else valueStyle = "color: #f87171; font-weight: 600;";
+                } else if (key === "currentState") {
+                  const stateLower = String(value).toLowerCase();
+                  if (
+                    ["active", "healthy", "up", "running"].includes(stateLower)
+                  )
+                    valueStyle = "color: #34d399; font-weight: 600;";
+                  else if (
+                    ["warning", "degraded", "maintenance"].includes(stateLower)
+                  )
+                    valueStyle = "color: #fbbf24; font-weight: 600;";
+                  else if (
+                    ["critical", "down", "error", "unreachable"].includes(
+                      stateLower,
+                    )
+                  )
+                    valueStyle = "color: #f87171; font-weight: 600;";
+                }
+
+                tooltipContent += `
+                  <tr>
+                    <td style="padding: 3px 8px; border-bottom: 1px solid #1e293b; color: #94a3b8; font-size: 0.75rem; font-weight: 500;">${label}</td>
+                    <td style="padding: 3px 8px; border-bottom: 1px solid #1e293b; font-size: 0.75rem; ${valueStyle}">${displayVal}</td>
+                  </tr>
+                `;
+              });
+
+              tooltipContent += `
+                  </tbody>
+                </table>
+                </div>
+              `;
+            }
+
+            tooltipContent += `
+              </div>
+            `;
+          }
+        }
+
         // Look for properties that start with "config_"
         const configProps = Object.keys(d).filter(
           (key) =>
@@ -3998,31 +6895,9 @@ LIMIT 10</textarea
           `;
         }
 
-        // Add download button and entity ID at the bottom
+        // Bottom spacer
         tooltipContent += `
-          <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #1e293b; text-align: center;">
-            <button 
-              onclick="downloadNodeProperties('${d.id}')" 
-              style="
-                background: #334155;
-                color: #cbd5e1;
-                border: 1px solid #475569;
-                padding: 6px 12px;
-                border-radius: 4px;
-                font-size: 0.7rem;
-                cursor: pointer;
-                margin-bottom: 6px;
-                transition: all 0.2s;
-              "
-              onmouseover="this.style.background='#475569'; this.style.color='#e2e8f0';"
-              onmouseout="this.style.background='#334155'; this.style.color='#cbd5e1';"
-            >
-              Download Properties
-            </button>
-            <div style="color: #475569; font-size: 0.65rem;">
-              Entity ID: ${d.id}
-            </div>
-          </div>
+          <div style="margin-top: 10px;"></div>
         `;
 
         tooltip.innerHTML = tooltipContent;
@@ -4309,6 +7184,87 @@ LIMIT 10</textarea
 
       function keepTooltipVisible() {
         clearTimeout(tooltipTimeout);
+      }
+
+      // ========== Node Info Panel (Environment click) ==========
+      function showNodeInfoPanel(d) {
+        const panel = document.getElementById("node-info-panel");
+        document.getElementById("nip-title").textContent =
+          d.name || d.label || "Environment";
+
+        // Owner
+        const ownerEl = document.getElementById("nip-owner");
+        const ownerVal = d.owner || d.properties?.owner || "";
+        ownerEl.innerHTML = ownerVal
+          ? `<span>${escapeHtml(ownerVal)}</span>`
+          : '<span class="nip-empty">Not specified</span>';
+
+        // Collaborators
+        const collabEl = document.getElementById("nip-collaborators");
+        const collabVal = d.collaborators || d.properties?.collaborators || "";
+        if (collabVal) {
+          const chips = collabVal
+            .split(",")
+            .map((c) => c.trim())
+            .filter(Boolean);
+          collabEl.innerHTML = chips
+            .map((c) => `<span class="nip-chip">${escapeHtml(c)}</span>`)
+            .join("");
+        } else {
+          collabEl.innerHTML = '<span class="nip-empty">None</span>';
+        }
+
+        // Scheduled Updates
+        const suEl = document.getElementById("nip-scheduled-updates");
+        const suVal =
+          d.scheduledUpdates || d.properties?.scheduledUpdates || "";
+        if (suVal) {
+          // Try to parse as JSON array, fall back to line-split
+          let items = [];
+          try {
+            const parsed = JSON.parse(suVal);
+            items = Array.isArray(parsed) ? parsed : [suVal];
+          } catch (e) {
+            items = suVal
+              .split(/[\n,]/)
+              .map((s) => s.trim())
+              .filter(Boolean);
+          }
+          suEl.innerHTML = items
+            .map(
+              (item) =>
+                `<div class="nip-update-item">${escapeHtml(typeof item === "object" ? JSON.stringify(item) : String(item))}</div>`,
+            )
+            .join("");
+        } else {
+          suEl.innerHTML = '<span class="nip-empty">None scheduled</span>';
+        }
+
+        // Last Updated
+        const luEl = document.getElementById("nip-last-updated");
+        const luVal = d.updatedAt || d.properties?.updatedAt || "";
+        if (luVal) {
+          try {
+            const dt = new Date(luVal);
+            luEl.innerHTML = `<span>${dt.toLocaleString()}</span>`;
+          } catch (e) {
+            luEl.innerHTML = `<span>${escapeHtml(luVal)}</span>`;
+          }
+        } else {
+          luEl.innerHTML = '<span class="nip-empty">Never</span>';
+        }
+
+        panel.style.display = "block";
+      }
+
+      function closeNodeInfoPanel() {
+        document.getElementById("node-info-panel").style.display = "none";
+      }
+
+      function escapeHtml(str) {
+        const div = document.createElement("div");
+        div.textContent = str;
+        return div.innerHTML;
       }
 
       // Edge context menu management
@@ -4662,12 +7618,16 @@ LIMIT 10</textarea
 
         if (edgeLabelsVisible) {
           // Hide edge labels
-          edgeLabels.style("opacity", 0);
+          edgeLabels.attr("opacity", 0);
           button.textContent = "Show Edge Labels";
           edgeLabelsVisible = false;
         } else {
-          // Show edge labels
-          edgeLabels.style("opacity", 1);
+          // Show edge labels (only for visible edges if env filter is active)
+          if (currentEnvFilter) {
+            applyEnvFilter(); // re-apply to only show relevant edge labels
+          } else {
+            edgeLabels.attr("opacity", 1);
+          }
           button.textContent = "Hide Edge Labels";
           edgeLabelsVisible = true;
         }
@@ -5026,6 +7986,9 @@ LIMIT 10</textarea
           entityType === "Application" ? "block" : "none";
         document.getElementById("edit-integration-fields").style.display =
           entityType === "Integration" ? "block" : "none";
+        // Hide stats section for Integrations
+        document.getElementById("edit-stats-wrapper").style.display =
+          entityType === "Integration" ? "none" : "block";
 
         // Load entity data
         try {
@@ -5061,6 +8024,13 @@ LIMIT 10</textarea
                 if (propName.startsWith("config_")) {
                   const configKey = propName.replace("config_", "");
                   configurations[configKey] = value;
+                } else if (
+                  STAT_FIELD_IDS.includes(propName) ||
+                  propName === "sourceId" ||
+                  propName === "lastSyncedAt"
+                ) {
+                  if (!entityData._stats) entityData._stats = {};
+                  entityData._stats[propName] = value;
                 } else {
                   entityData[propName] = value;
                 }
@@ -5079,6 +8049,18 @@ LIMIT 10</textarea
               entityData.owner || "";
             document.getElementById("edit-entity-status").value =
               entityData.status || "active";
+
+            // Optional entity properties
+            document.getElementById("edit-entity-primary-usage").value =
+              entityData.primaryUsage || "";
+            document.getElementById("edit-entity-current-usage").value =
+              entityData.currentUsage || "";
+            document.getElementById("edit-entity-collaborators").value =
+              entityData.collaborators || "";
+            document.getElementById("edit-entity-current-build").value =
+              entityData.currentBuild || "";
+            document.getElementById("edit-entity-scheduled-updates").value =
+              entityData.scheduledUpdates || "";
 
             // Type-specific fields
             if (entityType === "Environment") {
@@ -5112,6 +8094,32 @@ LIMIT 10</textarea
                 addEditConfigField(key, value);
               }
             });
+
+            // Populate stats fields if they exist
+            if (
+              entityData._stats &&
+              Object.keys(entityData._stats).length > 0
+            ) {
+              STAT_FIELD_IDS.forEach((field) => {
+                const el = document.getElementById("edit-stats-" + field);
+                if (el) el.value = entityData._stats[field] || "";
+              });
+              document.getElementById("edit-stats-section").style.display =
+                "block";
+              document.getElementById(
+                "edit-stats-toggle-icon",
+              ).style.transform = "rotate(90deg)";
+            } else {
+              STAT_FIELD_IDS.forEach((field) => {
+                const el = document.getElementById("edit-stats-" + field);
+                if (el) el.value = "";
+              });
+              document.getElementById("edit-stats-section").style.display =
+                "none";
+              document.getElementById(
+                "edit-stats-toggle-icon",
+              ).style.transform = "rotate(0deg)";
+            }
 
             // Auto-expand config section if there are custom configs
             const customConfigCount = Object.keys(configurations).filter(
@@ -5154,11 +8162,36 @@ LIMIT 10</textarea
       function closeEditModal() {
         document.getElementById("edit-modal").style.display = "none";
         document.getElementById("edit-entity-form").reset();
+        document.getElementById("edit-entity-primary-usage").value = "";
+        document.getElementById("edit-entity-current-usage").value = "";
+        document.getElementById("edit-entity-collaborators").value = "";
+        document.getElementById("edit-entity-current-build").value = "";
+        document.getElementById("edit-entity-scheduled-updates").value = "";
         document.getElementById("edit-config-list").innerHTML = "";
         document.getElementById("edit-config-csv-preview").style.display =
           "none";
         document.getElementById("edit-config-csv-preview-content").innerHTML =
           "";
+        // Clear edit stats fields
+        STAT_FIELD_IDS.forEach((field) => {
+          const el = document.getElementById("edit-stats-" + field);
+          if (el) el.value = "";
+        });
+        document.getElementById("edit-stats-section").style.display = "none";
+        document.getElementById("edit-stats-toggle-icon").style.transform =
+          "rotate(0deg)";
+      }
+
+      function toggleEditStatsSection() {
+        const section = document.getElementById("edit-stats-section");
+        const icon = document.getElementById("edit-stats-toggle-icon");
+        if (section.style.display === "none") {
+          section.style.display = "block";
+          icon.style.transform = "rotate(90deg)";
+        } else {
+          section.style.display = "none";
+          icon.style.transform = "rotate(0deg)";
+        }
       }
 
       function addEditConfigField(key = "", value = "") {
@@ -5208,6 +8241,21 @@ LIMIT 10</textarea
           description: document.getElementById("edit-entity-description").value,
           owner: document.getElementById("edit-entity-owner").value,
           status: document.getElementById("edit-entity-status").value,
+          primaryUsage: document
+            .getElementById("edit-entity-primary-usage")
+            .value.trim(),
+          currentUsage: document
+            .getElementById("edit-entity-current-usage")
+            .value.trim(),
+          collaborators: document
+            .getElementById("edit-entity-collaborators")
+            .value.trim(),
+          currentBuild: document
+            .getElementById("edit-entity-current-build")
+            .value.trim(),
+          scheduledUpdates: document
+            .getElementById("edit-entity-scheduled-updates")
+            .value.trim(),
         };
 
         // Collect type-specific fields and configurations
@@ -5235,6 +8283,16 @@ LIMIT 10</textarea
 
         if (Object.keys(configurations).length > 0) {
           updateData.configurations = configurations;
+        }
+
+        // Collect stats from edit form
+        const editStats = {};
+        STAT_FIELD_IDS.forEach((field) => {
+          const el = document.getElementById("edit-stats-" + field);
+          if (el && el.value.trim()) editStats[field] = el.value.trim();
+        });
+        if (Object.keys(editStats).length > 0) {
+          updateData.stats = editStats;
         }
 
         console.log("Saving entity update:", updateData);
@@ -5563,6 +8621,44 @@ LIMIT 10</textarea
         }
       }
 
+      function toggleStatsDetails() {
+        const details = document.getElementById("stats-details");
+        const header = details.previousElementSibling;
+        if (details.style.display === "none") {
+          details.style.display = "block";
+          header.innerHTML = header.innerHTML.replace("[Show]", "[Hide]");
+        } else {
+          details.style.display = "none";
+          header.innerHTML = header.innerHTML.replace("[Hide]", "[Show]");
+        }
+      }
+
+      function toggleStatsMetaDetails(event) {
+        event.stopPropagation();
+        const details = document.getElementById("stats-meta-details");
+        const header = details.previousElementSibling;
+        if (details.style.display === "none") {
+          details.style.display = "block";
+          header.innerHTML = header.innerHTML.replace("[Show]", "[Hide]");
+        } else {
+          details.style.display = "none";
+          header.innerHTML = header.innerHTML.replace("[Hide]", "[Show]");
+        }
+      }
+
+      function toggleStatsHealthDetails(event) {
+        event.stopPropagation();
+        const details = document.getElementById("stats-health-details");
+        const header = details.previousElementSibling;
+        if (details.style.display === "none") {
+          details.style.display = "block";
+          header.innerHTML = header.innerHTML.replace("[Show]", "[Hide]");
+        } else {
+          details.style.display = "none";
+          header.innerHTML = header.innerHTML.replace("[Hide]", "[Show]");
+        }
+      }
+
       // Helper function to escape HTML special characters
       function escapeHtml(text) {
         const div = document.createElement("div");
@@ -5623,6 +8719,18 @@ LIMIT 10</textarea
         reader.onload = function (e) {
           try {
             const content = e.target.result;
+
+            // Detect PCE CSV format (environment_name, property_key, property_value)
+            const firstLine = content.split(/\r?\n/)[0].toLowerCase().trim();
+            if (
+              firstLine.includes("environment_name") &&
+              firstLine.includes("property_key") &&
+              firstLine.includes("property_value")
+            ) {
+              handlePceCsvUpload(content, file.name);
+              return;
+            }
+
             const entities = parseCsvToEntities(content);
             const jsonData = { entities };
             document.getElementById("bulk-json-input").value = JSON.stringify(
@@ -5648,6 +8756,85 @@ LIMIT 10</textarea
           showAlert("bulk-alerts", "Failed to read CSV file", "error");
         };
         reader.readAsText(file);
+      }
+
+      async function handlePceCsvUpload(csvContent, fileName) {
+        // Show CSV preview in the JSON textarea
+        const lines = csvContent.split(/\r?\n/).filter((l) => l.trim());
+        const envCount = new Set(
+          lines
+            .slice(1)
+            .map((l) => l.split(",")[0].trim())
+            .filter(Boolean),
+        ).size;
+        document.getElementById("bulk-json-input").value =
+          `// PCE Discovery CSV — ${lines.length - 1} properties across ${envCount} environment(s)\n// Uploading to: ${CONFIG.PCE_DISCOVERY_URL}\n\n` +
+          csvContent;
+
+        showAlert(
+          "bulk-alerts",
+          `<span class="spinner"></span>Processing PCE Discovery for <strong>${envCount}</strong> environment(s), <strong>${lines.length - 1}</strong> properties from "${fileName}"…`,
+          "info",
+          { isHtml: true, timeout: 0 },
+        );
+
+        try {
+          const response = await fetch(CONFIG.PCE_DISCOVERY_URL, {
+            method: "POST",
+            headers: { "Content-Type": "text/csv" },
+            body: csvContent,
+          });
+
+          const result = await response.json();
+
+          if (!response.ok) {
+            showAlert(
+              "bulk-alerts",
+              `PCE Discovery failed: ${result.error || result.message || response.statusText}`,
+              "error",
+            );
+            return;
+          }
+
+          const s = result.summary || {};
+          let html = `<strong>PCE Discovery Complete</strong><br>`;
+          html += `Source: ${result.source || "csv-upload"} | Environments: ${result.environmentsProcessed || 0}<br>`;
+          html += `Environments created: <strong>${s.totalEnvironmentsCreated || 0}</strong> | `;
+          html += `Integrations created: <strong>${s.totalIntegrationsCreated || 0}</strong> | `;
+          html += `Skipped (existing): ${s.totalIntegrationsSkipped || 0} | `;
+          html += `Stale: ${s.totalIntegrationsStale || 0}<br>`;
+          html += `Non-URL configs stored: ${s.totalNonUrlConfigs || 0} | `;
+          html += `Stubs detected: <strong>${s.totalStubs || 0}</strong> | `;
+          html += `Errors: ${s.totalErrors || 0}`;
+
+          if (result.results) {
+            for (const r of result.results) {
+              html += `<br><br><em>${r.sourceEnvironment}:</em> `;
+              if (r.integrationsCreated.length > 0)
+                html += `Created: ${r.integrationsCreated.join(", ")} `;
+              if (r.environmentsCreated.length > 0)
+                html += `| New envs: ${r.environmentsCreated.join(", ")} `;
+              if (r.errors.length > 0)
+                html += `| Errors: ${r.errors.map((e) => e.key + ": " + e.error).join("; ")}`;
+            }
+          }
+
+          showAlert(
+            "bulk-alerts",
+            html,
+            s.totalErrors > 0 ? "warning" : "success",
+            { isHtml: true, timeout: 0 },
+          );
+
+          // Refresh the entity list if function exists
+          if (typeof loadAllEntities === "function") loadAllEntities();
+        } catch (error) {
+          showAlert(
+            "bulk-alerts",
+            `PCE Discovery request failed: ${error.message}`,
+            "error",
+          );
+        }
       }
 
       function handleExcelFileUpload(file) {
@@ -5740,6 +8927,86 @@ LIMIT 10</textarea
               relationshipType = value;
             else if (headerLower === "targetentity") targetEntity = value;
             // Configuration key/value pairs (config_key1, config_value1, config_key2, config_value2, etc.)
+            // Stats fields - ScienceLogic Meta
+            else if (headerLower === "devicename") {
+              if (!entity.stats) entity.stats = {};
+              entity.stats.deviceName = value;
+            } else if (
+              headerLower === "devicedescription" ||
+              headerLower === "device_description"
+            ) {
+              if (!entity.stats) entity.stats = {};
+              entity.stats.deviceDescription = value;
+            } else if (headerLower === "ipaddress") {
+              if (!entity.stats) entity.stats = {};
+              entity.stats.ipAddress = value;
+            } else if (headerLower === "devicehostname") {
+              if (!entity.stats) entity.stats = {};
+              entity.stats.deviceHostname = value;
+            } else if (headerLower === "deviceclass") {
+              if (!entity.stats) entity.stats = {};
+              entity.stats.deviceClass = value;
+            } else if (headerLower === "subclass") {
+              if (!entity.stats) entity.stats = {};
+              entity.stats.subClass = value;
+            } else if (headerLower === "category") {
+              if (!entity.stats) entity.stats = {};
+              entity.stats.category = value;
+            } else if (headerLower === "organization") {
+              if (!entity.stats) entity.stats = {};
+              entity.stats.organization = value;
+            } else if (headerLower === "managedtype") {
+              if (!entity.stats) entity.stats = {};
+              entity.stats.managedType = value;
+            } else if (headerLower === "collectionmode") {
+              if (!entity.stats) entity.stats = {};
+              entity.stats.collectionMode = value;
+            } else if (headerLower === "collectorgroup") {
+              if (!entity.stats) entity.stats = {};
+              entity.stats.collectorGroup = value;
+            } else if (headerLower === "uptime") {
+              if (!entity.stats) entity.stats = {};
+              entity.stats.uptime = value;
+            } else if (headerLower === "collectiontime") {
+              if (!entity.stats) entity.stats = {};
+              entity.stats.collectionTime = value;
+            } else if (headerLower === "sourcesystem") {
+              if (!entity.stats) entity.stats = {};
+              entity.stats.sourceSystem = value;
+            } else if (headerLower === "sourceid") {
+              if (!entity.stats) entity.stats = {};
+              entity.stats.sourceId = value;
+            } else if (headerLower === "lastsyncedat") {
+              if (!entity.stats) entity.stats = {};
+              entity.stats.lastSyncedAt = value;
+            }
+            // Stats fields - ScienceLogic Stats
+            else if (headerLower === "currentstate") {
+              if (!entity.stats) entity.stats = {};
+              entity.stats.currentState = value;
+            } else if (headerLower === "availability") {
+              if (!entity.stats) entity.stats = {};
+              entity.stats.availability = value;
+            } else if (headerLower === "latency") {
+              if (!entity.stats) entity.stats = {};
+              entity.stats.latency = value;
+            } else if (headerLower === "cpu") {
+              if (!entity.stats) entity.stats = {};
+              entity.stats.cpu = value;
+            } else if (headerLower === "memory") {
+              if (!entity.stats) entity.stats = {};
+              entity.stats.memory = value;
+            } else if (headerLower === "swap") {
+              if (!entity.stats) entity.stats = {};
+              entity.stats.swap = value;
+            } else if (headerLower === "storage") {
+              if (!entity.stats) entity.stats = {};
+              entity.stats.storage = value;
+            } else if (headerLower === "healthscore") {
+              if (!entity.stats) entity.stats = {};
+              entity.stats.healthScore = value;
+            }
+            // Configuration key/value pairs
             else if (headerLower.match(/^config_key(\d*)$/)) {
               const num = headerLower.match(/^config_key(\d*)$/)[1];
               configPairs[`key${num}`] = value;
@@ -6134,6 +9401,232 @@ LIMIT 10</textarea
                 `;
         }
       }
+
+      // ============================================================================
+      // AI Query Functions (Bedrock Integration)
+      // ============================================================================
+
+      // AI Query history storage
+      let aiQueryHistory = [];
+
+      // Load AI query history from localStorage
+      function loadAiQueryHistory() {
+        const stored = localStorage.getItem("aiQueryHistory");
+        if (stored) {
+          try {
+            aiQueryHistory = JSON.parse(stored);
+          } catch (e) {
+            aiQueryHistory = [];
+          }
+        }
+      }
+
+      // Save AI query history to localStorage
+      function saveAiQueryHistory() {
+        localStorage.setItem(
+          "aiQueryHistory",
+          JSON.stringify(aiQueryHistory.slice(0, 10)),
+        );
+      }
+
+      // Use an example query
+      function useExampleQuery(query) {
+        document.getElementById("ai-query-input").value = query;
+        document.getElementById("ai-query-input").focus();
+      }
+
+      // Clear AI query form
+      function clearAiQuery() {
+        document.getElementById("ai-query-input").value = "";
+        document.getElementById("ai-query-results").style.display = "none";
+        document.getElementById("ai-query-alerts").innerHTML = "";
+      }
+
+      // Toggle AI results view
+      let currentAiView = "table";
+      function toggleAiResultsView(view) {
+        currentAiView = view;
+        document.getElementById("ai-results-table-view").style.display =
+          view === "table" ? "block" : "none";
+        document.getElementById("ai-results-formatted-view").style.display =
+          view === "formatted" ? "block" : "none";
+        document.getElementById("ai-results-json-view").style.display =
+          view === "json" ? "block" : "none";
+      }
+
+      // Execute AI query
+      async function executeAiQuery() {
+        const queryInput = document
+          .getElementById("ai-query-input")
+          .value.trim();
+
+        if (!queryInput) {
+          showAlert("ai-query-alerts", "Please enter a question", "warning");
+          return;
+        }
+
+        // Show loading
+        document.getElementById("ai-query-loading").style.display = "block";
+        document.getElementById("ai-query-results").style.display = "none";
+        document.getElementById("ai-query-alerts").innerHTML = "";
+        document.getElementById("ai-query-btn").disabled = true;
+
+        try {
+          // Call Bedrock AI Query endpoint
+          const response = await fetch(CONFIG.BEDROCK_QUERY_URL, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              query: queryInput,
+            }),
+          });
+
+          const result = await response.json();
+
+          if (!response.ok || !result.success) {
+            throw new Error(result.error || "AI query failed");
+          }
+
+          // Add to history
+          aiQueryHistory.unshift({
+            query: queryInput,
+            timestamp: new Date().toISOString(),
+            resultCount: result.resultCount,
+            sparql: result.sparql,
+          });
+          saveAiQueryHistory();
+
+          // Display results
+          displayAiQueryResults(result);
+
+          // Show SPARQL if toggle is on
+          const showSparql =
+            document.getElementById("show-sparql-toggle").checked;
+          if (showSparql && result.sparql) {
+            document.getElementById("generated-sparql-section").style.display =
+              "block";
+            document.getElementById("generated-sparql").textContent =
+              result.sparql;
+          }
+
+          // Update history display
+          updateAiHistoryDisplay();
+        } catch (error) {
+          console.error("AI query error:", error);
+          showAlert("ai-query-alerts", `Error: ${error.message}`, "error");
+        } finally {
+          document.getElementById("ai-query-loading").style.display = "none";
+          document.getElementById("ai-query-btn").disabled = false;
+        }
+      }
+
+      // Display AI query results
+      function displayAiQueryResults(result) {
+        document.getElementById("ai-query-results").style.display = "block";
+
+        // Results count
+        document.getElementById("ai-results-count").textContent =
+          `Found ${result.resultCount} result${result.resultCount !== 1 ? "s" : ""}`;
+
+        // Table view
+        if (result.results && result.results.length > 0) {
+          const table = createResultsTable(result.results);
+          document.getElementById("ai-results-table-view").innerHTML = table;
+        } else {
+          document.getElementById("ai-results-table-view").innerHTML =
+            '<p style="color: var(--text-secondary);">No results found</p>';
+        }
+
+        // Formatted view
+        document.getElementById("ai-results-formatted-view").innerHTML =
+          `<pre style="background: var(--bg-secondary); padding: 1rem; border-radius: 4px; white-space: pre-wrap;">${escapeHtml(result.formatted || "No formatted results available")}</pre>`;
+
+        // JSON view
+        document.getElementById("ai-results-json-view").innerHTML =
+          `<pre style="background: var(--bg-secondary); padding: 1rem; border-radius: 4px; overflow-x: auto;">${JSON.stringify(result.results, null, 2)}</pre>`;
+
+        // Reset to table view
+        toggleAiResultsView("table");
+      }
+
+      // Create HTML table from results
+      function createResultsTable(results) {
+        if (!results || results.length === 0) {
+          return "<p>No results</p>";
+        }
+
+        // Get all unique keys from results
+        const keys = [...new Set(results.flatMap((r) => Object.keys(r)))];
+
+        let html =
+          '<div style="overflow-x: auto;"><table class="data-table"><thead><tr>';
+
+        // Headers
+        keys.forEach((key) => {
+          html += `<th>${escapeHtml(key)}</th>`;
+        });
+        html += "</tr></thead><tbody>";
+
+        // Rows
+        results.forEach((row) => {
+          html += "<tr>";
+          keys.forEach((key) => {
+            const value = row[key]?.value || "";
+            html += `<td>${escapeHtml(value)}</td>`;
+          });
+          html += "</tr>";
+        });
+
+        html += "</tbody></table></div>";
+        return html;
+      }
+
+      // Update AI query history display
+      function updateAiHistoryDisplay() {
+        if (aiQueryHistory.length === 0) {
+          document.getElementById("ai-query-history").style.display = "none";
+          return;
+        }
+
+        document.getElementById("ai-query-history").style.display = "block";
+
+        let html =
+          '<div style="display: flex; flex-direction: column; gap: 0.5rem;">';
+        aiQueryHistory.slice(0, 10).forEach((item, index) => {
+          const date = new Date(item.timestamp).toLocaleString();
+          html += `
+            <div style="padding: 0.75rem; background: var(--bg-secondary); border-radius: 4px; cursor: pointer; border-left: 3px solid var(--primary-color);"
+                 onclick="useExampleQuery('${escapeHtml(item.query).replace(/'/g, "\\'")}')">
+              <div style="font-weight: 500; margin-bottom: 0.25rem;">${escapeHtml(item.query)}</div>
+              <div style="font-size: 0.75rem; color: var(--text-secondary);">
+                ${date} • ${item.resultCount} results
+              </div>
+            </div>
+          `;
+        });
+        html += "</div>";
+
+        document.getElementById("ai-history-list").innerHTML = html;
+      }
+
+      // Handle Enter key in query input
+      document.addEventListener("DOMContentLoaded", function () {
+        const aiQueryInput = document.getElementById("ai-query-input");
+        if (aiQueryInput) {
+          aiQueryInput.addEventListener("keydown", function (e) {
+            if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+              e.preventDefault();
+              executeAiQuery();
+            }
+          });
+        }
+
+        // Load AI query history on page load
+        loadAiQueryHistory();
+        updateAiHistoryDisplay();
+      });
     </script>
   </body>
 </html>
