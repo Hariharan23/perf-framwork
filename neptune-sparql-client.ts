@@ -10,6 +10,51 @@ import { SignatureV4 } from '@smithy/signature-v4';
 import { v4 as uuidv4 } from 'uuid';
 import axios from 'axios';
 
+// Entity Stats interface (ScienceLogic monitoring/health + meta data)
+export interface EntityStats {
+  // --- ScienceLogic Meta Properties ---
+  deviceName?: string;
+  deviceDescription?: string;
+  ipAddress?: string;
+  deviceClass?: string;
+  organization?: string;
+  collectionMode?: string;
+  deviceHostname?: string;
+  managedType?: string;
+  category?: string;
+  subClass?: string;
+  uptime?: string;
+  collectionTime?: string;
+  collectorGroup?: string;
+  sourceId?: string;
+  sourceSystem?: string;
+  lastSyncedAt?: string;
+  // --- ScienceLogic Stats Properties ---
+  availability?: string;
+  latency?: string;
+  cpu?: string;
+  memory?: string;
+  swap?: string;
+  currentState?: string;
+  // --- Derived/Internal Properties ---
+  storage?: string;
+  healthScore?: string;
+}
+
+// List of stat/meta property names for iteration (must match EntityStats keys)
+export const STAT_PROPERTIES: (keyof EntityStats)[] = [
+  // Meta
+  'deviceName', 'deviceDescription',
+  'ipAddress', 'deviceClass', 'organization', 'collectionMode',
+  'deviceHostname', 'managedType', 'category', 'subClass',
+  'uptime', 'collectionTime', 'collectorGroup',
+  'sourceId', 'sourceSystem', 'lastSyncedAt',
+  // Stats
+  'availability', 'latency', 'cpu', 'memory', 'swap', 'currentState',
+  // Derived/Internal
+  'storage', 'healthScore',
+];
+
 // Core Entity interfaces following ontology
 export interface Entity {
   id: string;
@@ -20,6 +65,7 @@ export interface Entity {
   description?: string;
   createdAt?: string;
   status?: string;
+  stats?: EntityStats;
 }
 
 export interface Environment extends Entity {
@@ -69,6 +115,7 @@ export interface NetworkNode {
   type: string;
   properties: Record<string, any>;
   configurations?: Record<string, string>;
+  stats?: EntityStats;
 }
 
 export interface NetworkEdge {
@@ -551,21 +598,95 @@ export class NeptuneSparqlClient {
   }
 
   /**
-   * Get network data for visualization following ontology
+   * Lightweight: get just environment names and IDs for dropdown population
    */
-  async getNetworkData(): Promise<NetworkData> {
-    // Get all nodes with ALL their properties (including config_* properties)
-    const nodesQuery = `
-      PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+  async getEnvironmentsList(): Promise<{ id: string; name: string }[]> {
+    const query = `
       PREFIX env: <${this.ontologyPrefix}>
-      
+      SELECT ?id ?name WHERE {
+        ?entity env:id ?id ;
+                env:name ?name ;
+                env:type "Environment" .
+      }
+      ORDER BY ?name
+    `;
+    const result = await this.executeSparqlQuery(query);
+    return (result.results?.bindings || []).map((b: any) => ({
+      id: b.id?.value || '',
+      name: b.name?.value || '',
+    }));
+  }
+
+  /**
+   * Get network subgraph for specific environment(s) — only nodes/edges reachable
+   * from the given env IDs through Relationship entities (N-hop).
+   * If envIds is empty/null, returns the full graph.
+   */
+  async getNetworkDataForEnvs(envIds?: string[]): Promise<NetworkData> {
+    if (!envIds || envIds.length === 0) {
+      return this.getNetworkData();
+    }
+
+    // Build VALUES clause for the selected environment IDs
+    const valuesClause = envIds.map(id => `"${this.escapeSparql(id)}"`).join(' ');
+
+    // Step 1: Find all entities reachable from selected envs through Relationship entities.
+    // Neptune doesn't handle VALUES + nested UNION + BIND correctly, so we run two
+    // simple queries (source-side and target-side) and merge in JS.
+    const outboundQuery = `
+      PREFIX env: <${this.ontologyPrefix}>
+      SELECT ?relId ?targetId WHERE {
+        VALUES ?srcId { ${valuesClause} }
+        ?rel env:type "Relationship" ;
+             env:sourceEntityId ?srcId ;
+             env:targetEntityId ?targetId ;
+             env:id ?relId .
+      }
+    `;
+    const inboundQuery = `
+      PREFIX env: <${this.ontologyPrefix}>
+      SELECT ?relId ?sourceId WHERE {
+        VALUES ?tgtId { ${valuesClause} }
+        ?rel env:type "Relationship" ;
+             env:targetEntityId ?tgtId ;
+             env:sourceEntityId ?sourceId ;
+             env:id ?relId .
+      }
+    `;
+
+    const [outResult, inResult] = await Promise.all([
+      this.executeSparqlQuery(outboundQuery),
+      this.executeSparqlQuery(inboundQuery),
+    ]);
+
+    // Collect all reachable entity IDs: the selected envs themselves + relationship IDs + connected entity IDs
+    const reachableIds = new Set<string>(envIds);
+    (outResult.results?.bindings || []).forEach((b: any) => {
+      if (b.relId?.value) reachableIds.add(b.relId.value);
+      if (b.targetId?.value) reachableIds.add(b.targetId.value);
+    });
+    (inResult.results?.bindings || []).forEach((b: any) => {
+      if (b.relId?.value) reachableIds.add(b.relId.value);
+      if (b.sourceId?.value) reachableIds.add(b.sourceId.value);
+    });
+
+    if (reachableIds.size === 0) {
+      return { nodes: [], edges: [] };
+    }
+
+    // Step 2: Fetch node details only for reachable entities
+    const idValues = Array.from(reachableIds).map(id => `"${this.escapeSparql(id)}"`).join(' ');
+
+    const nodesQuery = `
+      PREFIX env: <${this.ontologyPrefix}>
       SELECT ?id ?name ?type ?status ?owner ?property ?value WHERE {
+        VALUES ?id { ${idValues} }
         ?entity env:id ?id ;
                 env:name ?name ;
                 env:type ?type .
         OPTIONAL { ?entity env:status ?status }
         OPTIONAL { ?entity env:owner ?owner }
-        OPTIONAL { 
+        OPTIONAL {
           ?entity ?property ?value .
           FILTER(STRSTARTS(STR(?property), "${this.ontologyPrefix}"))
           FILTER(?property NOT IN (env:id, env:name, env:type))
@@ -574,125 +695,86 @@ export class NeptuneSparqlClient {
       }
     `;
 
-    // Get all edges - both direct predicates and relationship entities
+    // Step 3: Fetch edges only for reachable entities
     const edgesQuery = `
-      PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
       PREFIX env: <${this.ontologyPrefix}>
-      
       SELECT ?sourceId ?targetId ?relationType ?relationLabel ?relationshipId WHERE {
-        {
-          # Direct predicate relationships (like your CAS_QA integrates PASQA304)
-          ?sourceEntity ?predicate ?targetEntity .
-          ?sourceEntity env:name ?sourceName .
-          ?targetEntity env:name ?targetName .
-          ?sourceEntity env:id ?sourceId .
-          ?targetEntity env:id ?targetId .
-          FILTER(STRSTARTS(STR(?predicate), "${this.ontologyPrefix}"))
-          FILTER(?predicate NOT IN (env:id, env:name, env:type, env:description, env:owner, env:status, env:createdAt, env:uniqueIdentifier, env:version, env:endpoint, env:region, env:sourceService, env:targetService))
-          BIND(STRAFTER(STR(?predicate), "${this.ontologyPrefix}") AS ?relationType)
-          BIND(?relationType AS ?relationLabel)
-          BIND("" AS ?relationshipId)
-        }
-        UNION
-        {
-          # Relationship entities
-          ?relationship env:type "Relationship" .
-          ?relationship env:relationshipType ?relationType .
-          ?relationship env:id ?relationshipId .
-          
-          # Get entity IDs directly from relationship (preferred method)
-          OPTIONAL { ?relationship env:sourceEntityId ?sourceId . }
-          OPTIONAL { ?relationship env:targetEntityId ?targetId . }
-          
-          # Fallback: if no IDs stored, use names (legacy support)
-          OPTIONAL {
-            ?relationship env:sourceEntity ?sourceName .
-            ?relationship env:targetEntity ?targetName .
-            FILTER(!BOUND(?sourceId) || !BOUND(?targetId))
-            
-            # Find first entity with matching names
-            ?sourceEntity env:name ?sourceName .
-            ?targetEntity env:name ?targetName .
-            BIND(IF(!BOUND(?sourceId), STR(?sourceEntity), ?sourceId) AS ?fallbackSourceId)
-            BIND(IF(!BOUND(?targetId), STR(?targetEntity), ?targetId) AS ?fallbackTargetId)
-          }
-          
-          # Use direct IDs if available, otherwise use fallback
-          BIND(COALESCE(?sourceId, STRAFTER(STR(?fallbackSourceId), "${this.ontologyPrefix}")) AS ?finalSourceId)
-          BIND(COALESCE(?targetId, STRAFTER(STR(?fallbackTargetId), "${this.ontologyPrefix}")) AS ?finalTargetId)
-          
-          # Only include if we have valid IDs
-          FILTER(BOUND(?finalSourceId) && BOUND(?finalTargetId))
-          
-          BIND(?finalSourceId AS ?sourceId)
-          BIND(?finalTargetId AS ?targetId)
-          BIND(?relationType AS ?relationLabel)
-        }
-        UNION
-        {
-          # Integration source relationships
-          ?integration env:type "Integration" .
-          ?integration env:id ?integrationId .
-          ?integration env:sourceService ?sourceUri .
-          
-          # Extract entity name from URI or use direct name
-          BIND(IF(CONTAINS(STR(?sourceUri), "/"), STRAFTER(STR(?sourceUri), "/"), STR(?sourceUri)) AS ?sourceName)
-          
-          ?sourceEntity env:name ?sourceName .
-          ?sourceEntity env:id ?sourceId .
-          
-          BIND(?integrationId AS ?targetId)
-          BIND("sourceOf" AS ?relationType)
-          BIND("source of" AS ?relationLabel)
-          BIND("" AS ?relationshipId)
-        }
-        UNION
-        {
-          # Integration target relationships  
-          ?integration env:type "Integration" .
-          ?integration env:id ?integrationId .
-          ?integration env:targetService ?targetUri .
-          
-          # Extract entity name from URI or use direct name
-          BIND(IF(CONTAINS(STR(?targetUri), "/"), STRAFTER(STR(?targetUri), "/"), STR(?targetUri)) AS ?targetName)
-          
-          ?targetEntity env:name ?targetName .
-          ?targetEntity env:id ?targetId .
-          
-          BIND(?integrationId AS ?sourceId)
-          BIND("targetOf" AS ?relationType)
-          BIND("target of" AS ?relationLabel)
-          BIND("" AS ?relationshipId)
-        }
+        VALUES ?sourceId { ${idValues} }
+        VALUES ?targetId { ${idValues} }
+        ?relationship env:type "Relationship" ;
+                      env:relationshipType ?relationType ;
+                      env:id ?relationshipId ;
+                      env:sourceEntityId ?sourceId ;
+                      env:targetEntityId ?targetId .
+        BIND(?relationType AS ?relationLabel)
       }
     `;
 
     const [nodesResult, edgesResult] = await Promise.all([
       this.executeSparqlQuery(nodesQuery),
-      this.executeSparqlQuery(edgesQuery)
+      this.executeSparqlQuery(edgesQuery),
     ]);
 
-    console.log('Nodes query result:', JSON.stringify(nodesResult, null, 2));
-    
-    // Test query to specifically look for config properties
-    const configTestQuery = `
-      PREFIX env: <${this.ontologyPrefix}>
-      
-      SELECT ?entity ?property ?value WHERE {
-        ?entity ?property ?value .
-        FILTER(CONTAINS(STR(?property), "config_"))
-      }
-      LIMIT 10
-    `;
-    
-    const configTestResult = await this.executeSparqlQuery(configTestQuery);
-    console.log('Config test query result:', JSON.stringify(configTestResult, null, 2));
+    return {
+      nodes: this.buildNodesFromBindings(nodesResult.results?.bindings || []),
+      edges: this.buildEdgesFromBindings(edgesResult.results?.bindings || []),
+    };
+  }
 
-    // Build nodes with all their properties
+  /**
+   * Get network data for visualization following ontology
+   * Optimized: removed expensive full-graph scan, uses only Relationship entities
+   */
+  async getNetworkData(): Promise<NetworkData> {
+    // Get all nodes — lean query, properties fetched via OPTIONAL on same entity
+    const nodesQuery = `
+      PREFIX env: <${this.ontologyPrefix}>
+      SELECT ?id ?name ?type ?status ?owner ?property ?value WHERE {
+        ?entity env:id ?id ;
+                env:name ?name ;
+                env:type ?type .
+        OPTIONAL { ?entity env:status ?status }
+        OPTIONAL { ?entity env:owner ?owner }
+        OPTIONAL {
+          ?entity ?property ?value .
+          FILTER(STRSTARTS(STR(?property), "${this.ontologyPrefix}"))
+          FILTER(?property NOT IN (env:id, env:name, env:type))
+        }
+        FILTER(?type IN ("Environment", "Application", "Integration"))
+      }
+    `;
+
+    // Get all edges — only from Relationship entities with stored IDs (no full-graph scan)
+    const edgesQuery = `
+      PREFIX env: <${this.ontologyPrefix}>
+      SELECT ?sourceId ?targetId ?relationType ?relationLabel ?relationshipId WHERE {
+        ?relationship env:type "Relationship" ;
+                      env:relationshipType ?relationType ;
+                      env:id ?relationshipId ;
+                      env:sourceEntityId ?sourceId ;
+                      env:targetEntityId ?targetId .
+        BIND(?relationType AS ?relationLabel)
+      }
+    `;
+
+    const [nodesResult, edgesResult] = await Promise.all([
+      this.executeSparqlQuery(nodesQuery),
+      this.executeSparqlQuery(edgesQuery),
+    ]);
+
+    return {
+      nodes: this.buildNodesFromBindings(nodesResult.results?.bindings || []),
+      edges: this.buildEdgesFromBindings(edgesResult.results?.bindings || []),
+    };
+  }
+
+  /**
+   * Build NetworkNode array from SPARQL bindings
+   */
+  private buildNodesFromBindings(bindings: any[]): NetworkNode[] {
     const nodeMap: Record<string, any> = {};
-    nodesResult.results?.bindings?.forEach((binding: any) => {
+    bindings.forEach((binding: any) => {
       const entityId = binding.id?.value || '';
-      
       if (!nodeMap[entityId]) {
         nodeMap[entityId] = {
           id: entityId,
@@ -702,44 +784,43 @@ export class NeptuneSparqlClient {
             status: binding.status?.value,
             owner: binding.owner?.value,
           },
-          configurations: {} // Initialize configurations object
+          configurations: {},
         };
       }
-      
-      // Add any additional properties, including config_ properties
       const property = binding.property?.value;
       const value = binding.value?.value;
-      
       if (property && value) {
         const propName = property.replace(this.ontologyPrefix, '');
-        console.log(`Entity ${entityId}: Found property ${property} -> ${propName} = ${value}`);
-        
-        // If it's a config property, add it both directly AND to configurations object
-        if (propName.startsWith('config_')) {
-          nodeMap[entityId][propName] = value; // Direct property for backward compatibility
-          const configKey = propName.replace('config_', ''); // Remove config_ prefix for display
-          nodeMap[entityId].configurations[configKey] = value; // Add to configurations object
-          console.log(`  -> Added to configurations as '${configKey}'`);
+        if (STAT_PROPERTIES.includes(propName as any)) {
+          if (!nodeMap[entityId].stats) {
+            nodeMap[entityId].stats = {};
+          }
+          nodeMap[entityId].stats[propName] = value;
+        } else if (propName.startsWith('config_')) {
+          nodeMap[entityId][propName] = value;
+          const configKey = propName.replace('config_', '');
+          nodeMap[entityId].configurations[configKey] = value;
         } else {
-          // Regular property, just add directly
           nodeMap[entityId][propName] = value;
         }
       }
     });
-    
-    const nodes: NetworkNode[] = Object.values(nodeMap);
-    
-    const edges: NetworkEdge[] = edgesResult.results?.bindings?.map((binding: any, index: number) => ({
+    return Object.values(nodeMap);
+  }
+
+  /**
+   * Build NetworkEdge array from SPARQL bindings
+   */
+  private buildEdgesFromBindings(bindings: any[]): NetworkEdge[] {
+    return bindings.map((binding: any, index: number) => ({
       id: `edge-${index}`,
       source: binding.sourceId?.value || '',
       target: binding.targetId?.value || '',
       type: binding.relationType?.value || 'related',
       label: binding.relationLabel?.value || binding.relationType?.value || 'related',
-      relationshipId: binding.relationshipId?.value || null, // Include relationship ID for reversing/deleting
-      properties: {}
-    })) || [];
-    
-    return { nodes, edges };
+      relationshipId: binding.relationshipId?.value || null,
+      properties: {},
+    }));
   }
 
   /**
@@ -1572,5 +1653,100 @@ ${insertTriples}        }
       await this.executeSparqlUpdate(updateQuery);
       console.log(`Added ${Object.keys(configurations).length} configuration properties to entity ${entityId}`);
     }
+  }
+
+  /**
+   * Add stats properties directly to an entity (env:cpu, env:memory, etc.)
+   * Stats are stored as first-class ontology properties, NOT as config_ properties.
+   */
+  async addStatsProperties(entityId: string, stats: EntityStats): Promise<void> {
+    if (!stats || Object.keys(stats).length === 0) {
+      return;
+    }
+
+    // Find the entity URI by ID
+    const entityQuery = `
+      PREFIX env: <${this.ontologyPrefix}>
+      
+      SELECT ?entity WHERE {
+        ?entity env:id "${this.escapeSparql(entityId)}"
+      }
+    `;
+
+    const entityResult = await this.executeSparqlQuery(entityQuery);
+    if (!entityResult.results?.bindings?.length) {
+      throw new Error(`Entity with ID ${entityId} not found`);
+    }
+
+    const entityUri = entityResult.results.bindings[0].entity.value;
+    
+    // Build INSERT DATA query to add stat properties
+    let insertTriples = '';
+    for (const prop of STAT_PROPERTIES) {
+      const value = stats[prop];
+      if (value !== null && value !== undefined && value !== '') {
+        const escapedValue = this.escapeSparql(String(value));
+        insertTriples += `    <${entityUri}> env:${prop} "${escapedValue}" .\n`;
+      }
+    }
+
+    if (insertTriples) {
+      const updateQuery = `
+        PREFIX env: <${this.ontologyPrefix}>
+        
+        INSERT DATA {
+${insertTriples}        }
+      `;
+
+      await this.executeSparqlUpdate(updateQuery);
+      console.log(`Added stats properties to entity ${entityId}: ${Object.keys(stats).filter(k => stats[k as keyof EntityStats]).join(', ')}`);
+    }
+  }
+
+  /**
+   * Update stats properties for an entity (delete old values, insert new ones)
+   */
+  async updateStatsProperties(entityId: string, stats: EntityStats): Promise<void> {
+    if (!stats || Object.keys(stats).length === 0) {
+      return;
+    }
+
+    // Find the entity URI by ID
+    const entityQuery = `
+      PREFIX env: <${this.ontologyPrefix}>
+      
+      SELECT ?entity WHERE {
+        ?entity env:id "${this.escapeSparql(entityId)}"
+      }
+    `;
+
+    const entityResult = await this.executeSparqlQuery(entityQuery);
+    if (!entityResult.results?.bindings?.length) {
+      throw new Error(`Entity with ID ${entityId} not found`);
+    }
+
+    const entityUri = entityResult.results.bindings[0].entity.value;
+
+    // Delete existing stat properties
+    let deletePatterns = '';
+    let deleteWherePatterns = '';
+    for (const prop of STAT_PROPERTIES) {
+      deletePatterns += `      <${entityUri}> env:${prop} ?old_${prop} .\n`;
+      deleteWherePatterns += `      OPTIONAL { <${entityUri}> env:${prop} ?old_${prop} }\n`;
+    }
+
+    const deleteQuery = `
+      PREFIX env: <${this.ontologyPrefix}>
+      
+      DELETE {
+${deletePatterns}      }
+      WHERE {
+${deleteWherePatterns}      }
+    `;
+
+    await this.executeSparqlUpdate(deleteQuery);
+
+    // Insert new stat values
+    await this.addStatsProperties(entityId, stats);
   }
 }

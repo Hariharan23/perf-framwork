@@ -924,6 +924,19 @@
       .env-multi-search::placeholder {
         color: #94a3b8;
       }
+      .env-multi-clear-all {
+        padding: 5px 10px;
+        font-size: 11px;
+        color: #dc2626;
+        cursor: pointer;
+        border-bottom: 1px solid #e2e8f0;
+        text-align: center;
+        font-weight: 600;
+        flex-shrink: 0;
+      }
+      .env-multi-clear-all:hover {
+        background: #fef2f2;
+      }
       .env-multi-options {
         overflow-y: auto;
         max-height: 200px;
@@ -2069,7 +2082,10 @@ LIMIT 10</textarea
         <div id="visualize" class="tab-pane">
           <div class="card">
             <div class="btn-group" style="margin-bottom: 1rem">
-              <button class="btn btn-primary" onclick="loadNetworkData()">
+              <button
+                class="btn btn-primary"
+                onclick="loadNetworkData(getSelectedEnvIds())"
+              >
                 Refresh Graph
               </button>
               <button class="btn btn-secondary" onclick="resetZoom()">
@@ -2122,6 +2138,14 @@ LIMIT 10</textarea
                     placeholder="Search environments..."
                     oninput="filterEnvDropdownOptions()"
                   />
+                  <div
+                    class="env-multi-clear-all"
+                    id="env-multi-clear-all"
+                    onclick="clearEnvSelections()"
+                    style="display: none"
+                  >
+                    ✕ Clear All
+                  </div>
                   <div class="env-multi-options" id="env-multi-options"></div>
                 </div>
               </div>
@@ -3611,15 +3635,15 @@ LIMIT 10</textarea
       // Configuration - Updated Lambda URLs from NeptuneEnvironmentStack
       const CONFIG = {
         INGEST_URL:
-          "https://xo03yi0fj1.execute-api.us-east-1.amazonaws.com/prod/ingest",
+          "https://dz7zbqesui.execute-api.us-east-1.amazonaws.com/prod/ingest",
         QUERY_URL:
-          "https://xo03yi0fj1.execute-api.us-east-1.amazonaws.com/prod/query",
+          "https://dz7zbqesui.execute-api.us-east-1.amazonaws.com/prod/query",
         CLEANUP_URL:
-          "https://xo03yi0fj1.execute-api.us-east-1.amazonaws.com/prod/cleanup",
+          "https://dz7zbqesui.execute-api.us-east-1.amazonaws.com/prod/cleanup",
         BEDROCK_QUERY_URL:
-          "https://l24aq8cxa7.execute-api.us-east-1.amazonaws.com/prod/query",
+          "https://narg4j94j2.execute-api.us-east-1.amazonaws.com/prod/query",
         PCE_DISCOVERY_URL:
-          "https://4inemh9fm4.execute-api.us-east-1.amazonaws.com/prod/pce-discovery/upload-csv",
+          "https://ybxc0dhwr5.execute-api.us-east-1.amazonaws.com/prod/pce-discovery/upload-csv",
       };
 
       // Global state
@@ -3693,7 +3717,8 @@ LIMIT 10</textarea
             // Auto-load graph data when switching to visualize tab
             if (targetTab === "visualize") {
               setTimeout(() => {
-                loadNetworkData();
+                loadEnvironmentsList();
+                loadNetworkData(getSelectedEnvIds());
               }, 100);
             }
           });
@@ -3727,7 +3752,8 @@ LIMIT 10</textarea
           // Auto-load graph data when switching to visualize tab
           if (targetTabId === "visualize") {
             setTimeout(() => {
-              loadNetworkData();
+              loadEnvironmentsList();
+              loadNetworkData(getSelectedEnvIds());
             }, 100);
           }
         }
@@ -4882,7 +4908,7 @@ LIMIT 10</textarea
 
         try {
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+          const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
           // For API Gateway, include operation in the request body
           const requestBody = {
@@ -4923,7 +4949,26 @@ LIMIT 10</textarea
             );
           }
 
-          const result = await response.json();
+          let result = await response.json();
+
+          // Handle compressed responses from Lambda (large payloads)
+          if (result._compressed && result.payload) {
+            console.log(
+              `Decompressing response: ${result._compressedSize} → ${result._originalSize} bytes`,
+            );
+            const binaryStr = atob(result.payload);
+            const bytes = new Uint8Array(binaryStr.length);
+            for (let i = 0; i < binaryStr.length; i++) {
+              bytes[i] = binaryStr.charCodeAt(i);
+            }
+            const ds = new DecompressionStream("gzip");
+            const writer = ds.writable.getWriter();
+            writer.write(bytes);
+            writer.close();
+            const decompressed = await new Response(ds.readable).text();
+            result = JSON.parse(decompressed);
+          }
+
           console.log(`API Success for ${operation}:`, result);
           return result;
         } catch (error) {
@@ -5411,7 +5456,24 @@ LIMIT 10</textarea
       }
 
       // Graph visualization
-      async function loadNetworkData() {
+      // Load lightweight environment list for the dropdown (independent of graph data)
+      async function loadEnvironmentsList() {
+        if (!connectionStatus.query) return;
+        try {
+          const result = await makeApiCall(
+            CONFIG.QUERY_URL,
+            "get-environments-list",
+          );
+          if (result.success && result.data && result.data.environments) {
+            const envs = result.data.environments;
+            populateEnvFilterFromList(envs);
+          }
+        } catch (error) {
+          console.error("Error loading environments list:", error);
+        }
+      }
+
+      async function loadNetworkData(envIds) {
         if (!connectionStatus.query) {
           document.getElementById("node-count").textContent = "0";
           document.getElementById("edge-count").textContent = "0";
@@ -5419,36 +5481,23 @@ LIMIT 10</textarea
         }
 
         try {
-          const result = await makeApiCall(CONFIG.QUERY_URL, "get-network");
-          console.log("Network data API response:", result);
+          let operation, payload;
+          if (envIds && envIds.length > 0) {
+            operation = "get-network-for-envs";
+            payload = { envIds, slim: true };
+          } else {
+            operation = "get-network";
+            payload = { slim: true };
+          }
+
+          const result = await makeApiCall(
+            CONFIG.QUERY_URL,
+            operation,
+            payload,
+          );
 
           if (result.success && result.data) {
-            // Handle the nested structure: result.data.networkData
             networkData = result.data.networkData || result.data;
-            console.log("Extracted network data:", networkData);
-            console.log("Number of edges:", networkData.edges?.length);
-            console.log(
-              "Sample edges (first 3):",
-              networkData.edges?.slice(0, 3),
-            );
-
-            // Log edges with relationshipId
-            const edgesWithRelId = networkData.edges?.filter(
-              (e) => e.relationshipId,
-            );
-            const edgesWithoutRelId = networkData.edges?.filter(
-              (e) => !e.relationshipId,
-            );
-            console.log(`Edges WITH relationshipId: ${edgesWithRelId?.length}`);
-            console.log(
-              `Edges WITHOUT relationshipId: ${edgesWithoutRelId?.length}`,
-            );
-            if (edgesWithRelId?.length > 0) {
-              console.log(
-                "Sample edge with relationshipId:",
-                edgesWithRelId[0],
-              );
-            }
 
             document.getElementById("node-count").textContent =
               networkData.nodes.length;
@@ -5665,8 +5714,18 @@ LIMIT 10</textarea
           fitGraphToViewport();
         });
 
-        // Populate environment filter dropdown and health status bar
-        populateEnvFilter(networkData.nodes);
+        // Populate environment filter dropdown only on initial full-graph load
+        // (skip if API env list loaded OR user has active selections — avoids wiping dropdown with subgraph nodes)
+        if (!envListFromApi && envSelectedIds.size === 0) {
+          populateEnvFilter(networkData.nodes);
+        } else {
+          // Still show filter bar if we have env data
+          const bar = document.getElementById("env-filter-bar");
+          if (bar && envMultiSelectData.length > 0) bar.style.display = "flex";
+        }
+        // Always refresh hop dropdown from current graph data
+        const maxHopsForGraph = computeGraphMaxHops(networkData.nodes);
+        populateHopDropdown(maxHopsForGraph);
         updateHealthStatusBar(networkData.nodes);
 
         // Reset filter states on re-render
@@ -5918,6 +5977,7 @@ LIMIT 10</textarea
       // --- Multi-select environment dropdown functions ---
       let envMultiSelectData = []; // [{id, label}]
       let envSelectedIds = new Set();
+      let envListFromApi = false; // true once full env list loaded from API
 
       function toggleEnvDropdown(e) {
         if (e) e.stopPropagation();
@@ -5942,6 +6002,13 @@ LIMIT 10</textarea
         const trigger = document.querySelector(".env-multi-trigger");
         if (dropdown) dropdown.classList.remove("open");
         if (trigger) trigger.classList.remove("open");
+      }
+
+      function clearEnvSelections() {
+        envSelectedIds.clear();
+        renderEnvChips();
+        renderEnvOptionStates();
+        loadNetworkData();
       }
 
       // Close dropdown when clicking outside
@@ -5972,7 +6039,8 @@ LIMIT 10</textarea
         }
         renderEnvChips();
         renderEnvOptionStates();
-        applyEnvFilter();
+        // Fetch subgraph for selected envs from backend
+        loadNetworkData(getSelectedEnvIds());
       }
 
       function removeEnvChip(envId, e) {
@@ -5980,12 +6048,14 @@ LIMIT 10</textarea
         envSelectedIds.delete(envId);
         renderEnvChips();
         renderEnvOptionStates();
-        applyEnvFilter();
+        // Re-fetch: if no envs selected, loads full graph; otherwise loads subgraph
+        loadNetworkData(getSelectedEnvIds());
       }
 
       function renderEnvChips() {
         const chipsContainer = document.getElementById("env-selected-chips");
         const placeholder = document.getElementById("env-multi-placeholder");
+        const clearAllBtn = document.getElementById("env-multi-clear-all");
         chipsContainer.innerHTML = "";
         if (envSelectedIds.size === 0) {
           const span = document.createElement("span");
@@ -5993,8 +6063,10 @@ LIMIT 10</textarea
           span.id = "env-multi-placeholder";
           span.textContent = "— Show All Environments —";
           chipsContainer.appendChild(span);
+          if (clearAllBtn) clearAllBtn.style.display = "none";
           return;
         }
+        if (clearAllBtn) clearAllBtn.style.display = "block";
         envSelectedIds.forEach((id) => {
           const item = envMultiSelectData.find((d) => d.id === id);
           if (!item) return;
@@ -6033,6 +6105,57 @@ LIMIT 10</textarea
 
       function getSelectedEnvIds() {
         return Array.from(envSelectedIds);
+      }
+
+      // Populate env dropdown from lightweight environments list (no graph data needed)
+      function populateEnvFilterFromList(envs) {
+        const optionsContainer = document.getElementById("env-multi-options");
+        if (!optionsContainer) return;
+        envListFromApi = true;
+
+        // Preserve current selections
+        const prevSelected = new Set(envSelectedIds);
+        optionsContainer.innerHTML = "";
+        envMultiSelectData = [];
+
+        const sorted = envs.sort((a, b) =>
+          (a.name || a.id).localeCompare(b.name || b.id),
+        );
+
+        sorted.forEach((env) => {
+          const label = env.name || env.id;
+          envMultiSelectData.push({ id: env.id, label });
+
+          const opt = document.createElement("div");
+          opt.className = "env-multi-option";
+          opt.setAttribute("data-id", env.id);
+          opt.setAttribute("data-label", label);
+          opt.onclick = () => toggleEnvOption(env.id);
+
+          const cb = document.createElement("input");
+          cb.type = "checkbox";
+          cb.checked = prevSelected.has(env.id);
+          cb.onclick = (e) => e.stopPropagation();
+          cb.onchange = () => toggleEnvOption(env.id);
+
+          const span = document.createElement("span");
+          span.className = "env-multi-option-label";
+          span.textContent = label;
+          span.title = label;
+
+          opt.appendChild(cb);
+          opt.appendChild(span);
+          optionsContainer.appendChild(opt);
+
+          if (prevSelected.has(env.id)) {
+            opt.classList.add("selected");
+          }
+        });
+
+        renderEnvChips();
+
+        const bar = document.getElementById("env-filter-bar");
+        if (bar) bar.style.display = sorted.length > 0 ? "flex" : "none";
       }
 
       function populateEnvFilter(nodes) {
@@ -6621,11 +6744,8 @@ LIMIT 10</textarea
 
         resetHealthVisuals(svg);
 
-        const allNodes = [];
-        svg.selectAll(".node").each(function (d) {
-          allNodes.push(d);
-        });
-        updateHealthStatusBar(allNodes);
+        // Reload full graph (no env filter) from backend
+        loadNetworkData();
       }
 
       function getEdgeColor(relationshipType) {
@@ -7674,7 +7794,7 @@ LIMIT 10</textarea
               "success",
             );
             // Reload the graph to show the updated relationship
-            await loadNetworkData();
+            await loadNetworkData(getSelectedEnvIds());
           } else {
             showToastNotification(
               "Failed to reverse relationship: " +
@@ -7753,7 +7873,7 @@ LIMIT 10</textarea
               "success",
             );
             // Reload the graph to show the updated network
-            await loadNetworkData();
+            await loadNetworkData(getSelectedEnvIds());
           } else {
             showToastNotification(
               "Failed to delete relationship: " +
@@ -8550,7 +8670,7 @@ LIMIT 10</textarea
                   .getElementById("visualize")
                   .classList.contains("active")
               ) {
-                loadNetworkData();
+                loadNetworkData(getSelectedEnvIds());
               }
             }, 1500);
           } else {
