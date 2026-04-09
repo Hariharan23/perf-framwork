@@ -1,65 +1,7 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { NeptuneSparqlClient, NetworkData, Entity } from '../shared/neptune-sparql-client';
-import { gzipSync } from 'zlib';
 
 const neptuneClient = new NeptuneSparqlClient();
-
-/**
- * Compress large responses to stay under API Gateway's 6MB Lambda response limit.
- * Returns compressed data as base64 inside a regular JSON envelope.
- * JSON gzip compresses ~85-90%, base64 adds ~33% — net ~15-20% of original.
- * This means we can handle raw payloads up to ~30MB.
- */
-function buildResponse(
-  statusCode: number,
-  headers: Record<string, string>,
-  body: any,
-): APIGatewayProxyResult {
-  const jsonBody = JSON.stringify(body);
-
-  // If response > 1MB, compress it inside a JSON envelope
-  if (jsonBody.length > 1_000_000) {
-    const compressed = gzipSync(Buffer.from(jsonBody, 'utf-8'));
-    const envelope = JSON.stringify({
-      _compressed: true,
-      _originalSize: jsonBody.length,
-      _compressedSize: compressed.length,
-      payload: compressed.toString('base64'),
-    });
-    console.log(`Compressed response: ${jsonBody.length} → ${compressed.length} bytes (base64 envelope: ${envelope.length})`);
-    return { statusCode, headers, body: envelope };
-  }
-
-  return { statusCode, headers, body: jsonBody };
-}
-
-/**
- * Strip heavy properties from network nodes for visualization-only (slim) mode.
- * Keeps: id, label, type, properties.status, properties.owner
- * Removes: stats, configurations, config_* fields, all extra properties
- */
-function slimNetworkData(data: NetworkData): NetworkData {
-  return {
-    nodes: data.nodes.map((node: any) => ({
-      id: node.id,
-      label: node.label,
-      type: node.type,
-      properties: {
-        status: node.properties?.status,
-        owner: node.properties?.owner,
-      },
-    })),
-    edges: data.edges.map((edge: any) => ({
-      id: edge.id,
-      source: edge.source,
-      target: edge.target,
-      type: edge.type,
-      label: edge.label,
-      relationshipId: edge.relationshipId,
-      properties: {},
-    })),
-  };
-}
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   console.log('Event:', JSON.stringify(event, null, 2));
@@ -107,7 +49,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
             'get-network', 'get-environments-list', 'get-network-for-envs',
             'get-entities', 'get-entity', 'get-entity-history', 'get-configurations', 
             'get-config-entries', 'get-deployments', 'get-environments', 
-            'get-applications', 'get-integrations', 'health', 'sparql-query', 'sparql-update'
+            'get-applications', 'get-integrations', 'health'
           ]
         }),
       };
@@ -125,16 +67,14 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         };
         break;
 
-      case 'get-network': {
-        const slim = requestBody.slim === true;
+      case 'get-network':
         const networkData: NetworkData = await neptuneClient.getNetworkData();
         result = {
-          networkData: slim ? slimNetworkData(networkData) : networkData,
+          networkData,
           nodeCount: networkData.nodes.length,
           edgeCount: networkData.edges.length,
         };
         break;
-      }
 
       case 'get-environments-list':
         const envList = await neptuneClient.getEnvironmentsList();
@@ -144,20 +84,20 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         };
         break;
 
-      case 'get-network-for-envs': {
-        const slimEnv = requestBody.slim === true;
+      case 'get-network-for-envs':
         const envIds: string[] = requestBody.envIds || [];
+        const maxHops: number = Math.min(Math.max(parseInt(requestBody.maxHops) || 3, 1), 20);
         const envNetworkData: NetworkData = await neptuneClient.getNetworkDataForEnvs(
-          envIds.length > 0 ? envIds : undefined
+          envIds.length > 0 ? envIds : undefined,
+          maxHops
         );
         result = {
-          networkData: slimEnv ? slimNetworkData(envNetworkData) : envNetworkData,
+          networkData: envNetworkData,
           nodeCount: envNetworkData.nodes.length,
           edgeCount: envNetworkData.edges.length,
           envIds,
         };
         break;
-      }
 
       case 'get-entities':
         const entityType = event.queryStringParameters?.type;
@@ -190,7 +130,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         break;
 
       case 'get-entity':
-        const entityId = event.queryStringParameters?.id || event.pathParameters?.id;
+        const entityId = event.queryStringParameters?.id || event.pathParameters?.id || requestBody?.id;
         
         if (!entityId) {
           return {
@@ -333,22 +273,12 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         break;
 
       case 'sparql-query':
-        if (!requestBody.query) {
-          throw new Error('SPARQL query is required in request body');
-        }
-        result = await neptuneClient.executeSparqlQuery(requestBody.query);
-        break;
-
       case 'sparql-update':
-        if (!requestBody.query) {
-          throw new Error('SPARQL update query is required in request body');
-        }
-        await neptuneClient.executeSparqlUpdate(requestBody.query);
-        result = {
-          message: 'SPARQL update executed successfully',
-          query: requestBody.query,
+        return {
+          statusCode: 403,
+          headers,
+          body: JSON.stringify({ error: 'Raw SPARQL access is disabled for security. Use the structured query operations instead.' }),
         };
-        break;
 
       case 'get-health-dashboard':
         // Returns all entities with their stats for a health overview dashboard
@@ -378,27 +308,35 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
               'get-network', 'get-environments-list', 'get-network-for-envs',
               'get-entities', 'get-entity', 'get-configurations', 
               'get-config-entries', 'get-deployments', 'get-environments', 
-              'get-applications', 'get-integrations', 'health', 'sparql-query', 'sparql-update',
+              'get-applications', 'get-integrations', 'health',
               'get-health-dashboard'
             ]
           }),
         };
     }
 
-    return buildResponse(200, headers, {
-      success: true,
-      operation,
-      data: result,
-      timestamp: new Date().toISOString(),
-    });
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify({
+        success: true,
+        operation,
+        data: result,
+        timestamp: new Date().toISOString(),
+      }),
+    };
 
   } catch (error) {
     console.error('Error processing query request:', error);
     
-    return buildResponse(500, headers, {
-      error: 'Internal server error',
-      message: error instanceof Error ? error.message : 'Unknown error occurred',
-      timestamp: new Date().toISOString(),
-    });
+    return {
+      statusCode: 500,
+      headers,
+      body: JSON.stringify({
+        error: 'Internal server error',
+        message: error instanceof Error ? error.message : 'Unknown error occurred',
+        timestamp: new Date().toISOString(),
+      }),
+    };
   }
 };
