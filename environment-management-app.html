@@ -2020,23 +2020,23 @@
 
               <div class="form-group">
                 <label class="form-label" for="custom-query"
-                  >Custom SPARQL Query</label
+                  >Custom Structured Query</label
                 >
                 <textarea
                   id="custom-query"
                   class="form-textarea"
-                  rows="10"
-                  placeholder="Enter your SPARQL query here..."
-                >
-PREFIX rdf: &lt;http://www.w3.org/1999/02/22-rdf-syntax-ns#&gt;
-PREFIX env: &lt;http://neptune.aws.com/envmgmt/ontology/&gt;
+                  rows="6"
+                  placeholder="Enter operation name, optionally with params...
 
-SELECT ?entity ?type ?name
-WHERE {
-    ?entity rdf:type ?type ;
-            env:name ?name .
-}
-LIMIT 10</textarea
+Examples:
+  get-entities
+  get-entity:id=MY-ENV-001
+  get-entity-history:id=MY-ENV-001
+  get-configurations:entityId=MY-ENV-001
+  get-network
+  health"
+                >
+get-entities</textarea
                 >
               </div>
 
@@ -4774,29 +4774,22 @@ LIMIT 10</textarea
           container.innerHTML =
             '<div class="loading"><div class="spinner"></div>Loading relationships...</div>';
 
-          const result = await makeApiCall(CONFIG.QUERY_URL, "sparql-query", {
-            query: `
-              PREFIX env: <http://neptune.aws.com/envmgmt/ontology/>
-              
-              SELECT ?relationshipId ?relationshipName ?relationshipType ?sourceEntity ?targetEntity WHERE {
-                ?relationship env:type "Relationship" .
-                ?relationship env:id ?relationshipId .
-                ?relationship env:name ?relationshipName .
-                ?relationship env:relationshipType ?relationshipType .
-                ?relationship env:sourceEntity ?sourceEntity .
-                ?relationship env:targetEntity ?targetEntity .
-              }
-              ORDER BY ?sourceEntity ?targetEntity
-            `,
-          });
+          const result = await makeApiCall(
+            CONFIG.QUERY_URL,
+            "get-integrations",
+          );
 
-          if (
-            result.success &&
-            result.data &&
-            result.data.results &&
-            result.data.results.bindings
-          ) {
-            const relationships = result.data.results.bindings;
+          if (result.success && result.data && result.data.integrations) {
+            // Transform integrations into relationship-like bindings for the UI
+            const relationships = result.data.integrations.map((intg) => ({
+              relationshipId: { value: intg.id },
+              relationshipName: { value: intg.name || intg.id },
+              relationshipType: {
+                value: intg.protocol || intg.type || "Integration",
+              },
+              sourceEntity: { value: intg.sourceEnvironment || "" },
+              targetEntity: { value: intg.targetEnvironment || "" },
+            }));
 
             if (relationships.length === 0) {
               container.innerHTML =
@@ -4844,13 +4837,15 @@ LIMIT 10</textarea
         }
 
         try {
-          const result = await makeApiCall(CONFIG.QUERY_URL, "sparql-update", {
-            query: `
-              DELETE DATA {
-                <${sourceId}> <${predicateUri}> <${targetId}> .
-              }
-            `,
-          });
+          const result = await makeApiCall(
+            CONFIG.INGEST_URL,
+            "delete-relationship",
+            {
+              sourceId,
+              predicateUri,
+              targetId,
+            },
+          );
 
           if (result.success) {
             showAlert(
@@ -4948,22 +4943,17 @@ LIMIT 10</textarea
         try {
           console.log("Attempting fallback connection check...");
 
-          // Try a very simple query that should always work
-          const response = await fetch(
-            `${CONFIG.QUERY_URL}?operation=sparql-query`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Accept: "application/json",
-                "x-api-key": getApiKeyForUrl(CONFIG.QUERY_URL),
-              },
-              body: JSON.stringify({
-                query: "SELECT (1 as ?test) WHERE { }",
-              }),
-              mode: "cors",
+          // Try a simple health check that should always work
+          const response = await fetch(`${CONFIG.QUERY_URL}?operation=health`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+              "x-api-key": getApiKeyForUrl(CONFIG.QUERY_URL),
             },
-          );
+            body: JSON.stringify({}),
+            mode: "cors",
+          });
 
           if (response.ok) {
             const result = await response.json();
@@ -5053,12 +5043,10 @@ LIMIT 10</textarea
         let queryWorks = false;
         let ingestWorks = false;
 
-        // Test query API with a simple SPARQL query
+        // Test query API with a health check
         try {
-          console.log("Testing query API with SPARQL query...");
-          const result = await makeApiCall(CONFIG.QUERY_URL, "sparql-query", {
-            query: "SELECT (1 as ?test) WHERE { } LIMIT 1",
-          });
+          console.log("Testing query API with health check...");
+          const result = await makeApiCall(CONFIG.QUERY_URL, "health");
           console.log("Query API test successful:", result);
           queryWorks = true;
         } catch (error) {
@@ -5387,83 +5375,49 @@ LIMIT 10</textarea
 
       // Query functions
       async function queryAllEntities() {
-        const query = `
-                PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-                PREFIX env: <http://neptune.aws.com/envmgmt/ontology/>
-                
-                SELECT ?entity ?type ?name
-                WHERE {
-                    ?entity rdf:type ?type ;
-                            env:name ?name .
-                    FILTER(STRSTARTS(STR(?type), "http://neptune.aws.com/envmgmt/ontology/"))
-                }
-                ORDER BY ?type ?name
-            `;
-        await executeQuery(query);
+        await executeStructuredQuery("get-entities");
       }
 
       async function queryEnvironments() {
-        const query = `
-                PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-                PREFIX env: <http://neptune.aws.com/envmgmt/ontology/>
-                
-                SELECT ?entity ?name ?region ?owner ?status
-                WHERE {
-                    ?entity rdf:type env:Environment ;
-                            env:name ?name .
-                    OPTIONAL { ?entity env:region ?region }
-                    OPTIONAL { ?entity env:owner ?owner }
-                    OPTIONAL { ?entity env:status ?status }
-                }
-                ORDER BY ?name
-            `;
-        await executeQuery(query);
+        await executeStructuredQuery("get-entities", { type: "Environment" });
       }
 
       async function queryApplications() {
-        const query = `
-                PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-                PREFIX env: <http://neptune.aws.com/envmgmt/ontology/>
-                
-                SELECT ?entity ?name ?version ?owner ?status
-                WHERE {
-                    ?entity rdf:type env:Application ;
-                            env:name ?name .
-                    OPTIONAL { ?entity env:version ?version }
-                    OPTIONAL { ?entity env:owner ?owner }
-                    OPTIONAL { ?entity env:status ?status }
-                }
-                ORDER BY ?name
-            `;
-        await executeQuery(query);
+        await executeStructuredQuery("get-entities", { type: "Application" });
       }
 
       async function queryIntegrations() {
-        const query = `
-                PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-                PREFIX env: <http://neptune.aws.com/envmgmt/ontology/>
-                
-                SELECT ?entity ?name ?protocol ?owner ?status
-                WHERE {
-                    ?entity rdf:type env:Integration ;
-                            env:name ?name .
-                    OPTIONAL { ?entity env:protocol ?protocol }
-                    OPTIONAL { ?entity env:owner ?owner }
-                    OPTIONAL { ?entity env:status ?status }
-                }
-                ORDER BY ?name
-            `;
-        await executeQuery(query);
+        await executeStructuredQuery("get-entities", { type: "Integration" });
       }
 
       async function executeCustomQuery() {
-        const query = document.getElementById("custom-query").value;
-        await executeQuery(query);
+        const operation = document.getElementById("custom-query").value.trim();
+        if (!operation) return;
+        // Parse as "operation:params" or just "operation"
+        const parts = operation.split(":");
+        const op = parts[0].trim();
+        let params = {};
+        if (parts.length > 1) {
+          try {
+            params = JSON.parse(parts.slice(1).join(":"));
+          } catch (e) {
+            // Try as query params: key=value&key2=value2
+            parts
+              .slice(1)
+              .join(":")
+              .split("&")
+              .forEach((p) => {
+                const [k, v] = p.split("=");
+                if (k) params[k.trim()] = (v || "").trim();
+              });
+          }
+        }
+        await executeStructuredQuery(op, params);
       }
 
       let currentQueryResults = null; // Store current query results for visualization
 
-      async function executeQuery(query) {
+      async function executeStructuredQuery(operation, queryParams) {
         if (!connectionStatus.query) {
           document.getElementById("query-results").innerHTML =
             '<div class="alert alert-error">Cannot execute query: No connection to query service</div>';
@@ -5477,29 +5431,47 @@ LIMIT 10</textarea
             '<div class="loading"><div class="spinner"></div>Executing query...</div>';
           document.getElementById("query-actions").style.display = "none";
 
-          const result = await makeApiCall(CONFIG.QUERY_URL, "sparql-query", {
-            query,
+          // Build query string params if provided
+          let url = CONFIG.QUERY_URL;
+          const qp = new URLSearchParams();
+          qp.set("operation", operation);
+          if (queryParams) {
+            Object.entries(queryParams).forEach(([k, v]) => qp.set(k, v));
+          }
+          url += (url.includes("?") ? "&" : "?") + qp.toString();
+
+          const response = await fetch(url, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+              "x-api-key": getApiKeyForUrl(CONFIG.QUERY_URL),
+            },
+            body: JSON.stringify(queryParams || {}),
+            mode: "cors",
           });
 
-          if (result.success && result.data && result.data.results) {
-            const bindings = result.data.results.bindings;
-            currentQueryResults = { bindings, query }; // Store for visualization
+          const result = await response.json();
 
-            let html = `<div style="margin-bottom: 1rem;"><strong>Results: ${bindings.length} rows</strong></div>`;
+          if (response.ok && result) {
+            // Flatten result into table rows
+            const rows = flattenResultToRows(result);
+            currentQueryResults = { bindings: rows.bindings, query: operation };
 
-            if (bindings.length > 0) {
-              const headers = Object.keys(bindings[0]);
+            let html = `<div style="margin-bottom: 1rem;"><strong>Operation: ${operation} &mdash; ${rows.bindings.length} results</strong></div>`;
+
+            if (rows.bindings.length > 0) {
               html += '<table class="query-table">';
               html += "<thead><tr>";
-              headers.forEach((header) => {
+              rows.headers.forEach((header) => {
                 html += `<th>${header}</th>`;
               });
               html += "</tr></thead><tbody>";
 
-              bindings.forEach((binding) => {
+              rows.bindings.forEach((row) => {
                 html += "<tr>";
-                headers.forEach((header) => {
-                  const value = binding[header] ? binding[header].value : "";
+                rows.headers.forEach((header) => {
+                  const value = row[header] != null ? String(row[header]) : "";
                   const shortValue =
                     value.length > 60 ? value.substring(0, 60) + "..." : value;
                   html += `<td title="${value}">${shortValue}</td>`;
@@ -5508,7 +5480,6 @@ LIMIT 10</textarea
               });
               html += "</tbody></table>";
 
-              // Show action buttons when there are results
               document.getElementById("query-actions").style.display = "block";
             } else {
               html += '<div class="alert alert-info">No results found.</div>';
@@ -5530,6 +5501,62 @@ LIMIT 10</textarea
           document.getElementById("query-actions").style.display = "none";
           currentQueryResults = null;
         }
+      }
+
+      // Convert structured API response to flat table rows
+      function flattenResultToRows(data) {
+        // Find the first array in the response (entities, environments, applications, etc.)
+        let items = [];
+        const arrayKeys = [
+          "entities",
+          "environments",
+          "applications",
+          "integrations",
+          "configurations",
+          "configurationEntries",
+          "deployments",
+          "history",
+        ];
+        for (const key of arrayKeys) {
+          if (Array.isArray(data[key])) {
+            items = data[key];
+            break;
+          }
+        }
+        // Handle nested entities object { Environment: [...], Application: [...], Integration: [...] }
+        if (
+          items.length === 0 &&
+          data.entities &&
+          typeof data.entities === "object" &&
+          !Array.isArray(data.entities)
+        ) {
+          for (const [type, arr] of Object.entries(data.entities)) {
+            if (Array.isArray(arr)) {
+              arr.forEach((item) => items.push({ _type: type, ...item }));
+            }
+          }
+        }
+        // Fallback: wrap the whole response as a single row
+        if (items.length === 0 && typeof data === "object") {
+          items = [data];
+        }
+        // Extract headers from all items
+        const headerSet = new Set();
+        items.forEach((item) => {
+          if (typeof item === "object" && item !== null) {
+            Object.keys(item).forEach((k) => headerSet.add(k));
+          }
+        });
+        const headers = [...headerSet].filter((h) => !h.startsWith("_"));
+        // Keep _type as "type" if present
+        if (headerSet.has("_type")) {
+          headers.unshift("type");
+          items = items.map((item) => {
+            const { _type, ...rest } = item;
+            return { type: _type, ...rest };
+          });
+        }
+        return { headers, bindings: items };
       }
 
       // Visualize query results as a graph
@@ -8630,35 +8657,24 @@ LIMIT 10</textarea
         }
 
         try {
-          const query = `
-                    PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-                    PREFIX env: <http://neptune.aws.com/envmgmt/ontology/>
-                    
-                    SELECT ?entity ?id ?type ?name ?description
-                    WHERE {
-                        ?entity rdf:type ?type ;
-                                env:id ?id ;
-                                env:name ?name .
-                        OPTIONAL { ?entity env:description ?description }
-                        FILTER(STRSTARTS(STR(?type), "http://neptune.aws.com/envmgmt/ontology/"))
-                    }
-                    ORDER BY ?type ?name
-                `;
+          const result = await makeApiCall(CONFIG.QUERY_URL, "get-entities");
 
-          const result = await makeApiCall(CONFIG.QUERY_URL, "sparql-query", {
-            query,
-          });
-
-          if (result.success && result.data && result.data.results) {
-            allEntities = result.data.results.bindings.map((binding) => ({
-              id: binding.id.value, // Use env:id instead of entity URI
-              type: binding.type.value.replace(
-                "http://neptune.aws.com/envmgmt/ontology/",
-                "",
-              ),
-              name: binding.name.value,
-              description: binding.description ? binding.description.value : "",
-            }));
+          if (result.success && result.data && result.data.entities) {
+            const entitiesData = result.data.entities;
+            allEntities = [];
+            // Handle structured response: { Environment: [...], Application: [...], Integration: [...] }
+            for (const [type, arr] of Object.entries(entitiesData)) {
+              if (Array.isArray(arr)) {
+                arr.forEach((e) =>
+                  allEntities.push({
+                    id: e.id,
+                    type: type,
+                    name: e.name || e.id,
+                    description: e.description || "",
+                  }),
+                );
+              }
+            }
 
             renderEntityList(allEntities);
           } else {
@@ -8805,50 +8821,35 @@ LIMIT 10</textarea
 
         // Load entity data
         try {
-          const query = `
-            PREFIX env: <http://neptune.aws.com/envmgmt/ontology/>
-            
-            SELECT ?property ?value WHERE {
-              ?entity env:id "${entityId}" .
-              ?entity ?property ?value .
-            }
-          `;
-
-          const result = await makeApiCall(CONFIG.QUERY_URL, "sparql-query", {
-            query,
+          const result = await makeApiCall(CONFIG.QUERY_URL, "get-entity", {
+            id: entityId,
           });
 
-          if (result.success && result.data && result.data.results) {
-            const bindings = result.data.results.bindings;
+          if (result.success && result.data && result.data.entity) {
+            const raw = result.data.entity;
             const entityData = {};
             const configurations = {};
 
-            bindings.forEach((binding) => {
-              const propUri = binding.property?.value || "";
-              const value = binding.value?.value || "";
+            // Flatten entity properties
+            for (const [key, value] of Object.entries(raw)) {
+              if (value == null) continue;
+              const propName = String(key);
+              const val = String(value);
 
-              if (propUri && value) {
-                const propName = propUri.replace(
-                  "http://neptune.aws.com/envmgmt/ontology/",
-                  "",
-                );
-
-                // Check if it's a config property
-                if (propName.startsWith("config_")) {
-                  const configKey = propName.replace("config_", "");
-                  configurations[configKey] = value;
-                } else if (
-                  STAT_FIELD_IDS.includes(propName) ||
-                  propName === "sourceId" ||
-                  propName === "lastSyncedAt"
-                ) {
-                  if (!entityData._stats) entityData._stats = {};
-                  entityData._stats[propName] = value;
-                } else {
-                  entityData[propName] = value;
-                }
+              if (propName.startsWith("config_")) {
+                const configKey = propName.replace("config_", "");
+                configurations[configKey] = val;
+              } else if (
+                STAT_FIELD_IDS.includes(propName) ||
+                propName === "sourceId" ||
+                propName === "lastSyncedAt"
+              ) {
+                if (!entityData._stats) entityData._stats = {};
+                entityData._stats[propName] = val;
+              } else {
+                entityData[propName] = val;
               }
-            });
+            }
 
             console.log("Entity data loaded:", entityData);
             console.log("Configurations loaded:", configurations);
@@ -9205,35 +9206,21 @@ LIMIT 10</textarea
           document.getElementById("admin-results").innerHTML =
             '<div class="loading"><div class="spinner"></div>Getting entity counts...</div>';
 
-          const query = `
-                    PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-                    
-                    SELECT ?type (COUNT(?entity) as ?count)
-                    WHERE {
-                        ?entity rdf:type ?type .
-                    }
-                    GROUP BY ?type
-                    ORDER BY DESC(?count)
-                `;
+          const result = await makeApiCall(CONFIG.QUERY_URL, "get-entities");
 
-          const result = await makeApiCall(CONFIG.QUERY_URL, "sparql-query", {
-            query,
-          });
-
-          if (result.success && result.data && result.data.results) {
-            const bindings = result.data.results.bindings;
+          if (result.success && result.data && result.data.entities) {
+            const entitiesData = result.data.entities;
             let html =
               '<div><strong>Entity Counts</strong></div><div style="margin-top: 1rem;">';
 
             let total = 0;
-            bindings.forEach((binding) => {
-              const type = binding.type.value
-                .replace("http://neptune.aws.com/envmgmt/ontology/", "")
-                .replace("http://www.w3.org/2002/07/owl#", "OWL:");
-              const count = parseInt(binding.count.value);
-              total += count;
-              html += `<div>${type}: ${count}</div>`;
-            });
+            for (const [type, arr] of Object.entries(entitiesData)) {
+              if (Array.isArray(arr)) {
+                const count = arr.length;
+                total += count;
+                html += `<div>${type}: ${count}</div>`;
+              }
+            }
 
             html += `</div><div style="margin-top: 1rem; font-weight: 600;">Total: ${total} entities</div>`;
             document.getElementById("admin-results").innerHTML = html;
