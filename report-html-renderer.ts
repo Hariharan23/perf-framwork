@@ -96,11 +96,6 @@ tr:last-child td{border-bottom:none}tr:hover td{background:#f8fafc}
 .graph-legend{display:flex;gap:14px;font-size:.68rem;color:var(--text-muted);padding:6px 0;flex-wrap:wrap;align-items:center}
 .graph-legend span{display:flex;align-items:center;gap:4px}
 .graph-legend .ldot{width:9px;height:9px;border-radius:50%;display:inline-block}
-.graph-pair{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
-.graph-pair .card{margin-bottom:0}
-.graph-label{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;text-align:center;padding:4px 0}
-.graph-label-before{color:#64748b}
-.graph-label-after{color:#0d9488}
 .ai-box{background:#f8fafc;border:1px solid var(--border);border-left:4px solid var(--text-secondary);border-radius:8px;padding:14px 18px;margin-bottom:24px}
 .ai-box-label{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-secondary);margin-bottom:5px}
 .ai-box p{font-size:.82rem;color:#334155;line-height:1.65}
@@ -220,8 +215,6 @@ tr:last-child td{border-bottom:none}tr:hover td{background:#f8fafc}
     const stateLabel = env.status === 'Warning' || env.status === 'Critical' ? env.status : 'Healthy';
     const stateBadgeClass = stateLabel === 'Healthy' ? 'env-badge-green' : 'env-badge-red';
     const graphId = `graph-${env.name.replace(/[^a-zA-Z0-9]/g, '')}`;
-    const beforeGraphId = `${graphId}-before`;
-    const afterGraphId = `${graphId}-after`;
 
     return `
 <!-- ==================== ENVIRONMENT: ${this.esc(env.name)} ==================== -->
@@ -235,26 +228,15 @@ tr:last-child td{border-bottom:none}tr:hover td{background:#f8fafc}
 ${this.renderIdentityCard(env)}
 ${this.renderMetricGrid(env)}
 
-<div class="graph-pair">
-  <div class="card">
-    <div class="card-title" style="color:#64748b">Before <span style="font-weight:400;font-size:.62rem;text-transform:none;letter-spacing:0">(start of period)</span></div>
-    <div class="graph-container" id="${beforeGraphId}"></div>
-    <div class="graph-legend">
-      <span><span class="ldot" style="background:#64748b"></span> Primary</span>
-      <span><span class="ldot" style="background:#94a3b8"></span> Connected</span>
-      <span style="color:#64748b;font-size:10px"># = integration count</span>
-    </div>
-  </div>
-  <div class="card">
-    <div class="card-title" style="color:#0d9488">After <span style="font-weight:400;font-size:.62rem;text-transform:none;letter-spacing:0">(current state)</span></div>
-    <div class="graph-container" id="${afterGraphId}"></div>
-    <div class="graph-legend">
-      <span><span class="ldot" style="background:#0d9488"></span> Existing</span>
-      <span><span class="ldot" style="background:#22c55e"></span> New</span>
-      <span><span class="ldot" style="background:#dc2626"></span> Removed</span>
-      <span><span class="ldot" style="background:#d97706"></span> Warning</span>
-      <span style="color:#64748b;font-size:10px"># = integration count &nbsp; <span style="color:#16a34a">+N</span> added &nbsp; <span style="color:#dc2626">-N</span> removed</span>
-    </div>
+<div class="card" style="margin-bottom:14px">
+  <div class="card-title" style="color:#0d9488">Current State</div>
+  <div class="graph-container" id="${graphId}" style="height:400px"></div>
+  <div class="graph-legend">
+    <span><span class="ldot" style="background:#b0bec5"></span> Existing</span>
+    <span><span class="ldot" style="background:#22c55e;box-shadow:0 0 6px #22c55e"></span> New</span>
+    <span><span class="ldot" style="background:#dc2626;box-shadow:0 0 6px #dc2626"></span> Removed</span>
+    <span><span class="ldot" style="background:#d97706"></span> Warning</span>
+    <span style="color:#64748b;font-size:10px"># = integration count &nbsp; <span style="color:#16a34a;font-weight:700">+N</span> added &nbsp; <span style="color:#dc2626;font-weight:700">-N</span> removed</span>
   </div>
 </div>
 ${(() => {
@@ -407,10 +389,15 @@ ${this.renderHistoryTable(env, data)}
     }
 
     // Classify removed: how many lost full connectivity vs just integration reduction
-    const removedFull = (env.removedConnections || []).filter(r => {
+    // Deduplicate by target environment name — multiple integrations to the same env = 1 disconnected env
+    const removedTargetEnvs = new Map<string, boolean>();
+    for (const r of (env.removedConnections || [])) {
       const tgt = (r.targetEnvName && r.targetEnvName !== 'unknown' ? r.targetEnvName : r.name).toLowerCase();
-      return !currentConnNames.has(tgt);
-    }).length;
+      if (!removedTargetEnvs.has(tgt)) {
+        removedTargetEnvs.set(tgt, !currentConnNames.has(tgt));
+      }
+    }
+    const removedFull = [...removedTargetEnvs.values()].filter(v => v).length;
     const removedPartial = removedCount - removedFull;
 
     // Build summary rows — show Changes column with +added / -removed
@@ -453,6 +440,26 @@ ${this.renderHistoryTable(env, data)}
 
   // ── HISTORY TABLE ──
   private static historyTableId = 0;
+
+  private formatActionLabel(action: string): { label: string; tagClass: string } {
+    switch (action.toLowerCase()) {
+      case 'created':
+        return { label: 'CREATED', tagClass: 'tag-green' };
+      case 'updated':
+        return { label: 'UPDATED', tagClass: 'tag-blue' };
+      case 'create-integration':
+        return { label: 'INTEGRATION ADDED', tagClass: 'tag-green' };
+      case 'delete-integration':
+        return { label: 'INTEGRATION REMOVED', tagClass: 'tag-red' };
+      case 'deleted':
+        return { label: 'DELETED', tagClass: 'tag-red' };
+      default:
+        if (action.toLowerCase().includes('create')) return { label: action.toUpperCase(), tagClass: 'tag-green' };
+        if (action.toLowerCase().includes('delete')) return { label: action.toUpperCase(), tagClass: 'tag-red' };
+        return { label: action.toUpperCase(), tagClass: 'tag-blue' };
+    }
+  }
+
   private renderHistoryTable(env: EnvironmentReportData, data: OwnerReportData): string {
     if (env.history.length === 0) {
       return `<div class="card" style="margin-bottom:18px"><div class="card-title">Change History</div><p style="font-size:.8rem;color:var(--text-muted)">No changes this period.</p></div>`;
@@ -460,10 +467,9 @@ ${this.renderHistoryTable(env, data)}
     const PAGE_SIZE = 3;
     const tableId = `hist-${ReportHtmlRenderer.historyTableId++}`;
     const rows = env.history.map((h, i) => {
-      const actionTag = h.action.toLowerCase().includes('create') ? 'tag-green' :
-        h.action.toLowerCase().includes('delete') ? 'tag-red' : 'tag-blue';
+      const { label: actionLabel, tagClass: actionTag } = this.formatActionLabel(h.action);
       const hiddenStyle = i >= PAGE_SIZE ? ' style="display:none"' : '';
-      return `<tr class="${tableId}-row" data-row-idx="${i}"${hiddenStyle}><td>${i + 1}</td><td>${this.esc(this.formatDate(h.timestamp))}</td><td><span class="tag ${actionTag}">${this.esc(h.action.toUpperCase())}</span></td><td>${this.esc(h.user)}</td><td>${this.formatChangeDetails(h.details)}</td></tr>`;
+      return `<tr class="${tableId}-row" data-row-idx="${i}"${hiddenStyle}><td>${i + 1}</td><td>${this.esc(this.formatDate(h.timestamp))}</td><td><span class="tag ${actionTag}">${this.esc(actionLabel)}</span></td><td>${this.esc(h.user)}</td><td>${this.formatChangeDetails(h.details)}</td></tr>`;
     }).join('\n');
     const totalPages = Math.ceil(env.history.length / PAGE_SIZE);
     const paginationHtml = totalPages > 1 ? `
@@ -590,14 +596,12 @@ ${this.renderHistoryTable(env, data)}
 
   // ── D3.JS GRAPH SCRIPT ──
   private renderD3Script(data: OwnerReportData): string {
-    // Build graph data for each environment (before & after)
+    // Build graph data for each environment (current state only)
     const graphDataEntries: string[] = [];
     for (const env of data.environments) {
       const graphId = env.name.replace(/[^a-zA-Z0-9]/g, '');
-      const beforeJson = this.buildBeforeGraphData(env);
-      const afterJson = this.buildGraphData(env);
-      graphDataEntries.push(`"${graphId}-before": ${JSON.stringify(beforeJson)}`);
-      graphDataEntries.push(`"${graphId}-after": ${JSON.stringify(afterJson)}`);
+      const json = this.buildGraphData(env);
+      graphDataEntries.push(`"${graphId}": ${JSON.stringify(json)}`);
     }
 
     return `<script>
@@ -619,8 +623,9 @@ function paginateHistory(tid,ps,total,dir){
   document.getElementById(tid+'-next').disabled=(p>=tp-1);
 }
 
-function nodeColor(d,mode){if(d.removed)return"#dc2626";if(mode==="before"){return d.primary?"#64748b":"#94a3b8"}if(d.state==="critical")return"#dc2626";if(d.state==="warning")return"#d97706";if(d.isNew)return"#22c55e";return"#0d9488"}
+function nodeColor(d,mode){if(d.removed)return"#dc2626";if(d.state==="critical")return"#dc2626";if(d.state==="warning")return"#d97706";if(d.isNew)return"#22c55e";if(d.primary)return"#64748b";return"#b0bec5"}
 function nodeRadius(d){return d.primary?24:14}
+function isChanged(d){return d.isNew||d.removed||d.state==="warning"||d.state==="critical"}
 
 function renderGraph(containerId,data,mode){
   var ct=document.getElementById(containerId);if(!ct)return;
@@ -628,7 +633,8 @@ function renderGraph(containerId,data,mode){
   var svg=d3.select("#"+containerId).append("svg").attr("viewBox",[0,0,W,H]).attr("preserveAspectRatio","xMidYMid meet");
   var tooltip=d3.select("#"+containerId).append("div").attr("class","tooltip");
   var defs=svg.append("defs");
-  var arrowColor=mode==="before"?"#94a3b8":"#94a3b8";
+  var glowFilter=defs.append("filter").attr("id","glow-"+containerId).attr("x","-50%").attr("y","-50%").attr("width","200%").attr("height","200%");glowFilter.append("feGaussianBlur").attr("stdDeviation","3").attr("result","blur");glowFilter.append("feMerge").selectAll("feMergeNode").data(["blur","SourceGraphic"]).join("feMergeNode").attr("in",function(d){return d});
+  var arrowColor="#d4d9e0";
   defs.append("marker").attr("id","arr-"+containerId).attr("viewBox","0 -5 10 10").attr("refX",22).attr("refY",0).attr("markerWidth",6).attr("markerHeight",6).attr("orient","auto").append("path").attr("d","M0,-4L10,0L0,4").attr("fill",arrowColor);
   defs.append("marker").attr("id","arr-new-"+containerId).attr("viewBox","0 -5 10 10").attr("refX",22).attr("refY",0).attr("markerWidth",6).attr("markerHeight",6).attr("orient","auto").append("path").attr("d","M0,-4L10,0L0,4").attr("fill","#16a34a");
   var nodes=data.nodes.map(function(d){return Object.assign({},d)});
@@ -637,27 +643,26 @@ function renderGraph(containerId,data,mode){
   var linkG=svg.append("g");
   defs.append("marker").attr("id","arr-rm-"+containerId).attr("viewBox","0 -5 10 10").attr("refX",22).attr("refY",0).attr("markerWidth",6).attr("markerHeight",6).attr("orient","auto").append("path").attr("d","M0,-4L10,0L0,4").attr("fill","#dc2626");
   function edgeLabelText(d){if(d.removed)return"-"+d.count;var ex=d.count-d.newCount;var t=ex>0?String(ex):"";if(d.newCount>0)t+=(t?" ":"")+"+"+d.newCount;if(d.removedCount>0)t+=(t?" ":"")+"-"+d.removedCount;return t||String(d.count)}
-  var link=linkG.selectAll("line").data(links).join("line").attr("stroke",function(d){if(d.removed)return"#dc2626";if(mode==="before")return"#cbd5e1";return d.newCount>0?"#16a34a":"#cbd5e1"}).attr("stroke-width",function(d){return d.removed?1.5:Math.max(1.5,Math.min(d.count*1.2,5))}).attr("stroke-dasharray",function(d){return d.removed?"4,4":"6,3"}).attr("marker-end",function(d){if(d.removed)return"url(#arr-rm-"+containerId+")";return d.newCount>0?"url(#arr-new-"+containerId+")":"url(#arr-"+containerId+")"}).attr("opacity",function(d){if(d.removed)return 0.7;return d.newCount>0?0.7:0.5});
+  var link=linkG.selectAll("line").data(links).join("line").attr("stroke",function(d){if(d.removed)return"#dc2626";return(d.newCount>0||d.removedCount>0)?"#16a34a":"#d4d9e0"}).attr("stroke-width",function(d){if(d.removed)return 2.5;if(d.newCount>0||d.removedCount>0)return Math.max(2.5,Math.min(d.count*1.5,6));return Math.max(1,Math.min(d.count*0.8,3))}).attr("stroke-dasharray",function(d){return d.removed?"5,4":"6,3"}).attr("marker-end",function(d){if(d.removed)return"url(#arr-rm-"+containerId+")";return(d.newCount>0)?"url(#arr-new-"+containerId+")":"url(#arr-"+containerId+")"}).attr("opacity",function(d){if(d.removed)return 0.9;if(d.newCount>0||d.removedCount>0)return 0.85;return 0.25});
   var edgeLabel=svg.append("g").selectAll("g").data(links).join("g");
   edgeLabel.append("rect").attr("rx",4).attr("ry",4).attr("width",function(d){return Math.max(18,edgeLabelText(d).length*6+8)}).attr("height",15).attr("fill",function(d){if(d.removed)return"#fee2e2";if(d.removedCount>0&&d.newCount>0)return"#fef9c3";if(d.removedCount>0)return"#fee2e2";return d.newCount>0?"#dcfce7":"#fff"}).attr("stroke",function(d){if(d.removed)return"#dc2626";if(d.removedCount>0&&d.newCount>0)return"#ca8a04";if(d.removedCount>0)return"#dc2626";return d.newCount>0?"#16a34a":"#e2e8f0"}).attr("stroke-width",1);
   var edgeText=edgeLabel.append("text").attr("font-size","8px").attr("font-weight","700").attr("text-anchor","middle").attr("dominant-baseline","central");edgeText.each(function(d){var el=d3.select(this);if(d.removed){el.append("tspan").attr("fill","#991b1b").text("-"+d.count)}else{var ex=d.count-d.newCount;if(ex>0)el.append("tspan").attr("fill","#64748b").text(String(ex));if(d.newCount>0)el.append("tspan").attr("fill","#16a34a").text((ex>0?" ":"")+"+"+d.newCount);if(d.removedCount>0)el.append("tspan").attr("fill","#dc2626").text(" -"+d.removedCount);if(ex<=0&&!d.newCount&&!d.removedCount)el.append("tspan").attr("fill","#64748b").text(String(d.count))}});
   var node=svg.append("g").selectAll("g").data(nodes).join("g").call(d3.drag().on("start",function(e,d){if(!e.active)simulation.alphaTarget(0.3).restart();d.fx=d.x;d.fy=d.y}).on("drag",function(e,d){d.fx=e.x;d.fy=e.y}).on("end",function(e,d){if(!e.active)simulation.alphaTarget(0);d.fx=null;d.fy=null}));
-  node.append("circle").attr("r",function(d){return nodeRadius(d)}).attr("fill",function(d){return nodeColor(d,mode)}).attr("stroke",function(d){if(d.removed)return"#dc2626";if(mode==="before"){return d.primary?"#475569":"#94a3b8"}return d.primary?"#1e293b":d.isNew?"#16a34a":nodeColor(d,mode)}).attr("stroke-width",function(d){return d.primary?3:d.isNew||d.removed?2.5:1.5}).attr("opacity",function(d){return d.removed?0.8:0.92});
-  node.filter(function(d){return d.isNew&&mode==="after"}).append("circle").attr("r",4).attr("cx",10).attr("cy",-10).attr("fill","#22c55e").attr("stroke","#fff").attr("stroke-width",1.5);
+  node.append("circle").attr("r",function(d){return nodeRadius(d)}).attr("fill",function(d){return nodeColor(d,mode)}).attr("stroke",function(d){if(d.removed)return"#dc2626";if(d.isNew)return"#16a34a";if(d.primary)return"#475569";return"#cfd8dc"}).attr("stroke-width",function(d){return d.primary?3:d.isNew||d.removed?3:1}).attr("opacity",function(d){if(d.removed||d.isNew)return 1;if(d.primary)return 0.85;return 0.4}).attr("filter",function(d){return(d.isNew||d.removed)?"url(#glow-"+containerId+")":""});
+  node.filter(function(d){return d.isNew&&mode==="after"}).append("circle").attr("r",5).attr("cx",10).attr("cy",-10).attr("fill","#22c55e").attr("stroke","#fff").attr("stroke-width",2);
   node.filter(function(d){return d.removed}).append("line").attr("x1",-8).attr("y1",-8).attr("x2",8).attr("y2",8).attr("stroke","#fff").attr("stroke-width",2.5);
   node.filter(function(d){return d.removed}).append("line").attr("x1",8).attr("y1",-8).attr("x2",-8).attr("y2",8).attr("stroke","#fff").attr("stroke-width",2.5);
-  node.append("text").text(function(d){return d.label.length>16?d.label.substring(0,14)+"..":d.label}).attr("font-size",function(d){return d.primary?"9px":"7.5px"}).attr("font-weight",function(d){return d.primary?"700":"600"}).attr("fill","#1e293b").attr("text-anchor","middle").attr("dy",function(d){return nodeRadius(d)+14});
+  node.append("text").text(function(d){return d.label.length>16?d.label.substring(0,14)+"..":d.label}).attr("font-size",function(d){return d.primary?"9px":"7.5px"}).attr("font-weight",function(d){return(d.primary||d.isNew||d.removed)?"700":"500"}).attr("fill",function(d){if(d.isNew)return"#166534";if(d.removed)return"#991b1b";if(d.primary)return"#1e293b";return"#94a3b8"}).attr("text-anchor","middle").attr("dy",function(d){return nodeRadius(d)+14});
   node.filter(function(d){return d.primary&&d.score}).append("text").text(function(d){return d.score}).attr("font-size","11px").attr("font-weight","700").attr("fill","#fff").attr("text-anchor","middle").attr("dy",4);
   node.on("mouseover",function(event,d){var html="<strong>"+d.label+"</strong>";if(d.owner)html+="<br/>Owner: "+d.owner;if(d.state&&d.state!=="healthy"&&d.state!=="removed")html+="<br/>State: "+d.state;if(d.score)html+="<br/>Health: "+d.score+"/100";if(d.isNew)html+='<br/><span style="color:#22c55e;font-weight:600">New this period</span>';if(d.removed)html+='<br/><span style="color:#dc2626;font-weight:600">Removed this period</span>';tooltip.html(html).style("left",event.offsetX+14+"px").style("top",event.offsetY-10+"px").style("opacity",1)}).on("mousemove",function(event){tooltip.style("left",event.offsetX+14+"px").style("top",event.offsetY-10+"px")}).on("mouseout",function(){tooltip.style("opacity",0)});
-  node.on("mouseover.hl",function(event,d){var ids=new Set([d.id]);links.forEach(function(l){var s=typeof l.source==="object"?l.source.id:l.source;var t=typeof l.target==="object"?l.target.id:l.target;if(s===d.id)ids.add(t);if(t===d.id)ids.add(s)});node.select("circle").attr("opacity",function(n){return ids.has(n.id)?1:0.12});node.selectAll("text").attr("opacity",function(n){return ids.has(n.id)?1:0.12});link.attr("opacity",function(l){var s=typeof l.source==="object"?l.source.id:l.source;var t=typeof l.target==="object"?l.target.id:l.target;return s===d.id||t===d.id?0.85:0.05});edgeLabel.attr("opacity",function(l){var s=typeof l.source==="object"?l.source.id:l.source;var t=typeof l.target==="object"?l.target.id:l.target;return s===d.id||t===d.id?1:0.05})}).on("mouseout.hl",function(){node.select("circle").attr("opacity",0.92);node.selectAll("text").attr("opacity",1);link.attr("opacity",function(d){return d.newCount>0?0.7:0.5});edgeLabel.attr("opacity",1)});
+  node.on("mouseover.hl",function(event,d){var ids=new Set([d.id]);links.forEach(function(l){var s=typeof l.source==="object"?l.source.id:l.source;var t=typeof l.target==="object"?l.target.id:l.target;if(s===d.id)ids.add(t);if(t===d.id)ids.add(s)});node.select("circle").attr("opacity",function(n){return ids.has(n.id)?1:0.08});node.selectAll("text").attr("opacity",function(n){return ids.has(n.id)?1:0.08});link.attr("opacity",function(l){var s=typeof l.source==="object"?l.source.id:l.source;var t=typeof l.target==="object"?l.target.id:l.target;return s===d.id||t===d.id?0.9:0.03});edgeLabel.attr("opacity",function(l){var s=typeof l.source==="object"?l.source.id:l.source;var t=typeof l.target==="object"?l.target.id:l.target;return s===d.id||t===d.id?1:0.03})}).on("mouseout.hl",function(){node.select("circle").attr("opacity",function(d){if(d.removed||d.isNew)return 1;if(d.primary)return 0.85;return 0.4});node.selectAll("text").attr("opacity",1);link.attr("opacity",function(d){if(d.removed)return 0.9;if(d.newCount>0||d.removedCount>0)return 0.85;return 0.25});edgeLabel.attr("opacity",1)});
   simulation.on("tick",function(){link.attr("x1",function(d){return Math.max(10,Math.min(W-10,d.source.x))}).attr("y1",function(d){return Math.max(10,Math.min(H-10,d.source.y))}).attr("x2",function(d){return Math.max(10,Math.min(W-10,d.target.x))}).attr("y2",function(d){return Math.max(10,Math.min(H-10,d.target.y))});edgeLabel.attr("transform",function(d){var mx=(d.source.x+d.target.x)/2,my=(d.source.y+d.target.y)/2;var bw=Math.max(18,edgeLabelText(d).length*6+8);return"translate("+(mx-bw/2)+","+(my-7.5)+")"});edgeLabel.select("text").attr("x",function(d){var bw=Math.max(18,edgeLabelText(d).length*6+8);return bw/2}).attr("y",7.5);node.attr("transform",function(d){d.x=Math.max(24,Math.min(W-24,d.x));d.y=Math.max(24,Math.min(H-50,d.y));return"translate("+d.x+","+d.y+")"})});
 }
 
 document.addEventListener("DOMContentLoaded",function(){
 ${data.environments.map(env => {
   const graphId = env.name.replace(/[^a-zA-Z0-9]/g, '');
-  return `  if(graphData["${graphId}-before"])renderGraph("graph-${graphId}-before",graphData["${graphId}-before"],"before");
-  if(graphData["${graphId}-after"])renderGraph("graph-${graphId}-after",graphData["${graphId}-after"],"after");`;
+  return `  if(graphData["${graphId}"])renderGraph("graph-${graphId}",graphData["${graphId}"],"after");`;
 }).join('\n')}
 });
 <\/script>`;
@@ -734,90 +739,6 @@ ${data.environments.map(env => {
           newCount: 0,
           removedCount: rmCount,
           removed: true,
-        });
-      }
-    }
-
-    return { nodes, links };
-  }
-
-  // ── BUILD BEFORE GRAPH DATA — shows the state at the START of the period ──
-  // Includes connections that were later removed (shown normally)
-  // Excludes connections that were added during the period (they didn't exist yet)
-  private buildBeforeGraphData(env: EnvironmentReportData): { nodes: any[]; links: any[] } {
-    const health = parseFloat(env.stats.healthScore || '0');
-    const state = health < 60 ? 'critical' : (env.status === 'Warning' ? 'warning' : 'healthy');
-
-    const nodes: any[] = [
-      {
-        id: env.name,
-        label: env.name,
-        state,
-        score: health || undefined,
-        owner: env.owner,
-        primary: true,
-      },
-    ];
-
-    const links: any[] = [];
-    const addedNodeIds = new Set([env.name]);
-
-    // Include current connections that existed BEFORE the period (exclude brand-new ones)
-    for (const conn of env.connectedEnvironments) {
-      const connState = conn.status === 'Warning' || conn.status === 'Critical' ? 'warning' : 'healthy';
-      const isNewOnly = conn.isNewConnection && conn.newIntegrationCount === conn.integrationCount;
-
-      // Skip connections that are entirely new (didn't exist at period start)
-      if (isNewOnly) continue;
-
-      if (!addedNodeIds.has(conn.name)) {
-        nodes.push({
-          id: conn.name,
-          label: conn.name,
-          state: connState,
-          owner: conn.owner || undefined,
-        });
-        addedNodeIds.add(conn.name);
-      }
-
-      // Show only the pre-existing integration count (exclude new ones added during period)
-      const existingCount = conn.integrationCount - conn.newIntegrationCount;
-      links.push({
-        source: env.name,
-        target: conn.name,
-        count: Math.max(existingCount, 1),
-        newCount: 0,
-      });
-    }
-
-    // Add removed connections — they existed at period start, shown as normal nodes
-    const currentConnNames = new Set(env.connectedEnvironments.map(c => c.name.toLowerCase()));
-    for (const r of (env.removedConnections || [])) {
-      const targetName = r.targetEnvName || r.name;
-      const stillConnected = currentConnNames.has(targetName.toLowerCase());
-
-      if (stillConnected) {
-        // Target env still connected — bump link count to show old state had one more integration
-        const existingLink = links.find(l => l.target === targetName || l.source === targetName);
-        if (existingLink) {
-          existingLink.count += 1;
-        }
-      } else {
-        // Full connectivity loss — this env was connected before, show it as a normal node
-        if (!addedNodeIds.has(targetName)) {
-          nodes.push({
-            id: targetName,
-            label: targetName,
-            state: 'healthy',
-            owner: '',
-          });
-          addedNodeIds.add(targetName);
-        }
-        links.push({
-          source: env.name,
-          target: targetName,
-          count: 1,
-          newCount: 0,
         });
       }
     }
@@ -912,7 +833,8 @@ ${data.environments.map(env => {
   private formatDate(dateStr: string): string {
     try {
       const d = new Date(dateStr);
-      return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
+      const tz = process.env.DISPLAY_TIMEZONE || 'America/Phoenix';
+      return d.toLocaleDateString('en-US', { timeZone: tz, year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
     } catch { return dateStr; }
   }
 
@@ -923,9 +845,10 @@ ${data.environments.map(env => {
   }
 
   private formatPeriodShort(data: OwnerReportData): string {
+    const tz = process.env.DISPLAY_TIMEZONE || 'America/Phoenix';
     const start = new Date(data.periodStart);
     const end = new Date(data.periodEnd);
-    return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+    return `${start.toLocaleDateString('en-US', { timeZone: tz, month: 'short', day: 'numeric' })} – ${end.toLocaleDateString('en-US', { timeZone: tz, month: 'short', day: 'numeric' })}`;
   }
 
   private titleCase(s: string): string {
