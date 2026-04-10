@@ -2025,16 +2025,20 @@
                 <textarea
                   id="custom-query"
                   class="form-textarea"
-                  rows="6"
-                  placeholder="Enter operation name, optionally with params...
+                  rows="8"
+                  placeholder="Enter a structured operation or raw SPARQL SELECT...
 
-Examples:
+Structured operations:
   get-entities
   get-entity:id=MY-ENV-001
   get-entity-history:id=MY-ENV-001
   get-configurations:entityId=MY-ENV-001
   get-network
-  health"
+  health
+
+Raw SPARQL (SELECT only):
+  SELECT ?s ?p ?o WHERE { ?s ?p ?o } LIMIT 10
+  PREFIX env: <http://sre-poc.amazon.com/env#> SELECT ?name WHERE { ?s env:name ?name }"
                 >
 get-entities</textarea
                 >
@@ -2696,13 +2700,37 @@ get-entities</textarea
 
               <div class="card">
                 <h3 class="card-title">Existing Relationships</h3>
-                <div class="btn-group" style="margin-bottom: 1rem">
+                <div
+                  style="
+                    margin-bottom: 1rem;
+                    display: flex;
+                    gap: 0.5rem;
+                    align-items: center;
+                    flex-wrap: wrap;
+                  "
+                >
                   <button
                     class="btn btn-secondary"
                     onclick="loadExistingRelationships()"
                   >
                     Refresh List
                   </button>
+                  <input
+                    type="text"
+                    id="relationship-search"
+                    placeholder="Search relationships..."
+                    oninput="filterRelationships()"
+                    style="
+                      flex: 1;
+                      min-width: 200px;
+                      padding: 0.625rem 0.75rem;
+                      border: 1px solid var(--border-color);
+                      border-radius: 0.375rem;
+                      font-size: 0.875rem;
+                      background: var(--bg-primary);
+                      color: var(--text-primary);
+                    "
+                  />
                 </div>
                 <div id="existing-relationships" class="relationships-list">
                   <div class="loading">Click refresh to load relationships</div>
@@ -3895,28 +3923,28 @@ get-entities</textarea
       // Configuration - Updated Lambda URLs from CDK deploy (April 7, 2026)
       const CONFIG = {
         INGEST_URL:
-          "https://0qhbaqienl.execute-api.us-east-1.amazonaws.com/prod/ingest",
+          "https://ruxhnnyuch.execute-api.us-east-1.amazonaws.com/prod/ingest",
         QUERY_URL:
-          "https://0qhbaqienl.execute-api.us-east-1.amazonaws.com/prod/query",
+          "https://ruxhnnyuch.execute-api.us-east-1.amazonaws.com/prod/query",
         CLEANUP_URL:
-          "https://0qhbaqienl.execute-api.us-east-1.amazonaws.com/prod/cleanup",
+          "https://ruxhnnyuch.execute-api.us-east-1.amazonaws.com/prod/cleanup",
         BEDROCK_QUERY_URL:
-          "https://aaxsbzy85l.execute-api.us-east-1.amazonaws.com/prod/query",
+          "https://umzzl0n5ud.execute-api.us-east-1.amazonaws.com/prod/query",
         PCE_DISCOVERY_URL:
-          "https://nutj1wewg0.execute-api.us-east-1.amazonaws.com/prod/pce-discovery/upload-csv",
+          "https://01apxp1ll3.execute-api.us-east-1.amazonaws.com/prod/pce-discovery/upload-csv",
         REPORT_API_URL:
-          "https://623dr8r8ee.execute-api.us-east-1.amazonaws.com/prod/reports",
+          "https://xic80f3m41.execute-api.us-east-1.amazonaws.com/prod/reports",
         // API Keys — paste values from API Gateway console after deployment
-        API_KEY_NEPTUNE: "PASTE_NEPTUNE_API_KEY_HERE",
-        API_KEY_BEDROCK: "PASTE_BEDROCK_API_KEY_HERE",
-        API_KEY_PCE_DISCOVERY: "PASTE_PCE_DISCOVERY_API_KEY_HERE",
-        API_KEY_REPORT: "PASTE_REPORT_API_KEY_HERE",
+        API_KEY_NEPTUNE: "paehXqhEeU8XTVtxGhUsg8R12AQXuTU59XalPfv3",
+        API_KEY_BEDROCK: "GCXxCTC4c92GlOQoF7fsI5l8UiP9rdRG18zANW6c",
+        API_KEY_PCE_DISCOVERY: "dIIHqKuV4F4u8HNlz8WKX4MS86ZPGs883VOEdTYV",
+        API_KEY_REPORT: "tDBG2lsH5g3zDdhkWWpHe2TQ8rNmKK3ZaVtLlpPk",
       };
 
       function getApiKeyForUrl(url) {
-        if (url.includes("aaxsbzy85l")) return CONFIG.API_KEY_BEDROCK;
-        if (url.includes("nutj1wewg0")) return CONFIG.API_KEY_PCE_DISCOVERY;
-        if (url.includes("623dr8r8ee")) return CONFIG.API_KEY_REPORT;
+        if (url.includes("umzzl0n5ud")) return CONFIG.API_KEY_BEDROCK;
+        if (url.includes("01apxp1ll3")) return CONFIG.API_KEY_PCE_DISCOVERY;
+        if (url.includes("xic80f3m41")) return CONFIG.API_KEY_REPORT;
         return CONFIG.API_KEY_NEPTUNE;
       }
 
@@ -4767,6 +4795,9 @@ get-entities</textarea
         }
       }
 
+      // Store loaded relationships for filtering
+      let _loadedRelationships = [];
+
       async function loadExistingRelationships() {
         const container = document.getElementById("existing-relationships");
 
@@ -4776,49 +4807,19 @@ get-entities</textarea
 
           const result = await makeApiCall(
             CONFIG.QUERY_URL,
-            "get-integrations",
+            "get-relationships",
           );
 
-          if (result.success && result.data && result.data.integrations) {
-            // Transform integrations into relationship-like bindings for the UI
-            const relationships = result.data.integrations.map((intg) => ({
-              relationshipId: { value: intg.id },
-              relationshipName: { value: intg.name || intg.id },
-              relationshipType: {
-                value: intg.protocol || intg.type || "Integration",
-              },
-              sourceEntity: { value: intg.sourceEnvironment || "" },
-              targetEntity: { value: intg.targetEnvironment || "" },
-            }));
+          if (result.success && result.data && result.data.relationships) {
+            _loadedRelationships = result.data.relationships;
 
-            if (relationships.length === 0) {
+            if (_loadedRelationships.length === 0) {
               container.innerHTML =
                 '<div class="alert alert-info">No relationships found</div>';
               return;
             }
 
-            let html = "";
-            relationships.forEach((rel) => {
-              const relationshipId = rel.relationshipId?.value || "";
-              const relationshipType = rel.relationshipType?.value || "Unknown";
-              const sourceEntity = rel.sourceEntity?.value || "Unknown";
-              const targetEntity = rel.targetEntity?.value || "Unknown";
-
-              html += `
-                <div class="relationship-record">
-                  <div class="relationship-info">
-                    <div class="relationship-source">${sourceEntity}</div>
-                    <div class="relationship-type">${relationshipType}</div>
-                    <div class="relationship-target">${targetEntity}</div>
-                  </div>
-                  <button class="btn btn-danger btn-sm" onclick="deleteRelationshipEntity('${relationshipId}')">
-                    Delete
-                  </button>
-                </div>
-              `;
-            });
-
-            container.innerHTML = html;
+            renderRelationships(_loadedRelationships);
           } else {
             container.innerHTML =
               '<div class="alert alert-error">Failed to load relationships</div>';
@@ -4829,6 +4830,56 @@ get-entities</textarea
             error.message +
             "</div>";
         }
+      }
+
+      function renderRelationships(relationships) {
+        const container = document.getElementById("existing-relationships");
+        if (relationships.length === 0) {
+          container.innerHTML =
+            '<div class="alert alert-info">No matching relationships found</div>';
+          return;
+        }
+
+        let html = "";
+        relationships.forEach((rel) => {
+          const relationshipId = rel.id || "";
+          const relationshipType = rel.relationshipType || "Unknown";
+          const sourceEntity = rel.sourceEntity || "Unknown";
+          const targetEntity = rel.targetEntity || "Unknown";
+
+          html += `
+            <div class="relationship-record" data-search="${sourceEntity.toLowerCase()} ${relationshipType.toLowerCase()} ${targetEntity.toLowerCase()}">
+              <div class="relationship-info">
+                <div class="relationship-source">${sourceEntity}</div>
+                <div class="relationship-type">${relationshipType}</div>
+                <div class="relationship-target">${targetEntity}</div>
+              </div>
+              <button class="btn btn-danger btn-sm" onclick="deleteRelationshipEntity('${relationshipId}')">
+                Delete
+              </button>
+            </div>
+          `;
+        });
+
+        container.innerHTML = html;
+      }
+
+      function filterRelationships() {
+        const searchTerm = (
+          document.getElementById("relationship-search")?.value || ""
+        )
+          .toLowerCase()
+          .trim();
+        if (!searchTerm) {
+          renderRelationships(_loadedRelationships);
+          return;
+        }
+        const filtered = _loadedRelationships.filter((rel) => {
+          const text =
+            `${rel.sourceEntity || ""} ${rel.relationshipType || ""} ${rel.targetEntity || ""}`.toLowerCase();
+          return text.includes(searchTerm);
+        });
+        renderRelationships(filtered);
       }
 
       async function deleteRelationship(sourceId, predicateUri, targetId) {
@@ -5391,10 +5442,24 @@ get-entities</textarea
       }
 
       async function executeCustomQuery() {
-        const operation = document.getElementById("custom-query").value.trim();
-        if (!operation) return;
+        const input = document.getElementById("custom-query").value.trim();
+        if (!input) return;
+
+        // Detect raw SPARQL: starts with SELECT, PREFIX, ASK, DESCRIBE, CONSTRUCT
+        const upper = input.toUpperCase();
+        if (
+          upper.startsWith("SELECT ") ||
+          upper.startsWith("PREFIX ") ||
+          upper.startsWith("ASK ") ||
+          upper.startsWith("DESCRIBE ") ||
+          upper.startsWith("CONSTRUCT ")
+        ) {
+          await executeRawSparqlQuery(input);
+          return;
+        }
+
         // Parse as "operation:params" or just "operation"
-        const parts = operation.split(":");
+        const parts = input.split(":");
         const op = parts[0].trim();
         let params = {};
         if (parts.length > 1) {
@@ -5413,6 +5478,90 @@ get-entities</textarea
           }
         }
         await executeStructuredQuery(op, params);
+      }
+
+      async function executeRawSparqlQuery(sparql) {
+        if (!connectionStatus.query) {
+          document.getElementById("query-results").innerHTML =
+            '<div class="alert alert-error">Cannot execute query: No connection to query service</div>';
+          document.getElementById("query-actions").style.display = "none";
+          currentQueryResults = null;
+          return;
+        }
+        try {
+          document.getElementById("query-results").innerHTML =
+            '<div class="loading"><div class="spinner"></div>Executing SPARQL query...</div>';
+          document.getElementById("query-actions").style.display = "none";
+
+          let url = CONFIG.QUERY_URL + "?operation=sparql-query";
+          const response = await fetch(url, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+              "x-api-key": getApiKeyForUrl(CONFIG.QUERY_URL),
+            },
+            body: JSON.stringify({ query: sparql }),
+            mode: "cors",
+          });
+
+          const result = await response.json();
+          if (!response.ok) {
+            document.getElementById("query-results").innerHTML =
+              `<div class="alert alert-error">Error: ${result.error || response.statusText}</div>`;
+            document.getElementById("query-actions").style.display = "none";
+            currentQueryResults = null;
+            return;
+          }
+
+          // SPARQL results format: { results: { bindings: [...] }, head: { vars: [...] } }
+          const bindings = result?.results?.bindings || [];
+          const vars = result?.head?.vars || [];
+
+          // Flatten SPARQL bindings to simple key-value rows
+          const rows = bindings.map((b) => {
+            const row = {};
+            vars.forEach((v) => {
+              row[v] = b[v] ? b[v].value : "";
+            });
+            return row;
+          });
+
+          currentQueryResults = { bindings: rows, query: sparql };
+
+          let html = `<div style="margin-bottom: 1rem;"><strong>SPARQL Query &mdash; ${rows.length} results</strong></div>`;
+
+          if (rows.length > 0) {
+            html += '<table class="query-table">';
+            html += "<thead><tr>";
+            vars.forEach((v) => {
+              html += `<th>${v}</th>`;
+            });
+            html += "</tr></thead><tbody>";
+            rows.forEach((row) => {
+              html += "<tr>";
+              vars.forEach((v) => {
+                const value = row[v] != null ? String(row[v]) : "";
+                const shortValue =
+                  value.length > 80 ? value.substring(0, 80) + "..." : value;
+                html += `<td title="${value.replace(/"/g, "&quot;")}">${shortValue}</td>`;
+              });
+              html += "</tr>";
+            });
+            html += "</tbody></table>";
+            document.getElementById("query-actions").style.display = "block";
+          } else {
+            html += '<div class="alert alert-info">No results found.</div>';
+            currentQueryResults = null;
+          }
+
+          document.getElementById("query-results").innerHTML = html;
+        } catch (error) {
+          document.getElementById("query-results").innerHTML =
+            `<div class="alert alert-error">Error: ${error.message}</div>`;
+          document.getElementById("query-actions").style.display = "none";
+          currentQueryResults = null;
+        }
       }
 
       let currentQueryResults = null; // Store current query results for visualization
