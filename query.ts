@@ -10,7 +10,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept, Origin, X-Requested-With',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept, Origin, X-Requested-With, x-api-key',
     'Access-Control-Max-Age': '300'
   };
 
@@ -49,7 +49,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
             'get-network', 'get-environments-list', 'get-network-for-envs',
             'get-entities', 'get-entity', 'get-entity-history', 'get-configurations', 
             'get-config-entries', 'get-deployments', 'get-environments', 
-            'get-applications', 'get-integrations', 'health'
+            'get-applications', 'get-integrations', 'get-relationships', 'health'
           ]
         }),
       };
@@ -206,6 +206,37 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         };
         break;
 
+      case 'get-relationships':
+        const relQuery = `
+          PREFIX env: <${neptuneClient['ontologyPrefix']}>
+          SELECT ?id ?relationshipType ?sourceEntity ?targetEntity ?sourceEntityId ?targetEntityId ?createdAt WHERE {
+            ?rel env:type "Relationship" ;
+                 env:id ?id ;
+                 env:relationshipType ?relationshipType ;
+                 env:sourceEntity ?sourceEntity ;
+                 env:targetEntity ?targetEntity .
+            OPTIONAL { ?rel env:sourceEntityId ?sourceEntityId }
+            OPTIONAL { ?rel env:targetEntityId ?targetEntityId }
+            OPTIONAL { ?rel env:createdAt ?createdAt }
+          }
+          ORDER BY ?sourceEntity ?relationshipType ?targetEntity
+        `;
+        const relResult = await neptuneClient.executeSparqlQuery(relQuery);
+        const relationships = (relResult.results?.bindings || []).map((b: any) => ({
+          id: b.id?.value || '',
+          relationshipType: b.relationshipType?.value || '',
+          sourceEntity: b.sourceEntity?.value || '',
+          targetEntity: b.targetEntity?.value || '',
+          sourceEntityId: b.sourceEntityId?.value || '',
+          targetEntityId: b.targetEntityId?.value || '',
+          createdAt: b.createdAt?.value || '',
+        }));
+        result = {
+          relationships,
+          count: relationships.length,
+        };
+        break;
+
       case 'get-configurations':
         const configEntityId = event.queryStringParameters?.entityId;
         
@@ -272,12 +303,31 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         };
         break;
 
-      case 'sparql-query':
+      case 'sparql-query': {
+        const sparql = (requestBody?.query || '').trim();
+        if (!sparql) {
+          return { statusCode: 400, headers, body: JSON.stringify({ error: 'Missing query parameter' }) };
+        }
+        // Only allow SELECT queries (read-only)
+        const normalised = sparql.replace(/\s+/g, ' ').toUpperCase();
+        const forbidden = ['INSERT', 'DELETE', 'DROP', 'CLEAR', 'CREATE', 'LOAD', 'COPY', 'MOVE', 'ADD'];
+        for (const keyword of forbidden) {
+          if (normalised.includes(keyword)) {
+            return { statusCode: 403, headers, body: JSON.stringify({ error: `Write operations (${keyword}) are not allowed. Only SELECT queries are permitted.` }) };
+          }
+        }
+        if (!normalised.includes('SELECT') && !normalised.includes('ASK') && !normalised.includes('DESCRIBE') && !normalised.includes('CONSTRUCT')) {
+          return { statusCode: 403, headers, body: JSON.stringify({ error: 'Only SELECT, ASK, DESCRIBE, and CONSTRUCT queries are permitted.' }) };
+        }
+        const sparqlResult = await neptuneClient.executeSparqlQuery(sparql);
+        result = sparqlResult;
+        break;
+      }
       case 'sparql-update':
         return {
           statusCode: 403,
           headers,
-          body: JSON.stringify({ error: 'Raw SPARQL access is disabled for security. Use the structured query operations instead.' }),
+          body: JSON.stringify({ error: 'Raw SPARQL UPDATE is disabled for security. Use the structured operations instead.' }),
         };
 
       case 'get-health-dashboard':
@@ -308,7 +358,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
               'get-network', 'get-environments-list', 'get-network-for-envs',
               'get-entities', 'get-entity', 'get-configurations', 
               'get-config-entries', 'get-deployments', 'get-environments', 
-              'get-applications', 'get-integrations', 'health',
+              'get-applications', 'get-integrations', 'get-relationships', 'health',
               'get-health-dashboard'
             ]
           }),
