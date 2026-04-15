@@ -312,7 +312,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         const normalised = sparql.replace(/\s+/g, ' ').toUpperCase();
         const forbidden = ['INSERT', 'DELETE', 'DROP', 'CLEAR', 'CREATE', 'LOAD', 'COPY', 'MOVE', 'ADD'];
         for (const keyword of forbidden) {
-          if (normalised.includes(keyword)) {
+          const regex = new RegExp(`\\b${keyword}\\b`);
+          if (regex.test(normalised)) {
             return { statusCode: 403, headers, body: JSON.stringify({ error: `Write operations (${keyword}) are not allowed. Only SELECT queries are permitted.` }) };
           }
         }

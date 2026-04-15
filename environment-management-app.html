@@ -618,6 +618,171 @@
         font-weight: 600;
       }
 
+      /* Searchable Multi-Select Dropdown (matches Visualize tab style) */
+      .ms-dropdown {
+        position: relative;
+        width: 100%;
+      }
+      .ms-dropdown .ms-trigger {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 4px 8px 4px 10px;
+        border: 1px solid #cbd5e1;
+        border-radius: 4px;
+        font-size: 12px;
+        color: #334155;
+        background: white;
+        cursor: pointer;
+        min-height: 32px;
+        gap: 4px;
+      }
+      .ms-dropdown .ms-trigger:hover {
+        border-color: #94a3b8;
+      }
+      .ms-dropdown.open .ms-trigger {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+      }
+      .ms-dropdown .ms-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 3px;
+        flex: 1;
+        min-width: 0;
+        align-items: center;
+      }
+      .ms-dropdown .ms-placeholder {
+        color: #94a3b8;
+        font-size: 12px;
+        white-space: nowrap;
+      }
+      .ms-dropdown .ms-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        padding: 1px 6px;
+        background: #e0f2fe;
+        border: 1px solid #7dd3fc;
+        border-radius: 3px;
+        font-size: 11px;
+        color: #0369a1;
+        white-space: nowrap;
+        max-width: 180px;
+      }
+      .ms-dropdown .ms-tag span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .ms-dropdown .ms-tag-remove {
+        cursor: pointer;
+        font-size: 13px;
+        line-height: 1;
+        color: #0369a1;
+        opacity: 0.7;
+        flex-shrink: 0;
+      }
+      .ms-dropdown .ms-tag-remove:hover {
+        opacity: 1;
+        color: #dc2626;
+      }
+      .ms-dropdown .ms-arrow {
+        color: #475569;
+        font-size: 11px;
+        flex-shrink: 0;
+        transition: transform 0.2s;
+      }
+      .ms-dropdown.open .ms-arrow {
+        transform: rotate(180deg);
+      }
+      .ms-dropdown .ms-panel {
+        display: none;
+        position: absolute;
+        z-index: 1000;
+        top: 100%;
+        left: 0;
+        right: 0;
+        margin-top: 2px;
+        background: white;
+        border: 1px solid #cbd5e1;
+        border-radius: 4px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        max-height: 260px;
+        overflow: hidden;
+        flex-direction: column;
+      }
+      .ms-dropdown.open .ms-panel {
+        display: flex;
+      }
+      .ms-dropdown .ms-search {
+        padding: 6px 10px;
+        border: none;
+        border-bottom: 1px solid #e2e8f0;
+        font-size: 12px;
+        color: #334155;
+        outline: none;
+        background: #f8fafc;
+        flex-shrink: 0;
+      }
+      .ms-dropdown .ms-search::placeholder {
+        color: #94a3b8;
+      }
+      .ms-dropdown .ms-options-list {
+        overflow-y: auto;
+        max-height: 200px;
+        padding: 2px 0;
+      }
+      .ms-dropdown .ms-option {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 10px;
+        font-size: 12px;
+        color: #334155;
+        cursor: pointer;
+        transition: background 0.15s;
+      }
+      .ms-dropdown .ms-option:hover {
+        background: #f1f5f9;
+      }
+      .ms-dropdown .ms-option.selected {
+        background: #eff6ff;
+        font-weight: 600;
+      }
+      .ms-dropdown .ms-option input[type="checkbox"] {
+        accent-color: #3b82f6;
+        cursor: pointer;
+        flex-shrink: 0;
+        margin: 0;
+      }
+      .ms-dropdown .ms-option span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .ms-dropdown .ms-empty {
+        padding: 10px 12px;
+        font-size: 12px;
+        color: #94a3b8;
+        text-align: center;
+      }
+      .ms-dropdown .ms-actions {
+        display: flex;
+        gap: 8px;
+        padding: 6px 10px;
+        border-bottom: 1px solid #e2e8f0;
+        font-size: 11px;
+        flex-shrink: 0;
+      }
+      .ms-dropdown .ms-actions a {
+        cursor: pointer;
+        color: #3b82f6;
+        text-decoration: none;
+      }
+      .ms-dropdown .ms-actions a:hover {
+        text-decoration: underline;
+      }
+
       .danger-zone {
         border: 2px solid var(--danger-color);
         border-radius: 0.5rem;
@@ -2004,44 +2169,140 @@
               <h2 class="card-title">Execute Queries</h2>
 
               <div class="btn-group" style="margin-bottom: 1rem">
-                <button class="btn btn-secondary" onclick="queryAllEntities()">
+                <button
+                  class="btn btn-secondary"
+                  onclick="populateQuery('allEntities')"
+                >
                   All Entities
                 </button>
-                <button class="btn btn-secondary" onclick="queryEnvironments()">
+                <button
+                  class="btn btn-secondary"
+                  onclick="populateQuery('environments')"
+                >
                   Environments
                 </button>
-                <button class="btn btn-secondary" onclick="queryApplications()">
+                <button
+                  class="btn btn-secondary"
+                  onclick="populateQuery('applications')"
+                >
                   Applications
                 </button>
-                <button class="btn btn-secondary" onclick="queryIntegrations()">
+                <button
+                  class="btn btn-secondary"
+                  onclick="populateQuery('integrations')"
+                >
                   Integrations
                 </button>
+                <button
+                  class="btn btn-secondary"
+                  onclick="populateQuery('relationships')"
+                >
+                  Relationships
+                </button>
+                <button
+                  class="btn btn-secondary"
+                  onclick="populateQuery('allTriples')"
+                >
+                  All Triples
+                </button>
+              </div>
+
+              <!-- Blast Radius & SOF Section -->
+              <div
+                style="
+                  margin-bottom: 1rem;
+                  padding: 12px 14px;
+                  background: var(--bg-tertiary);
+                  border-radius: 8px;
+                  border: 1px solid var(--border-color);
+                "
+              >
+                <div
+                  style="
+                    font-weight: 600;
+                    font-size: 0.82rem;
+                    margin-bottom: 8px;
+                    color: var(--text-secondary);
+                  "
+                >
+                  Impact Analysis Queries
+                </div>
+                <div
+                  style="
+                    display: flex;
+                    gap: 8px;
+                    align-items: center;
+                    flex-wrap: wrap;
+                  "
+                >
+                  <div
+                    id="query-env-ms"
+                    class="ms-dropdown"
+                    style="width: 260px; flex-shrink: 0"
+                    data-single="true"
+                  >
+                    <div
+                      class="ms-trigger"
+                      onclick="toggleMsDropdown('query-env-ms')"
+                    >
+                      <div class="ms-chips">
+                        <span class="ms-placeholder">Select environment…</span>
+                      </div>
+                      <span class="ms-arrow">▾</span>
+                    </div>
+                    <div class="ms-panel">
+                      <input
+                        type="text"
+                        class="ms-search"
+                        placeholder="Search environments…"
+                        oninput="filterMsOptions('query-env-ms', this.value)"
+                      />
+                      <div class="ms-options-list"></div>
+                    </div>
+                  </div>
+                  <button
+                    class="btn btn-secondary"
+                    onclick="populateBlastRadiusQuery()"
+                    style="white-space: nowrap"
+                  >
+                    Blast Radius
+                  </button>
+                  <button
+                    class="btn btn-secondary"
+                    onclick="populateSPOFQuery()"
+                    style="white-space: nowrap"
+                  >
+                    Single Points of Failure
+                  </button>
+                  <button
+                    class="btn btn-secondary"
+                    onclick="populateQuery('criticalBlastRadius')"
+                    style="white-space: nowrap"
+                  >
+                    All Critical Blast Radius
+                  </button>
+                </div>
               </div>
 
               <div class="form-group">
                 <label class="form-label" for="custom-query"
-                  >Custom Structured Query</label
+                  >Raw SPARQL Query</label
                 >
                 <textarea
                   id="custom-query"
                   class="form-textarea"
-                  rows="8"
-                  placeholder="Enter a structured operation or raw SPARQL SELECT...
+                  rows="12"
+                  placeholder="Enter a raw SPARQL SELECT query...
 
-Structured operations:
-  get-entities
-  get-entity:id=MY-ENV-001
-  get-entity-history:id=MY-ENV-001
-  get-configurations:entityId=MY-ENV-001
-  get-network
-  health
-
-Raw SPARQL (SELECT only):
-  SELECT ?s ?p ?o WHERE { ?s ?p ?o } LIMIT 10
-  PREFIX env: <http://sre-poc.amazon.com/env#> SELECT ?name WHERE { ?s env:name ?name }"
-                >
-get-entities</textarea
-                >
+Example:
+  PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+  PREFIX env: <http://neptune.aws.com/envmgmt/ontology/>
+  SELECT ?id ?name ?type WHERE {
+    ?entity env:id ?id ;
+            env:name ?name ;
+            env:type ?type .
+  } LIMIT 50"
+                ></textarea>
               </div>
 
               <button class="btn btn-primary" onclick="executeCustomQuery()">
@@ -2953,7 +3214,8 @@ get-entities</textarea
               "
             >
               Generate environment health reports for any owner. Choose a preset
-              period or define a custom date/time range.
+              period or define a custom date/time range. Optionally select
+              specific environments.
             </p>
 
             <div
@@ -2964,17 +3226,117 @@ get-entities</textarea
                 margin-bottom: 1rem;
               "
             >
-              <!-- Owner -->
-              <div class="form-group" style="margin-bottom: 0">
-                <label class="form-label" for="rpt-owner">Owner</label>
-                <select
-                  id="rpt-owner"
-                  class="form-input"
-                  style="padding: 8px 10px"
+              <!-- Filter Mode Toggle -->
+              <div
+                class="form-group"
+                style="margin-bottom: 0; grid-column: 1 / -1"
+              >
+                <label class="form-label" style="margin-bottom: 6px"
+                  >Filter By</label
                 >
-                  <option value="">Loading owners…</option>
-                </select>
+                <div style="display: flex; gap: 16px; align-items: center">
+                  <label
+                    style="
+                      display: flex;
+                      align-items: center;
+                      gap: 5px;
+                      cursor: pointer;
+                      font-size: 0.85rem;
+                    "
+                  >
+                    <input
+                      type="radio"
+                      name="rpt-filter-mode"
+                      value="owner"
+                      checked
+                      onchange="toggleReportFilterMode()"
+                    />
+                    Owner
+                  </label>
+                  <label
+                    style="
+                      display: flex;
+                      align-items: center;
+                      gap: 5px;
+                      cursor: pointer;
+                      font-size: 0.85rem;
+                    "
+                  >
+                    <input
+                      type="radio"
+                      name="rpt-filter-mode"
+                      value="environments"
+                      onchange="toggleReportFilterMode()"
+                    />
+                    Environments
+                  </label>
+                </div>
               </div>
+
+              <!-- Owner (searchable dropdown) -->
+              <div
+                id="rpt-owner-container"
+                class="form-group"
+                style="margin-bottom: 0"
+              >
+                <label class="form-label">Owner</label>
+                <div id="rpt-owner-ms" class="ms-dropdown" data-single="true">
+                  <div
+                    class="ms-trigger"
+                    onclick="toggleMsDropdown('rpt-owner-ms')"
+                  >
+                    <div class="ms-chips">
+                      <span class="ms-placeholder">Select owner…</span>
+                    </div>
+                    <span class="ms-arrow">▾</span>
+                  </div>
+                  <div class="ms-panel">
+                    <input
+                      type="text"
+                      class="ms-search"
+                      placeholder="Search owners…"
+                      oninput="filterMsOptions('rpt-owner-ms', this.value)"
+                    />
+                    <div class="ms-options-list"></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Environments (searchable multi-select, hidden by default) -->
+              <div
+                id="rpt-env-container"
+                class="form-group"
+                style="margin-bottom: 0; display: none"
+              >
+                <label class="form-label" style="margin-bottom: 6px"
+                  >Environments</label
+                >
+                <div id="rpt-env-ms" class="ms-dropdown">
+                  <div
+                    class="ms-trigger"
+                    onclick="toggleMsDropdown('rpt-env-ms')"
+                  >
+                    <div class="ms-chips">
+                      <span class="ms-placeholder">Select environments…</span>
+                    </div>
+                    <span class="ms-arrow">▾</span>
+                  </div>
+                  <div class="ms-panel">
+                    <input
+                      type="text"
+                      class="ms-search"
+                      placeholder="Search environments…"
+                      oninput="filterMsOptions('rpt-env-ms', this.value)"
+                    />
+                    <div class="ms-actions">
+                      <a onclick="msSelectAll('rpt-env-ms')">Select All</a>
+                      <a onclick="msClearAll('rpt-env-ms')">Clear All</a>
+                    </div>
+                    <div class="ms-options-list"></div>
+                  </div>
+                </div>
+              </div>
+
               <!-- Report Type -->
               <div class="form-group" style="margin-bottom: 0">
                 <label class="form-label" for="rpt-type">Report Type</label>
@@ -3920,8 +4282,12 @@ get-entities</textarea
     </div>
 
     <script>
-      // Configuration - Updated Lambda URLs from CDK deploy (April 7, 2026)
-      const CONFIG = {};
+      // Configuration - Updated Lambda URLs from CDK deploy (April 14, 2026)
+      const CONFIG = {
+        // Display timezone — Arizona MST (UTC-7, no DST)
+        TIMEZONE: "America/Phoenix",
+        TIMEZONE_LABEL: "MST",
+      };
 
       // Format an ISO date string for display in the configured timezone
       function formatDisplayDate(isoStr, opts) {
@@ -3946,8 +4312,8 @@ get-entities</textarea
 
       function getApiKeyForUrl(url) {
         if (url.includes("umzzl0n5ud")) return CONFIG.API_KEY_BEDROCK;
-        if (url.includes("01apxp1ll3")) return CONFIG.API_KEY_PCE_DISCOVERY;
-        if (url.includes("xic80f3m41")) return CONFIG.API_KEY_REPORT;
+        if (url.includes("tudgmmh498")) return CONFIG.API_KEY_PCE_DISCOVERY;
+        if (url.includes("yilidvncdj")) return CONFIG.API_KEY_REPORT;
         return CONFIG.API_KEY_NEPTUNE;
       }
 
@@ -3984,6 +4350,11 @@ get-entities</textarea
         setTimeout(() => {
           populateAllDropdowns();
         }, 4000);
+
+        // Load environment dropdowns for query & reports tabs
+        setTimeout(() => {
+          loadReportEnvironments();
+        }, 5000);
       });
 
       // Add retry functionality
@@ -4032,6 +4403,13 @@ get-entities</textarea
               setTimeout(() => {
                 loadReportOwners();
                 loadReportHistory();
+              }, 100);
+            }
+
+            // Load env dropdown for query tab impact analysis
+            if (targetTab === "query-data") {
+              setTimeout(() => {
+                loadReportEnvironments();
               }, 100);
             }
           });
@@ -5427,60 +5805,242 @@ get-entities</textarea
         }
       }
 
-      // Query functions
-      async function queryAllEntities() {
-        await executeStructuredQuery("get-entities");
+      // Query functions — predefined SPARQL templates
+      const SPARQL_QUERIES = {
+        allEntities: `PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX env: <http://neptune.aws.com/envmgmt/ontology/>
+
+SELECT ?id ?name ?type ?description ?owner ?status ?createdAt WHERE {
+  ?entity env:id ?id ;
+          env:name ?name ;
+          env:type ?type ;
+          env:description ?description .
+  OPTIONAL { ?entity env:owner ?owner }
+  OPTIONAL { ?entity env:status ?status }
+  OPTIONAL { ?entity env:createdAt ?createdAt }
+}
+ORDER BY ?type ?name`,
+
+        environments: `PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX env: <http://neptune.aws.com/envmgmt/ontology/>
+
+SELECT ?id ?name ?uniqueIdentifier ?owner ?description ?createdAt ?status WHERE {
+  ?entity rdf:type env:Environment ;
+          env:id ?id ;
+          env:name ?name ;
+          env:type ?type ;
+          env:description ?description .
+  OPTIONAL { ?entity env:uniqueIdentifier ?uniqueIdentifier }
+  OPTIONAL { ?entity env:owner ?owner }
+  OPTIONAL { ?entity env:createdAt ?createdAt }
+  OPTIONAL { ?entity env:status ?status }
+}
+ORDER BY ?name`,
+
+        applications: `PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX env: <http://neptune.aws.com/envmgmt/ontology/>
+
+SELECT ?id ?name ?uniqueIdentifier ?owner ?description ?createdAt ?status WHERE {
+  ?entity rdf:type env:Application ;
+          env:id ?id ;
+          env:name ?name ;
+          env:type ?type ;
+          env:description ?description .
+  OPTIONAL { ?entity env:uniqueIdentifier ?uniqueIdentifier }
+  OPTIONAL { ?entity env:owner ?owner }
+  OPTIONAL { ?entity env:createdAt ?createdAt }
+  OPTIONAL { ?entity env:status ?status }
+}
+ORDER BY ?name`,
+
+        integrations: `PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX env: <http://neptune.aws.com/envmgmt/ontology/>
+
+SELECT ?id ?name ?uniqueIdentifier ?owner ?description ?createdAt ?status WHERE {
+  ?entity rdf:type env:Integration ;
+          env:id ?id ;
+          env:name ?name ;
+          env:type ?type ;
+          env:description ?description .
+  OPTIONAL { ?entity env:uniqueIdentifier ?uniqueIdentifier }
+  OPTIONAL { ?entity env:owner ?owner }
+  OPTIONAL { ?entity env:createdAt ?createdAt }
+  OPTIONAL { ?entity env:status ?status }
+}
+ORDER BY ?name`,
+
+        relationships: `PREFIX env: <http://neptune.aws.com/envmgmt/ontology/>
+
+SELECT ?id ?relationshipType ?sourceEntity ?targetEntity ?sourceEntityId ?targetEntityId ?createdAt WHERE {
+  ?rel env:type "Relationship" ;
+       env:id ?id ;
+       env:relationshipType ?relationshipType ;
+       env:sourceEntity ?sourceEntity ;
+       env:targetEntity ?targetEntity .
+  OPTIONAL { ?rel env:sourceEntityId ?sourceEntityId }
+  OPTIONAL { ?rel env:targetEntityId ?targetEntityId }
+  OPTIONAL { ?rel env:createdAt ?createdAt }
+}
+ORDER BY ?sourceEntity ?relationshipType ?targetEntity`,
+
+        allTriples: `SELECT ?s ?p ?o WHERE {
+  ?s ?p ?o
+} LIMIT 100`,
+
+        criticalBlastRadius: `PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX env: <http://neptune.aws.com/envmgmt/ontology/>
+
+# Blast Radius for all Critical environments — shows all entities
+# connected within 2 hops of any environment with status "critical"
+SELECT DISTINCT ?envName ?hop1Name ?hop1Type ?hop2Name ?hop2Type WHERE {
+  ?env rdf:type env:Environment ;
+       env:id ?envId ;
+       env:name ?envName ;
+       env:status ?status .
+  FILTER(LCASE(?status) IN ("critical", "production", "prod"))
+
+  # Hop 1: direct connections
+  {
+    ?rel1 env:type "Relationship" ;
+          env:sourceEntityId ?envId ;
+          env:targetEntityId ?hop1Id .
+  } UNION {
+    ?rel1 env:type "Relationship" ;
+          env:targetEntityId ?envId ;
+          env:sourceEntityId ?hop1Id .
+  }
+  ?hop1Entity env:id ?hop1Id ;
+              env:name ?hop1Name ;
+              env:type ?hop1Type .
+
+  # Hop 2: secondary connections (optional)
+  OPTIONAL {
+    {
+      ?rel2 env:type "Relationship" ;
+            env:sourceEntityId ?hop1Id ;
+            env:targetEntityId ?hop2Id .
+    } UNION {
+      ?rel2 env:type "Relationship" ;
+            env:targetEntityId ?hop1Id ;
+            env:sourceEntityId ?hop2Id .
+    }
+    FILTER(?hop2Id != ?envId)
+    ?hop2Entity env:id ?hop2Id ;
+                env:name ?hop2Name ;
+                env:type ?hop2Type .
+  }
+}
+ORDER BY ?envName ?hop1Name ?hop2Name`,
+      };
+
+      // Blast Radius query for a specific environment
+      function populateBlastRadiusQuery() {
+        const envId = getMsSelectedSingle("query-env-ms");
+        if (!envId) {
+          alert("Please select an environment first");
+          return;
+        }
+        const envName = getMsSelectedLabel("query-env-ms");
+        const query = `PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX env: <http://neptune.aws.com/envmgmt/ontology/>
+
+# Blast Radius for: ${envName}
+# Shows all entities reachable within 3 hops
+SELECT DISTINCT ?hop ?entityName ?entityType ?relationType ?fromEntity WHERE {
+  {
+    # Hop 1 — direct connections
+    {
+      ?rel env:type "Relationship" ;
+           env:sourceEntityId "${envId}" ;
+           env:targetEntityId ?eid ;
+           env:relationshipType ?relationType .
+    } UNION {
+      ?rel env:type "Relationship" ;
+           env:targetEntityId "${envId}" ;
+           env:sourceEntityId ?eid ;
+           env:relationshipType ?relationType .
+    }
+    ?e env:id ?eid ; env:name ?entityName ; env:type ?entityType .
+    BIND(1 AS ?hop)
+    BIND("${envName}" AS ?fromEntity)
+  }
+  UNION
+  {
+    # Hop 2 — secondary connections
+    {
+      ?r1 env:type "Relationship" ;
+          env:sourceEntityId "${envId}" ;
+          env:targetEntityId ?mid .
+    } UNION {
+      ?r1 env:type "Relationship" ;
+          env:targetEntityId "${envId}" ;
+          env:sourceEntityId ?mid .
+    }
+    ?midE env:id ?mid ; env:name ?midName .
+    {
+      ?r2 env:type "Relationship" ;
+          env:sourceEntityId ?mid ;
+          env:targetEntityId ?eid ;
+          env:relationshipType ?relationType .
+    } UNION {
+      ?r2 env:type "Relationship" ;
+          env:targetEntityId ?mid ;
+          env:sourceEntityId ?eid ;
+          env:relationshipType ?relationType .
+    }
+    FILTER(?eid != "${envId}")
+    ?e env:id ?eid ; env:name ?entityName ; env:type ?entityType .
+    BIND(2 AS ?hop)
+    BIND(?midName AS ?fromEntity)
+  }
+}
+ORDER BY ?hop ?entityType ?entityName`;
+        document.getElementById("custom-query").value = query;
       }
 
-      async function queryEnvironments() {
-        await executeStructuredQuery("get-entities", { type: "Environment" });
+      // Single Points of Failure (SPOF)
+      // Finds entities with the highest number of inbound dependencies
+      function populateSPOFQuery() {
+        const query = `PREFIX env: <http://neptune.aws.com/envmgmt/ontology/>
+
+# Single Points of Failure (SPOF)
+# Finds entities with the highest number of inbound dependencies.
+# These are highest-risk entities whose failure would cascade most widely.
+SELECT ?entityName ?entityType ?owner (COUNT(DISTINCT ?depId) AS ?inboundCount)
+       (GROUP_CONCAT(DISTINCT ?depName; separator=", ") AS ?dependentEntities)
+WHERE {
+  # Find all relationships where this entity is the target (inbound)
+  ?rel env:type "Relationship" ;
+       env:targetEntityId ?entityId ;
+       env:sourceEntityId ?depId .
+
+  # Get the target entity details
+  ?entity env:id ?entityId ;
+          env:name ?entityName ;
+          env:type ?entityType .
+  OPTIONAL { ?entity env:owner ?owner }
+
+  # Get the dependent (source) entity name
+  ?depEntity env:id ?depId ;
+             env:name ?depName .
+}
+GROUP BY ?entityId ?entityName ?entityType ?owner
+HAVING (COUNT(DISTINCT ?depId) > 1)
+ORDER BY DESC(?inboundCount)`;
+        document.getElementById("custom-query").value = query;
       }
 
-      async function queryApplications() {
-        await executeStructuredQuery("get-entities", { type: "Application" });
-      }
-
-      async function queryIntegrations() {
-        await executeStructuredQuery("get-entities", { type: "Integration" });
+      function populateQuery(queryName) {
+        const textarea = document.getElementById("custom-query");
+        if (SPARQL_QUERIES[queryName]) {
+          textarea.value = SPARQL_QUERIES[queryName];
+        }
       }
 
       async function executeCustomQuery() {
         const input = document.getElementById("custom-query").value.trim();
         if (!input) return;
-
-        // Detect raw SPARQL: starts with SELECT, PREFIX, ASK, DESCRIBE, CONSTRUCT
-        const upper = input.toUpperCase();
-        if (
-          upper.startsWith("SELECT ") ||
-          upper.startsWith("PREFIX ") ||
-          upper.startsWith("ASK ") ||
-          upper.startsWith("DESCRIBE ") ||
-          upper.startsWith("CONSTRUCT ")
-        ) {
-          await executeRawSparqlQuery(input);
-          return;
-        }
-
-        // Parse as "operation:params" or just "operation"
-        const parts = input.split(":");
-        const op = parts[0].trim();
-        let params = {};
-        if (parts.length > 1) {
-          try {
-            params = JSON.parse(parts.slice(1).join(":"));
-          } catch (e) {
-            // Try as query params: key=value&key2=value2
-            parts
-              .slice(1)
-              .join(":")
-              .split("&")
-              .forEach((p) => {
-                const [k, v] = p.split("=");
-                if (k) params[k.trim()] = (v || "").trim();
-              });
-          }
-        }
-        await executeStructuredQuery(op, params);
+        await executeRawSparqlQuery(input);
       }
 
       async function executeRawSparqlQuery(sparql) {
@@ -5517,9 +6077,10 @@ get-entities</textarea
             return;
           }
 
-          // SPARQL results format: { results: { bindings: [...] }, head: { vars: [...] } }
-          const bindings = result?.results?.bindings || [];
-          const vars = result?.head?.vars || [];
+          // Response is wrapped: { success, operation, data: { head, results } }
+          const sparqlData = result.data || result;
+          const bindings = sparqlData?.results?.bindings || [];
+          const vars = sparqlData?.head?.vars || [];
 
           // Flatten SPARQL bindings to simple key-value rows
           const rows = bindings.map((b) => {
@@ -10611,21 +11172,13 @@ get-entities</textarea
           owners.sort(function (a, b) {
             return a.localeCompare(b);
           });
-          // Populate report owner dropdown
-          var sel = document.getElementById("rpt-owner");
-          sel.innerHTML =
-            '<option value="">-- Select Owner --</option>' +
-            owners
-              .map(function (o) {
-                return (
-                  '<option value="' +
-                  escapeHtml(o) +
-                  '">' +
-                  escapeHtml(o) +
-                  "</option>"
-                );
-              })
-              .join("");
+
+          // Initialize owner searchable dropdown
+          var ownerItems = owners.map(function (o) {
+            return { value: o, label: o };
+          });
+          initMsDropdown("rpt-owner-ms", ownerItems, { label: "owners" });
+
           // Populate history filter dropdown
           var hSel = document.getElementById("rpt-history-owner");
           hSel.innerHTML =
@@ -10642,19 +11195,304 @@ get-entities</textarea
               })
               .join("");
           reportOwnersLoaded = true;
+          // Also load environments for the multi-select
+          loadReportEnvironments();
         } catch (e) {
           console.error("Failed to load owners:", e);
-          document.getElementById("rpt-owner").innerHTML =
-            '<option value="">Failed to load</option>';
+        }
+      }
+
+      function toggleReportFilterMode() {
+        var mode = document.querySelector(
+          'input[name="rpt-filter-mode"]:checked',
+        ).value;
+        document.getElementById("rpt-owner-container").style.display =
+          mode === "owner" ? "" : "none";
+        document.getElementById("rpt-env-container").style.display =
+          mode === "environments" ? "" : "none";
+      }
+
+      // ── Searchable Multi-Select Component ──
+      var _msData = {}; // { containerId: { items: [{value, label}], selected: Set } }
+
+      function initMsDropdown(containerId, items, opts) {
+        opts = opts || {};
+        var container = document.getElementById(containerId);
+        if (!container) return;
+        _msData[containerId] = {
+          items: items,
+          selected: new Set(),
+          single: container.dataset.single === "true",
+          label: opts.label || "items",
+        };
+        renderMsOptions(containerId, "");
+        renderMsChips(containerId);
+      }
+
+      function renderMsOptions(containerId, filter) {
+        var data = _msData[containerId];
+        if (!data) return;
+        var list = document.querySelector(
+          "#" + containerId + " .ms-options-list",
+        );
+        if (!list) return;
+        var lowerFilter = (filter || "").toLowerCase();
+        var filtered = data.items.filter(function (item) {
+          return !lowerFilter || item.label.toLowerCase().includes(lowerFilter);
+        });
+        if (filtered.length === 0) {
+          list.innerHTML =
+            '<div class="ms-empty">No ' +
+            (data.label || "items") +
+            " found</div>";
+          return;
+        }
+        list.innerHTML = filtered
+          .map(function (item) {
+            var sel = data.selected.has(item.value);
+            return (
+              '<div class="ms-option' +
+              (sel ? " selected" : "") +
+              '" data-value="' +
+              escapeHtml(item.value) +
+              '" onclick="toggleMsOption(\'' +
+              containerId +
+              "', '" +
+              escapeHtml(item.value) +
+              "')\">" +
+              (data.single
+                ? ""
+                : '<input type="checkbox"' +
+                  (sel ? " checked" : "") +
+                  ' tabindex="-1">') +
+              "<span>" +
+              escapeHtml(item.label) +
+              "</span></div>"
+            );
+          })
+          .join("");
+      }
+
+      function renderMsChips(containerId) {
+        var data = _msData[containerId];
+        if (!data) return;
+        var container = document.getElementById(containerId);
+        var chipsEl = container.querySelector(".ms-chips");
+        if (!chipsEl) return;
+        chipsEl.innerHTML = "";
+        if (data.selected.size === 0) {
+          var placeholder = document.createElement("span");
+          placeholder.className = "ms-placeholder";
+          var lbl = data.label || "items";
+          placeholder.textContent = data.single
+            ? "Select " + lbl.replace(/s$/, "") + "…"
+            : "Select " + lbl + "…";
+          chipsEl.appendChild(placeholder);
+          return;
+        }
+        data.selected.forEach(function (val) {
+          var item = data.items.find(function (i) {
+            return i.value === val;
+          });
+          if (!item) return;
+          var tag = document.createElement("span");
+          tag.className = "ms-tag";
+          tag.title = item.label;
+          var text = document.createElement("span");
+          text.textContent = item.label;
+          var remove = document.createElement("span");
+          remove.className = "ms-tag-remove";
+          remove.innerHTML = "×";
+          remove.onclick = function (e) {
+            e.stopPropagation();
+            removeMsOption(containerId, val);
+          };
+          tag.appendChild(text);
+          tag.appendChild(remove);
+          chipsEl.appendChild(tag);
+        });
+      }
+
+      function toggleMsDropdown(containerId) {
+        var container = document.getElementById(containerId);
+        if (!container) return;
+        var isOpen = container.classList.contains("open");
+        // Close any other open dropdowns
+        document.querySelectorAll(".ms-dropdown.open").forEach(function (el) {
+          if (el.id !== containerId) el.classList.remove("open");
+        });
+        if (isOpen) {
+          container.classList.remove("open");
+        } else {
+          container.classList.add("open");
+          var searchInput = container.querySelector(".ms-search");
+          if (searchInput) {
+            searchInput.value = "";
+            renderMsOptions(containerId, "");
+            setTimeout(function () {
+              searchInput.focus();
+            }, 50);
+          }
+        }
+      }
+
+      function toggleMsOption(containerId, value) {
+        var data = _msData[containerId];
+        if (!data) return;
+        if (data.single) {
+          data.selected.clear();
+          data.selected.add(value);
+        } else {
+          if (data.selected.has(value)) {
+            data.selected.delete(value);
+          } else {
+            data.selected.add(value);
+          }
+        }
+        var searchInput = document.querySelector(
+          "#" + containerId + " .ms-search",
+        );
+        renderMsOptions(containerId, searchInput ? searchInput.value : "");
+        renderMsChips(containerId);
+        if (data.single) {
+          closeMsDropdown(containerId);
+        } else {
+          document.getElementById(containerId).classList.add("open");
+        }
+      }
+
+      function removeMsOption(containerId, value) {
+        var data = _msData[containerId];
+        if (!data) return;
+        data.selected.delete(value);
+        var searchInput = document.querySelector(
+          "#" + containerId + " .ms-search",
+        );
+        renderMsOptions(containerId, searchInput ? searchInput.value : "");
+        renderMsChips(containerId);
+      }
+
+      function openMsDropdown(containerId) {
+        document.querySelectorAll(".ms-dropdown.open").forEach(function (el) {
+          if (el.id !== containerId) el.classList.remove("open");
+        });
+        var container = document.getElementById(containerId);
+        container.classList.add("open");
+        var searchInput = container.querySelector(".ms-search");
+        if (searchInput)
+          setTimeout(function () {
+            searchInput.focus();
+          }, 50);
+      }
+
+      function closeMsDropdown(containerId) {
+        document.getElementById(containerId).classList.remove("open");
+      }
+
+      function filterMsOptions(containerId, value) {
+        renderMsOptions(containerId, value);
+        openMsDropdown(containerId);
+      }
+
+      function msSelectAll(containerId) {
+        var data = _msData[containerId];
+        if (!data) return;
+        data.items.forEach(function (item) {
+          data.selected.add(item.value);
+        });
+        var searchInput = document.querySelector(
+          "#" + containerId + " .ms-search",
+        );
+        renderMsOptions(containerId, searchInput ? searchInput.value : "");
+        renderMsChips(containerId);
+      }
+
+      function msClearAll(containerId) {
+        var data = _msData[containerId];
+        if (!data) return;
+        data.selected.clear();
+        var searchInput = document.querySelector(
+          "#" + containerId + " .ms-search",
+        );
+        renderMsOptions(containerId, searchInput ? searchInput.value : "");
+        renderMsChips(containerId);
+      }
+
+      function getMsSelectedValues(containerId) {
+        var data = _msData[containerId];
+        if (!data) return [];
+        return Array.from(data.selected);
+      }
+
+      function getMsSelectedSingle(containerId) {
+        var vals = getMsSelectedValues(containerId);
+        return vals.length > 0 ? vals[0] : "";
+      }
+
+      function getMsSelectedLabel(containerId) {
+        var data = _msData[containerId];
+        if (!data) return "";
+        var val = getMsSelectedSingle(containerId);
+        var item = data.items.find(function (i) {
+          return i.value === val;
+        });
+        return item ? item.label : "";
+      }
+
+      // Close dropdowns when clicking outside
+      document.addEventListener("click", function (e) {
+        if (!e.target.closest(".ms-dropdown")) {
+          document.querySelectorAll(".ms-dropdown.open").forEach(function (el) {
+            el.classList.remove("open");
+          });
+        }
+      });
+
+      // ── Load Environments ──
+      var reportEnvsLoaded = false;
+      async function loadReportEnvironments() {
+        if (reportEnvsLoaded) return;
+        try {
+          var resp = await fetch(
+            CONFIG.QUERY_URL + "?operation=get-entities&type=Environment",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "x-api-key": getApiKeyForUrl(CONFIG.QUERY_URL),
+              },
+              body: JSON.stringify({}),
+            },
+          );
+          var result = await resp.json();
+          var envs = [];
+          if (result.success && result.data) {
+            envs = result.data.entities || [];
+          }
+          envs.sort(function (a, b) {
+            return (a.name || "").localeCompare(b.name || "");
+          });
+
+          var envItems = envs.map(function (e) {
+            return { value: e.id, label: e.name };
+          });
+
+          // Initialize report multi-select dropdown
+          initMsDropdown("rpt-env-ms", envItems, { label: "environments" });
+          // Initialize query single-select dropdown
+          initMsDropdown("query-env-ms", envItems, { label: "environments" });
+
+          reportEnvsLoaded = true;
+          console.log("Loaded " + envs.length + " environments for dropdowns");
+        } catch (e) {
+          console.error("Failed to load environments for reports:", e);
         }
       }
 
       async function generateReport() {
-        var owner = document.getElementById("rpt-owner").value;
-        if (!owner) {
-          alert("Please select an owner");
-          return;
-        }
+        var filterMode = document.querySelector(
+          'input[name="rpt-filter-mode"]:checked',
+        ).value;
         var type = document.getElementById("rpt-type").value;
         var btn = document.getElementById("rpt-generate-btn");
         var spinner = document.getElementById("rpt-btn-spinner");
@@ -10663,13 +11501,30 @@ get-entities</textarea
         var resultDiv = document.getElementById("rpt-result");
         resultDiv.style.display = "none";
 
+        var body = {};
+
+        if (filterMode === "owner") {
+          var owner = getMsSelectedSingle("rpt-owner-ms");
+          if (!owner) {
+            alert("Please select an owner");
+            return;
+          }
+          body.owner = owner;
+        } else {
+          var selectedEnvIds = getMsSelectedValues("rpt-env-ms");
+          if (selectedEnvIds.length === 0) {
+            alert("Please select at least one environment");
+            return;
+          }
+          body.environmentIds = selectedEnvIds;
+        }
+
         btn.disabled = true;
         spinner.style.display = "inline";
         btnText.textContent = "Generating...";
         status.textContent = "Connecting to Neptune and generating report...";
 
         try {
-          var body = { owner: owner };
           if (type === "custom") {
             var startDate = document.getElementById("rpt-start-date").value;
             var endDate = document.getElementById("rpt-end-date").value;
@@ -10686,28 +11541,17 @@ get-entities</textarea
             body.reportType = "daily";
             body.startDate = new Date(startDate).toISOString();
             body.endDate = new Date(endDate).toISOString();
-            var resp = await fetch(CONFIG.REPORT_API_URL + "/generate-report", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "x-api-key": getApiKeyForUrl(CONFIG.REPORT_API_URL),
-              },
-              body: JSON.stringify(body),
-            });
           } else {
             body.reportType = type;
-            var resp = await fetch(
-              CONFIG.REPORT_API_URL + "/generate-" + type,
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  "x-api-key": getApiKeyForUrl(CONFIG.REPORT_API_URL),
-                },
-                body: JSON.stringify(body),
-              },
-            );
           }
+          var resp = await fetch(CONFIG.REPORT_API_URL + "/generate-report", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-api-key": getApiKeyForUrl(CONFIG.REPORT_API_URL),
+            },
+            body: JSON.stringify(body),
+          });
           var data = await resp.json();
           if (!data.success) {
             status.textContent = "";

@@ -16,7 +16,10 @@ export class ReportHtmlRenderer {
     const reportId = `RPT-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${data.owner.toUpperCase()}-${this.shortHash()}`;
     const periodLabel = this.formatPeriodLabel(data);
     const generatedDate = this.formatDate(data.reportDate);
-    const reportTitle = data.reportType === 'weekly' ? 'EMS Weekly Owner Report' : 'EMS Daily Report';
+    const isEnvMode = data.reportMode === 'environment';
+    const reportTitle = data.reportType === 'weekly'
+      ? (isEnvMode ? 'EMS Weekly Environment Report' : 'EMS Weekly Owner Report')
+      : (isEnvMode ? 'EMS Daily Environment Report' : 'EMS Daily Report');
 
     return `<!doctype html>
 <html lang="en">
@@ -119,14 +122,17 @@ tr:last-child td{border-bottom:none}tr:hover td{background:#f8fafc}
   // ── TOP BAR ──
   private renderTopBar(data: OwnerReportData, title: string, periodLabel: string, generatedDate: string): string {
     const periodPill = data.reportType === 'weekly' ? 'This Week' : 'Today';
+    const isEnvMode = data.reportMode === 'environment';
+    const scopeLabel = isEnvMode ? 'Environments' : 'Owner';
+    const scopeValue = isEnvMode ? `${data.environments.length} environments` : data.owner;
     return `<div class="topbar">
   <div class="topbar-left">
     <h1>${this.esc(title)}</h1>
-    <div class="subtitle">Owner: ${this.esc(data.owner)} &#183; ${this.esc(periodLabel)} &#183; Generated ${this.esc(generatedDate)}</div>
+    <div class="subtitle">${this.esc(scopeLabel)}: ${this.esc(scopeValue)} &#183; ${this.esc(periodLabel)} &#183; Generated ${this.esc(generatedDate)}</div>
   </div>
   <div class="topbar-right">
     <div class="filter-pill">Report Period: <strong>${this.esc(periodPill)}</strong></div>
-    <div class="filter-pill">Owner: <strong>${this.esc(data.owner)}</strong></div>
+    <div class="filter-pill">${this.esc(scopeLabel)}: <strong>${this.esc(scopeValue)}</strong></div>
   </div>
 </div>`;
   }
