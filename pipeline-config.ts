@@ -242,12 +242,18 @@ async function upsertSchedule(
   try {
     const res = await scheduler.send(new CreateScheduleCommand(scheduleInput));
     schedulerArn = res.ScheduleArn || '';
-  } catch (err: any) {
-    if (err.name === 'ConflictException') {
+  } catch (createErr: any) {
+    // Schedule already exists — name === 'ConflictException' is the SDK v3 norm,
+    // but also check httpStatusCode 409 as a fallback for any SDK version quirks.
+    const isConflict =
+      createErr.name === 'ConflictException' ||
+      createErr.__type === 'ConflictException' ||
+      createErr.$metadata?.httpStatusCode === 409;
+    if (isConflict) {
       const res = await scheduler.send(new UpdateScheduleCommand(scheduleInput));
       schedulerArn = res.ScheduleArn || '';
     } else {
-      throw err;
+      throw createErr;
     }
   }
 

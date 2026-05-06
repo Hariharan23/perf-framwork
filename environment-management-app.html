@@ -12615,6 +12615,7 @@ ORDER BY DESC(?inboundCount)`;
 
       var _pipelineSelectedSource = null; // currently selected sourceType
       var _pipelineSchemas = []; // cached connector schemas
+      var _pipelineEnvsCache = []; // cached env list — kept fresh after every load/save
 
       async function initPipelinesTab() {
         if (!CONFIG.PIPELINE_API_URL) {
@@ -12685,6 +12686,7 @@ ORDER BY DESC(?inboundCount)`;
       }
 
       function renderPipelineEnvironments(envs) {
+        _pipelineEnvsCache = envs || []; // keep cache in sync
         const listEl = document.getElementById("pipeline-env-list");
         if (!envs || envs.length === 0) {
           listEl.innerHTML =
@@ -12708,10 +12710,13 @@ ORDER BY DESC(?inboundCount)`;
                   const sched = env.schedule;
                   const schedLabel = sched
                     ? `<span class="pipeline-badge ${sched.enabled ? "enabled" : "disabled"}">${sched.enabled ? "ON" : "OFF"}</span> every ${sched.frequency} ${sched.unit}`
-                    : '<span style="color:var(--text-secondary)">None</span>';
+                    : '<span style="color:var(--text-secondary)">—</span>';
                   const lastRun = env.lastRun
                     ? `<span class="pipeline-badge ${env.lastRun.status}">${env.lastRun.status}</span> ${formatRelativeTime(env.lastRun.completedAt)}`
                     : '<span style="color:var(--text-secondary)">Never</span>';
+                  const schedBtnLabel = sched
+                    ? "Edit Schedule"
+                    : "Set Schedule";
                   return `
                   <tr style="border-bottom:1px solid var(--border)">
                     <td style="padding:0.5rem 0.75rem;font-weight:500">${escapeHtml(env.envName || env.envId)}</td>
@@ -12721,8 +12726,8 @@ ORDER BY DESC(?inboundCount)`;
                     <td style="padding:0.5rem 0.75rem">
                       <div style="display:flex;gap:0.35rem;flex-wrap:wrap">
                         <button class="btn btn-sm btn-secondary" onclick="openPipelineEnvModal('${escapeHtml(env.envId)}')">Edit</button>
-                        <button class="btn btn-sm btn-secondary" onclick="openPipelineScheduleModal('${escapeHtml(env.envId)}')">Schedule</button>
-                        <button class="btn btn-sm btn-primary" onclick="triggerPipelineSync('${escapeHtml(env.envId)}')">Run Now</button>
+                        <button class="btn btn-sm ${sched ? "btn-secondary" : "btn-primary"}" onclick="openPipelineScheduleModal('${escapeHtml(env.envId)}')">${schedBtnLabel}</button>
+                        <button class="btn btn-sm btn-secondary" onclick="triggerPipelineSync('${escapeHtml(env.envId)}')">Run Now</button>
                         <button class="btn btn-sm btn-secondary" onclick="openPipelineHistoryModal('${escapeHtml(env.envId)}')">History</button>
                       </div>
                     </td>
@@ -12899,29 +12904,18 @@ ORDER BY DESC(?inboundCount)`;
       async function openPipelineScheduleModal(envId) {
         _pipelineScheduleEnvId = envId;
 
-        // Load existing schedule data if present
-        let existing = {};
-        try {
-          const envs = await pipelineCall({
-            operation: "list-environments",
-            sourceType: _pipelineSelectedSource,
-          });
-          const env = envs.find((e) => e.envId === envId);
-          if (env && env.schedule) existing = env.schedule;
-        } catch (e) {
-          /* proceed with defaults */
-        }
+        // Use the already-loaded env cache — it is always refreshed after every save/delete
+        const env = _pipelineEnvsCache.find((e) => e.envId === envId);
+        const existing = env && env.schedule ? env.schedule : {};
 
         document.getElementById("ps-frequency").value = existing.frequency || 1;
         document.getElementById("ps-unit").value = existing.unit || "hours";
         document.getElementById("ps-enabled").checked =
           existing.enabled !== false;
         document.getElementById("pipeline-schedule-modal-title").textContent =
-          existing.frequency ? "Edit Schedule" : "Add Schedule";
-
+          existing.frequency ? "Edit Schedule" : "Set Schedule";
         document.getElementById("pipeline-schedule-delete-btn").style.display =
           existing.frequency ? "" : "none";
-
         document.getElementById("pipeline-schedule-modal").style.display =
           "flex";
       }
@@ -13224,7 +13218,7 @@ ORDER BY DESC(?inboundCount)`;
           "
         >
           <h3 id="pipeline-schedule-modal-title" style="margin: 0">
-            Add Schedule
+            Set Schedule
           </h3>
           <button
             class="btn btn-secondary btn-sm"
