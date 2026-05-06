@@ -72,8 +72,8 @@ export class PasConnector implements DataSourceConnector {
         label: 'Table Name',
         type: 'text',
         required: false,
-        default: 'pce_properties',
-        placeholder: 'pce_properties',
+        default: 'pasadm.propertyconfigurerentity',
+        placeholder: 'pasadm.propertyconfigurerentity',
       },
       {
         key: 'ssl',
@@ -103,15 +103,16 @@ export class PasConnector implements DataSourceConnector {
   async fetch(config: ConnectorConfig): Promise<FetchResult> {
     const start = Date.now();
     const engine: DbEngine = (config.dbEngine as DbEngine) || 'postgresql';
-    const table = this.sanitizeTableName(config.table || 'pce_properties');
+    const table = this.sanitizeTableName(config.table || 'pasadm.propertyconfigurerentity');
+    const envId  = String(config.envId || config.envName || '').trim();
 
     let records: PceRecord[];
     if (engine === 'postgresql') {
-      records = await this.fetchPostgres(config, table);
+      records = await this.fetchPostgres(config, table, envId);
     } else if (engine === 'mysql') {
-      records = await this.fetchMysql(config, table);
+      records = await this.fetchMysql(config, table, envId);
     } else if (engine === 'oracle') {
-      records = await this.fetchOracle(config, table);
+      records = await this.fetchOracle(config, table, envId);
     } else {
       throw new Error(`Unsupported database engine: ${engine}`);
     }
@@ -130,7 +131,7 @@ export class PasConnector implements DataSourceConnector {
     };
   }
 
-  private async fetchPostgres(config: ConnectorConfig, table: string): Promise<PceRecord[]> {
+  private async fetchPostgres(config: ConnectorConfig, table: string, envId: string): Promise<PceRecord[]> {
     const { Client } = await import('pg');
     const client = new Client({
       host: config.host,
@@ -144,11 +145,11 @@ export class PasConnector implements DataSourceConnector {
     try {
       await client.connect();
       const result = await client.query(
-        `SELECT environment_name, property_key, property_value
+        `SELECT $1 AS environment_name, propertyname AS property_key, value AS property_value
            FROM ${table}
-          WHERE environment_name IS NOT NULL
-            AND property_key IS NOT NULL
-            AND property_value IS NOT NULL`,
+          WHERE propertyname IS NOT NULL
+            AND value IS NOT NULL`,
+        [envId],
       );
       return result.rows.map((row: any) => ({
         environmentName: String(row.environment_name).trim(),
@@ -160,7 +161,7 @@ export class PasConnector implements DataSourceConnector {
     }
   }
 
-  private async fetchMysql(config: ConnectorConfig, table: string): Promise<PceRecord[]> {
+  private async fetchMysql(config: ConnectorConfig, table: string, envId: string): Promise<PceRecord[]> {
     const mysql = await import('mysql2/promise');
     const connection = await mysql.createConnection({
       host: config.host,
@@ -173,12 +174,11 @@ export class PasConnector implements DataSourceConnector {
     });
     try {
       const [rows] = await connection.execute(
-        `SELECT environment_name, property_key, property_value
-           FROM ?? 
-          WHERE environment_name IS NOT NULL
-            AND property_key IS NOT NULL
-            AND property_value IS NOT NULL`,
-        [table],
+        `SELECT ? AS environment_name, propertyname AS property_key, value AS property_value
+           FROM ??
+          WHERE propertyname IS NOT NULL
+            AND value IS NOT NULL`,
+        [envId, table],
       );
       return (rows as any[]).map((row: any) => ({
         environmentName: String(row.environment_name).trim(),
@@ -190,7 +190,7 @@ export class PasConnector implements DataSourceConnector {
     }
   }
 
-  private async fetchOracle(config: ConnectorConfig, table: string): Promise<PceRecord[]> {
+  private async fetchOracle(config: ConnectorConfig, table: string, envId: string): Promise<PceRecord[]> {
     // oracledb v6+ defaults to thin mode — no Oracle Client libraries required in Lambda
     const oracledb = await import('oracledb');
     const connection = await oracledb.getConnection({
@@ -199,23 +199,18 @@ export class PasConnector implements DataSourceConnector {
       connectString: `${config.host}:${config.port}/${config.database}`,
     });
     try {
-      const result = await connection.execute<{
-        ENVIRONMENT_NAME: string;
-        PROPERTY_KEY: string;
-        PROPERTY_VALUE: string;
-      }>(
-        `SELECT environment_name, property_key, property_value
+      const result = await connection.execute(
+        `SELECT :envId AS environment_name, propertyname AS property_key, value AS property_value
            FROM ${table}
-          WHERE environment_name IS NOT NULL
-            AND property_key IS NOT NULL
-            AND property_value IS NOT NULL`,
-        [],
+          WHERE propertyname IS NOT NULL
+            AND value IS NOT NULL`,
+        { envId },
         { outFormat: oracledb.OUT_FORMAT_OBJECT },
       );
-      return (result.rows ?? []).map((row) => ({
-        environmentName: String(row.ENVIRONMENT_NAME).trim(),
-        propertyKey:     String(row.PROPERTY_KEY).trim(),
-        propertyValue:   String(row.PROPERTY_VALUE).trim(),
+      return ((result.rows ?? []) as Array<Record<string, string>>).map((row) => ({
+        environmentName: String(row['ENVIRONMENT_NAME']).trim(),
+        propertyKey:     String(row['PROPERTY_KEY']).trim(),
+        propertyValue:   String(row['PROPERTY_VALUE']).trim(),
       }));
     } finally {
       await connection.close();
