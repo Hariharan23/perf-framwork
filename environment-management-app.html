@@ -3866,7 +3866,11 @@ Example:
     </div>
 
     <!-- Confirmation Modal -->
-    <div id="confirm-modal" class="modal-overlay" style="display: none">
+    <div
+      id="confirm-modal"
+      class="modal-overlay"
+      style="display: none; z-index: 10001"
+    >
       <div class="modal-content" style="max-width: 500px">
         <div
           class="modal-header"
@@ -12998,22 +13002,31 @@ ORDER BY DESC(?inboundCount)`;
 
       // ── History Modal ──────────────────────────────────────────────────────
 
+      let _historyRuns = [];
+      let _historyPage = 0;
+      const HISTORY_PAGE_SIZE = 5;
+
       async function openPipelineHistoryModal(envId) {
         document.getElementById("pipeline-history-modal-title").textContent =
           "Run History — " + envId;
         document.getElementById("pipeline-history-body").innerHTML =
           '<tr><td colspan="6" style="padding:1rem;color:var(--text-secondary)">Loading\u2026</td></tr>';
+        document.getElementById("pipeline-history-pagination").innerHTML = "";
         document.getElementById("pipeline-history-modal").style.display =
           "flex";
+
+        _historyRuns = [];
+        _historyPage = 0;
 
         try {
           const runs = await pipelineCall({
             operation: "get-run-history",
             sourceType: _pipelineSelectedSource,
             envId,
-            limit: 25,
+            limit: 100,
           });
-          renderPipelineRunHistory(runs);
+          _historyRuns = runs || [];
+          renderPipelineRunHistory();
         } catch (e) {
           document.getElementById("pipeline-history-body").innerHTML =
             '<tr><td colspan="6" style="padding:1rem;color:var(--error)">Error: ' +
@@ -13027,14 +13040,22 @@ ORDER BY DESC(?inboundCount)`;
           "none";
       }
 
-      function renderPipelineRunHistory(runs) {
+      function renderPipelineRunHistory() {
         const tbody = document.getElementById("pipeline-history-body");
-        if (!runs || runs.length === 0) {
+        const pagEl = document.getElementById("pipeline-history-pagination");
+        if (!_historyRuns || _historyRuns.length === 0) {
           tbody.innerHTML =
             '<tr><td colspan="6" style="padding:1rem;color:var(--text-secondary)">No runs recorded yet.</td></tr>';
+          pagEl.innerHTML = "";
           return;
         }
-        tbody.innerHTML = runs
+        const totalPages = Math.ceil(_historyRuns.length / HISTORY_PAGE_SIZE);
+        _historyPage = Math.max(0, Math.min(_historyPage, totalPages - 1));
+        const slice = _historyRuns.slice(
+          _historyPage * HISTORY_PAGE_SIZE,
+          (_historyPage + 1) * HISTORY_PAGE_SIZE,
+        );
+        tbody.innerHTML = slice
           .map(
             (r) => `
           <tr style="border-bottom:1px solid var(--border)">
@@ -13047,6 +13068,23 @@ ORDER BY DESC(?inboundCount)`;
           </tr>`,
           )
           .join("");
+
+        // Pagination bar
+        if (totalPages <= 1) {
+          pagEl.innerHTML = "";
+          return;
+        }
+        const prevDisabled = _historyPage === 0 ? "disabled" : "";
+        const nextDisabled = _historyPage >= totalPages - 1 ? "disabled" : "";
+        pagEl.innerHTML = `
+          <button class="btn btn-secondary btn-sm" ${prevDisabled}
+            onclick="_historyPage--; renderPipelineRunHistory()">&lsaquo; Prev</button>
+          <span style="font-size:0.85rem;color:var(--text-secondary)">
+            Page ${_historyPage + 1} of ${totalPages}
+          </span>
+          <button class="btn btn-secondary btn-sm" ${nextDisabled}
+            onclick="_historyPage++; renderPipelineRunHistory()">Next &rsaquo;</button>
+        `;
       }
 
       // ── Helpers ────────────────────────────────────────────────────────────
@@ -13089,7 +13127,17 @@ ORDER BY DESC(?inboundCount)`;
       style="display: none"
       onclick="if (event.target === this) closePipelineEnvModal();"
     >
-      <div class="modal-content" style="max-width: 520px; width: 100%; display: flex; flex-direction: column; max-height: calc(100vh - 80px); overflow: hidden;">
+      <div
+        class="modal-content"
+        style="
+          max-width: 520px;
+          width: 100%;
+          display: flex;
+          flex-direction: column;
+          max-height: calc(100vh - 80px);
+          overflow: hidden;
+        "
+      >
         <div
           style="
             display: flex;
@@ -13109,8 +13157,21 @@ ORDER BY DESC(?inboundCount)`;
             ✕
           </button>
         </div>
-        <form onsubmit="savePipelineEnv(event)" autocomplete="off" style="display: flex; flex-direction: column; flex: 1; overflow: hidden; min-height: 0;">
-          <div id="pipeline-env-fields" style="overflow-y: auto; flex: 1; padding-right: 4px;"></div>
+        <form
+          onsubmit="savePipelineEnv(event)"
+          autocomplete="off"
+          style="
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            overflow: hidden;
+            min-height: 0;
+          "
+        >
+          <div
+            id="pipeline-env-fields"
+            style="overflow-y: auto; flex: 1; padding-right: 4px"
+          ></div>
           <div
             style="
               display: flex;
@@ -13272,13 +13333,24 @@ ORDER BY DESC(?inboundCount)`;
       style="display: none"
       onclick="if (event.target === this) closePipelineHistoryModal();"
     >
-      <div class="modal-content" style="max-width: 760px; width: 100%">
+      <div
+        class="modal-content"
+        style="
+          max-width: 760px;
+          width: 100%;
+          display: flex;
+          flex-direction: column;
+          max-height: calc(100vh - 80px);
+          overflow: hidden;
+        "
+      >
         <div
           style="
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 1rem;
+            flex-shrink: 0;
           "
         >
           <h3 id="pipeline-history-modal-title" style="margin: 0">
@@ -13291,7 +13363,7 @@ ORDER BY DESC(?inboundCount)`;
             ✕
           </button>
         </div>
-        <div style="overflow-x: auto">
+        <div style="overflow: auto; flex: 1; min-height: 0">
           <table
             style="width: 100%; border-collapse: collapse; font-size: 0.85rem"
           >
@@ -13323,7 +13395,26 @@ ORDER BY DESC(?inboundCount)`;
             </tbody>
           </table>
         </div>
-        <div style="text-align: right; margin-top: 0.75rem">
+        <div
+          id="pipeline-history-pagination"
+          style="
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            margin-top: 0.5rem;
+            flex-shrink: 0;
+          "
+        ></div>
+        <div
+          style="
+            text-align: right;
+            margin-top: 0.75rem;
+            flex-shrink: 0;
+            border-top: 1px solid var(--border-color);
+            padding-top: 0.75rem;
+          "
+        >
           <button
             class="btn btn-secondary"
             onclick="closePipelineHistoryModal()"
