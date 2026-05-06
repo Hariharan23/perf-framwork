@@ -1,12 +1,12 @@
 // PAS Application Database Connector
-// Supports PostgreSQL and MySQL — each environment may use a different engine.
+// Supports PostgreSQL, MySQL, and Oracle — each environment may use a different engine.
 // Data format: the same PCE key-value table (environment_name, property_key, property_value)
 // so the downstream Neptune discovery pipeline requires no changes.
 
 import { DataSourceConnector, ConnectorConfig, FetchResult, ConnectorConfigSchema } from './base-connector';
 import { PceRecord } from '../pce-csv-parser';
 
-const SUPPORTED_ENGINES = ['postgresql', 'mysql'] as const;
+const SUPPORTED_ENGINES = ['postgresql', 'mysql', 'oracle'] as const;
 type DbEngine = typeof SUPPORTED_ENGINES[number];
 
 export class PasConnector implements DataSourceConnector {
@@ -30,7 +30,7 @@ export class PasConnector implements DataSourceConnector {
         type: 'select',
         required: true,
         default: 'postgresql',
-        options: ['postgresql', 'mysql'],
+        options: ['postgresql', 'mysql', 'oracle'],
       },
       {
         key: 'host',
@@ -45,13 +45,14 @@ export class PasConnector implements DataSourceConnector {
         type: 'number',
         required: true,
         default: 5432,
-        placeholder: '5432 (PostgreSQL) or 3306 (MySQL)',
+        placeholder: '5432 (PostgreSQL) · 3306 (MySQL) · 1521 (Oracle)',
       },
       {
         key: 'database',
         label: 'Database Name',
         type: 'text',
         required: true,
+        placeholder: 'my_db  (or Oracle Service Name / SID)',
       },
       {
         key: 'user',
@@ -109,6 +110,8 @@ export class PasConnector implements DataSourceConnector {
       records = await this.fetchPostgres(config, table);
     } else if (engine === 'mysql') {
       records = await this.fetchMysql(config, table);
+    } else if (engine === 'oracle') {
+      records = await this.fetchOracle(config, table);
     } else {
       throw new Error(`Unsupported database engine: ${engine}`);
     }
@@ -184,6 +187,38 @@ export class PasConnector implements DataSourceConnector {
       }));
     } finally {
       await connection.end();
+    }
+  }
+
+  private async fetchOracle(config: ConnectorConfig, table: string): Promise<PceRecord[]> {
+    // oracledb v6+ defaults to thin mode — no Oracle Client libraries required in Lambda
+    const oracledb = await import('oracledb');
+    const connection = await oracledb.getConnection({
+      user: config.user,
+      password: config.password,
+      connectString: `${config.host}:${config.port}/${config.database}`,
+    });
+    try {
+      const result = await connection.execute<{
+        ENVIRONMENT_NAME: string;
+        PROPERTY_KEY: string;
+        PROPERTY_VALUE: string;
+      }>(
+        `SELECT environment_name, property_key, property_value
+           FROM ${table}
+          WHERE environment_name IS NOT NULL
+            AND property_key IS NOT NULL
+            AND property_value IS NOT NULL`,
+        [],
+        { outFormat: oracledb.OUT_FORMAT_OBJECT },
+      );
+      return (result.rows ?? []).map((row) => ({
+        environmentName: String(row.ENVIRONMENT_NAME).trim(),
+        propertyKey:     String(row.PROPERTY_KEY).trim(),
+        propertyValue:   String(row.PROPERTY_VALUE).trim(),
+      }));
+    } finally {
+      await connection.close();
     }
   }
 
