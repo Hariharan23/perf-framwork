@@ -32,9 +32,11 @@ export class DataPipelineStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: DataPipelineStackProps) {
     super(scope, id, props);
 
+    const PREFIX = 'SRE-POC';
+
     // ── DynamoDB: Pipeline run history ────────────────────────────────────
     const runsTable = new dynamodb.Table(this, 'PipelineRunsTable', {
-      tableName: `${this.stackName}-pipeline-runs`,
+      tableName: `${PREFIX}-pipeline-runs`,
       partitionKey: { name: 'pipelineId', type: dynamodb.AttributeType.STRING },
       sortKey:      { name: 'runId',      type: dynamodb.AttributeType.STRING },
       billingMode:  dynamodb.BillingMode.PAY_PER_REQUEST,
@@ -42,13 +44,23 @@ export class DataPipelineStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
+    // Pre-computed ARNs — break circular token dependencies.
+    // Both resources use explicit names, so we can construct the ARN as a
+    // plain string before the resources exist in the CDK graph.
+    const syncLambdaArn    = `arn:aws:lambda:${this.region}:${this.account}:function:${PREFIX}-pipeline-sync`;
+    const schedulerRoleArn = `arn:aws:iam::${this.account}:role/${PREFIX}-pipeline-scheduler-role`;
+
     // ── IAM: EventBridge Scheduler → Sync Lambda role ─────────────────────
-    // Created before sync Lambda so we can reference its ARN in scheduler trust
     const schedulerRole = new iam.Role(this, 'PipelineSchedulerRole', {
-      roleName: `${this.stackName}-scheduler-role`,
+      roleName: `${PREFIX}-pipeline-scheduler-role`,
       assumedBy: new iam.ServicePrincipal('scheduler.amazonaws.com'),
     });
-    // Specific Lambda invoke is added after sync Lambda is defined (below).
+    // Invoke permission uses pre-computed ARN — no cycle with syncLambda.
+    schedulerRole.addToPolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: ['lambda:InvokeFunction'],
+      resources: [syncLambdaArn],
+    }));
 
     // ── IAM: Lambda execution role ────────────────────────────────────────
     const lambdaRole = new iam.Role(this, 'PipelineLambdaRole', {
@@ -108,10 +120,19 @@ export class DataPipelineStack extends cdk.Stack {
     }));
 
     // PassRole: allow config Lambda to pass schedulerRole to EventBridge
+    // Uses pre-computed string ARN — no cycle with schedulerRole DefaultPolicy.
     lambdaRole.addToPolicy(new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       actions: ['iam:PassRole'],
-      resources: [schedulerRole.roleArn],
+      resources: [schedulerRoleArn],
+    }));
+
+    // Invoke sync Lambda (for manual trigger from config Lambda)
+    // Uses pre-computed string ARN — no cycle with syncLambda.
+    lambdaRole.addToPolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: ['lambda:InvokeFunction'],
+      resources: [syncLambdaArn],
     }));
 
     // DynamoDB
@@ -146,7 +167,7 @@ export class DataPipelineStack extends cdk.Stack {
 
     // ── Lambda: pipeline-sync ─────────────────────────────────────────────
     const syncLambda = new lambda.Function(this, 'PipelineSyncLambda', {
-      functionName: `${this.stackName}-pipeline-sync`,
+      functionName: `${PREFIX}-pipeline-sync`,
       runtime:  lambda.Runtime.NODEJS_20_X,
       handler:  'src/pipeline-sync.handler',
       code:     lambda.Code.fromAsset('./lambdas', bundlingOptions),
@@ -168,23 +189,9 @@ export class DataPipelineStack extends cdk.Stack {
       }),
     });
 
-    // Allow schedulerRole to invoke syncLambda
-    schedulerRole.addToPolicy(new iam.PolicyStatement({
-      effect: iam.Effect.ALLOW,
-      actions: ['lambda:InvokeFunction'],
-      resources: [syncLambda.functionArn],
-    }));
-
-    // Allow lambdaRole (config Lambda) to invoke syncLambda async
-    lambdaRole.addToPolicy(new iam.PolicyStatement({
-      effect: iam.Effect.ALLOW,
-      actions: ['lambda:InvokeFunction'],
-      resources: [syncLambda.functionArn],
-    }));
-
     // ── Lambda: pipeline-config ────────────────────────────────────────────
     const configLambda = new lambda.Function(this, 'PipelineConfigLambda', {
-      functionName: `${this.stackName}-pipeline-config`,
+      functionName: `${PREFIX}-pipeline-config`,
       runtime:  lambda.Runtime.NODEJS_20_X,
       handler:  'src/pipeline-config.handler',
       code:     lambda.Code.fromAsset('./lambdas', bundlingOptions),
@@ -206,7 +213,7 @@ export class DataPipelineStack extends cdk.Stack {
 
     // ── API Gateway ────────────────────────────────────────────────────────
     this.pipelineApi = new apigateway.RestApi(this, 'PipelineApi', {
-      restApiName: 'EMS Data Pipeline API',
+      restApiName: 'SRE-POC Data Pipeline API',
       description: 'CRUD and trigger operations for EMS data pipeline environments',
       defaultCorsPreflightOptions: {
         allowOrigins: apigateway.Cors.ALL_ORIGINS,
@@ -225,11 +232,11 @@ export class DataPipelineStack extends cdk.Stack {
 
     // API Key + Usage Plan
     const apiKey = this.pipelineApi.addApiKey('PipelineApiKey', {
-      apiKeyName: 'ems-pipeline-api-key',
-      description: 'API key for EMS Data Pipeline API',
+      apiKeyName: 'SRE-POC-pipeline-api-key',
+      description: 'API key for SRE-POC Data Pipeline API',
     });
     const usagePlan = this.pipelineApi.addUsagePlan('PipelineUsagePlan', {
-      name: 'ems-pipeline-usage-plan',
+      name: 'SRE-POC-pipeline-usage-plan',
       throttle: { rateLimit: 20, burstLimit: 40 },
       quota: { limit: 5000, period: apigateway.Period.DAY },
     });
