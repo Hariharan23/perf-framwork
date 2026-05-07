@@ -11356,41 +11356,11 @@ ORDER BY DESC(?inboundCount)`;
       }
 
       /**
-       * Convert a .properties key into a human-readable Integration entity name.
-       * Mirrors the toIntegrationName() logic in lambdas/shared/key-parser.ts.
-       *
-       * Examples:
-       *   "recordPaymentServiceImpl.endpointUri" → "Record Payment Service"  (strips Impl only; Service kept)
-       *   "paymentServiceImpl.endpointUrl"       → "Payment Service"
-       *   "database.url"                         → "Database"
-       *   "authServiceUrl"                       → "Auth Service URL" (no dot → full key used)
+       * Returns the full property key as-is for use as the Integration entity name in DCM imports.
+       * e.g. "paymentServiceImpl.endpointUrl" → "paymentServiceImpl.endpointUrl"
        */
       function dcmKeyToIntegrationName(key) {
-        // Only strip pure Java implementation noise; keep business-meaningful terms
-        // (Service, Client, Adapter, Proxy, Delegate) as part of the integration name.
-        const STRIP_SUFFIXES = ["Impl", "Bean"];
-        const UPPERCASE_WORDS = new Set(["api", "url", "uri", "http", "https", "ssl", "tls", "jms", "jndi", "jdbc", "soap", "rest", "xml", "json", "sql", "id"]);
-
-        // Take the first dot-separated segment as the "service" portion
-        const serviceRaw = key.indexOf(".") > 0 ? key.substring(0, key.indexOf(".")) : key;
-
-        // Strip known suffixes
-        let stripped = serviceRaw;
-        for (const sfx of STRIP_SUFFIXES) {
-          if (stripped.endsWith(sfx) && stripped.length > sfx.length) stripped = stripped.slice(0, -sfx.length);
-        }
-
-        // Split camelCase / underscores / dots into words
-        const words = stripped
-          .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-          .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
-          .split(/[\s_.-]+/)
-          .filter(Boolean);
-
-        // Title-case each word, preserving known abbreviations
-        return words
-          .map(w => UPPERCASE_WORDS.has(w.toLowerCase()) ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-          .join(" ");
+        return key;
       }
 
       function parseCsvToEntities(csvContent) {
