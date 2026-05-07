@@ -1477,7 +1477,7 @@
         </button>
         <button class="nav-tab" data-tab="bulk-import">Import</button>
         <button class="nav-tab" data-tab="reports">Reports</button>
-        <button class="nav-tab" data-tab="pipeline">Pipeline</button>
+        <button class="nav-tab" data-tab="pipelines">Pipeline</button>
         <button class="nav-tab" data-tab="maintenance">Maintenance</button>
         <button class="nav-tab" data-tab="admin">Admin</button>
       </nav>
@@ -3696,7 +3696,7 @@ Example:
 
         <!-- Admin Tab -->
         <!-- Pipeline Tab -->
-        <div id="pipeline" class="tab-pane">
+        <div id="pipelines" class="tab-pane">
           <div class="card">
             <div
               style="
@@ -3801,7 +3801,7 @@ Example:
               Environment nodes with no active Integration edges. These were
               created by the discovery pipeline for unresolved hostnames.
             </p>
-            <div id="orphan-nodes-container">
+            <div id="orphan-list-container">
               <div class="loading">Loading…</div>
             </div>
           </div>
@@ -4850,9 +4850,9 @@ Example:
               REPORT_API_URL:
                 "",
               // Data Pipeline API (pipeline-config Lambda) — fill in after deploy
-              PIPELINE_URL: "",
+              PIPELINE_API_URL: "",
               // Alias Manager API (alias-manager Lambda) — fill in after deploy
-              ALIAS_MGR_URL: "",
+              ALIAS_MGR_API_URL: "",
               // API Keys — from API Gateway (April 14, 2026)
               API_KEY_NEPTUNE: "",
               API_KEY_BEDROCK: "",
@@ -4887,11 +4887,16 @@ Example:
             }
 
             function getApiKeyForUrl(url) {
-              if (url.includes("")) return CONFIG.API_KEY_BEDROCK;
-              if (url.includes("")) return CONFIG.API_KEY_PCE_DISCOVERY;
-              if (url.includes("")) return CONFIG.API_KEY_REPORT;
-              if (CONFIG.PIPELINE_URL && url === CONFIG.PIPELINE_URL) return CONFIG.API_KEY_PIPELINE;
-              if (CONFIG.ALIAS_MGR_URL && url === CONFIG.ALIAS_MGR_URL) return CONFIG.API_KEY_ALIAS_MGR;
+              if (url.includes("umzzl0n5ud")) return CONFIG.API_KEY_BEDROCK;
+              if (url.includes("tudgmmh498")) return CONFIG.API_KEY_PCE_DISCOVERY;
+              if (url.includes("yilidvncdj")) return CONFIG.API_KEY_REPORT;
+              if (CONFIG.PIPELINE_API_URL && url.startsWith(CONFIG.PIPELINE_API_URL))
+                return CONFIG.API_KEY_PIPELINE;
+              if (
+                CONFIG.ALIAS_MGR_API_URL &&
+                url.startsWith(CONFIG.ALIAS_MGR_API_URL)
+              )
+                return CONFIG.API_KEY_ALIAS_MGR || CONFIG.API_KEY_PCE_DISCOVERY;
               return CONFIG.API_KEY_NEPTUNE;
             }
 
@@ -5017,7 +5022,7 @@ Example:
                   }
 
                   // Auto-load pipeline when switching to pipeline tab
-                  if (targetTab === "pipeline") {
+                  if (targetTab === "pipelines") {
                     setTimeout(() => {
                       loadPipelinePage();
                     }, 100);
@@ -11646,7 +11651,7 @@ Example:
               const sel = document.getElementById('pipeline-source-type');
               sel.innerHTML = '<option value="">— Select source type —</option>';
               try {
-                const res = await fetch(CONFIG.PIPELINE_URL, {
+                const res = await fetch(CONFIG.PIPELINE_API_URL, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', 'x-api-key': CONFIG.API_KEY_PIPELINE },
                   body: JSON.stringify({ operation: 'list-source-types' }),
@@ -11678,7 +11683,7 @@ Example:
               }
               container.innerHTML = '<div class="loading">Loading…</div>';
               try {
-                const res = await fetch(CONFIG.PIPELINE_URL, {
+                const res = await fetch(CONFIG.PIPELINE_API_URL, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', 'x-api-key': CONFIG.API_KEY_PIPELINE },
                   body: JSON.stringify({ operation: 'list-environments', sourceType }),
@@ -11779,7 +11784,7 @@ Example:
               if (!schema) return;
               // Re-fetch to get latest (including masked password)
               try {
-                const res = await fetch(CONFIG.PIPELINE_URL, {
+                const res = await fetch(CONFIG.PIPELINE_API_URL, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', 'x-api-key': CONFIG.API_KEY_PIPELINE },
                   body: JSON.stringify({ operation: 'list-environments', sourceType: _pipelineCurrentType }),
@@ -11839,7 +11844,7 @@ Example:
               btn.disabled = true;
               btn.textContent = 'Saving…';
               try {
-                const res = await fetch(CONFIG.PIPELINE_URL, {
+                const res = await fetch(CONFIG.PIPELINE_API_URL, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', 'x-api-key': CONFIG.API_KEY_PIPELINE },
                   body: JSON.stringify({ operation: 'upsert-environment', sourceType, envId, config }),
@@ -11849,7 +11854,7 @@ Example:
 
                 // If a schedule was set, upsert it
                 if (freq && unit) {
-                  await fetch(CONFIG.PIPELINE_URL, {
+                  await fetch(CONFIG.PIPELINE_API_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'x-api-key': CONFIG.API_KEY_PIPELINE },
                     body: JSON.stringify({ operation: 'upsert-schedule', sourceType, envId, schedule: { frequency: freq, unit, enabled } }),
@@ -11875,7 +11880,7 @@ Example:
               );
               if (!confirmed) return;
               try {
-                const res = await fetch(CONFIG.PIPELINE_URL, {
+                const res = await fetch(CONFIG.PIPELINE_API_URL, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', 'x-api-key': CONFIG.API_KEY_PIPELINE },
                   body: JSON.stringify({ operation: 'delete-environment', sourceType: _pipelineCurrentType, envId }),
@@ -11891,7 +11896,7 @@ Example:
 
             async function togglePipelineSchedule(envId, enable) {
               try {
-                const res = await fetch(CONFIG.PIPELINE_URL, {
+                const res = await fetch(CONFIG.PIPELINE_API_URL, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', 'x-api-key': CONFIG.API_KEY_PIPELINE },
                   body: JSON.stringify({ operation: 'toggle-schedule', sourceType: _pipelineCurrentType, envId, enabled: enable }),
@@ -11912,7 +11917,7 @@ Example:
               );
               if (!confirmed) return;
               try {
-                const res = await fetch(CONFIG.PIPELINE_URL, {
+                const res = await fetch(CONFIG.PIPELINE_API_URL, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', 'x-api-key': CONFIG.API_KEY_PIPELINE },
                   body: JSON.stringify({ operation: 'trigger-sync', sourceType: _pipelineCurrentType, envId }),
@@ -11933,7 +11938,7 @@ Example:
               card.style.display = 'block';
               card.scrollIntoView({ behavior: 'smooth', block: 'start' });
               try {
-                const res = await fetch(CONFIG.PIPELINE_URL, {
+                const res = await fetch(CONFIG.PIPELINE_API_URL, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', 'x-api-key': CONFIG.API_KEY_PIPELINE },
                   body: JSON.stringify({ operation: 'get-run-history', sourceType: _pipelineCurrentType, envId, limit: 25 }),
@@ -11980,7 +11985,7 @@ Example:
             // ── Maintenance Tab ─────────────────────────────────────────────────────
 
             async function loadOrphanNodes() {
-              const container = document.getElementById('orphan-nodes-container');
+              const container = document.getElementById('orphan-list-container');
               container.innerHTML = '<div class="loading">Loading…</div>';
               try {
                 // Find Environment nodes with no Integration edge (either direction)
@@ -12015,7 +12020,7 @@ Example:
                     <td style="padding:0.5rem 0.75rem">
                       <div style="display:flex;gap:0.4rem">
                         <button class="btn btn-secondary" style="padding:0.25rem 0.5rem;font-size:0.75rem"
-                          onclick="connectOrphanNode('${escapeHtml(id)}','${escapeHtml(name)}')">Connect</button>
+                          onclick="connectOrphanToSource('${escapeHtml(id)}','${escapeHtml(name)}')">Connect</button>
                         <button class="btn btn-danger" style="padding:0.25rem 0.5rem;font-size:0.75rem"
                           onclick="deleteOrphanNode('${escapeHtml(id)}','${escapeHtml(name)}')">Delete</button>
                       </div>
@@ -12035,7 +12040,7 @@ Example:
               }
             }
 
-            function connectOrphanNode(envId, envName) {
+            function connectOrphanToSource(envId, envName) {
               document.getElementById('orphan-connect-modal-title').textContent = 'Connect Orphan: ' + envName;
               document.getElementById('orphan-connect-env-id').value = envId;
               document.getElementById('orphan-connect-env-name').value = envName;
@@ -12113,7 +12118,7 @@ Example:
               const container = document.getElementById('alias-registry-container');
               container.innerHTML = '<div class="loading">Loading…</div>';
               try {
-                const res = await fetch(CONFIG.ALIAS_MGR_URL, {
+                const res = await fetch(CONFIG.ALIAS_MGR_API_URL, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', 'x-api-key': CONFIG.API_KEY_ALIAS_MGR },
                   body: JSON.stringify({ operation: 'list-aliases' }),
@@ -12201,7 +12206,7 @@ Example:
               const alertEl = document.getElementById('alias-modal-alerts');
               alertEl.innerHTML = '';
               try {
-                const res = await fetch(CONFIG.ALIAS_MGR_URL, {
+                const res = await fetch(CONFIG.ALIAS_MGR_API_URL, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', 'x-api-key': CONFIG.API_KEY_ALIAS_MGR },
                   body: JSON.stringify({ operation: 'upsert-alias', hostname, environmentName }),
@@ -12224,7 +12229,7 @@ Example:
               );
               if (!confirmed) return;
               try {
-                const res = await fetch(CONFIG.ALIAS_MGR_URL, {
+                const res = await fetch(CONFIG.ALIAS_MGR_API_URL, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', 'x-api-key': CONFIG.API_KEY_ALIAS_MGR },
                   body: JSON.stringify({ operation: 'delete-alias', hostname }),
@@ -12245,7 +12250,7 @@ Example:
               );
               if (!confirmed) return;
               try {
-                const res = await fetch(CONFIG.ALIAS_MGR_URL, {
+                const res = await fetch(CONFIG.ALIAS_MGR_API_URL, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', 'x-api-key': CONFIG.API_KEY_ALIAS_MGR },
                   body: JSON.stringify({ operation: 'revert-alias', hostname }),
@@ -12265,7 +12270,7 @@ Example:
               const statusEl = document.getElementById('reconciler-status');
               statusEl.innerHTML = `<div class="loading">Triggering ${label}…</div>`;
               try {
-                const res = await fetch(CONFIG.ALIAS_MGR_URL, {
+                const res = await fetch(CONFIG.ALIAS_MGR_API_URL, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', 'x-api-key': CONFIG.API_KEY_ALIAS_MGR },
                   body: JSON.stringify({ operation: op }),
@@ -12287,7 +12292,7 @@ Example:
               const container = document.getElementById('reconciler-runs-container');
               container.innerHTML = '<div class="loading">Loading…</div>';
               try {
-                const res = await fetch(CONFIG.ALIAS_MGR_URL, {
+                const res = await fetch(CONFIG.ALIAS_MGR_API_URL, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', 'x-api-key': CONFIG.API_KEY_ALIAS_MGR },
                   body: JSON.stringify({ operation: 'list-reconciler-runs', limit: 25 }),
