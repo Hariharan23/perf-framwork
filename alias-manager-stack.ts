@@ -1,6 +1,6 @@
 // Alias Manager Stack
 // Deploys the alias management and cleanser infrastructure:
-//   • DynamoDB table for cleanser run history (SRE-POC-cleanser-runs)
+//   • DynamoDB table for reconciler run history (SRE-POC-reconciler-runs)
 //   • Lambda: SRE-POC-alias-manager  (7 CRUD + orchestration operations)
 //   • Lambda: SRE-POC-cleanser-job   (async rename/merge worker, VPC-placed)
 //   • API Gateway resource /alias-manager mounted on the existing PCE Discovery API
@@ -28,16 +28,16 @@ export interface AliasMgrStackProps extends cdk.StackProps {
 }
 
 export class AliasMgrStack extends cdk.Stack {
-  public readonly cleanserRunsTable: dynamodb.Table;
+  public readonly reconcilerRunsTable: dynamodb.Table;
 
   constructor(scope: Construct, id: string, props: AliasMgrStackProps) {
     super(scope, id, props);
 
     const PREFIX = 'SRE-POC';
 
-    // ── DynamoDB: Cleanser run history ────────────────────────────────────
-    this.cleanserRunsTable = new dynamodb.Table(this, 'SRE-POC-CleanserRunsTable', {
-      tableName: `${PREFIX}-cleanser-runs`,
+    // ── DynamoDB: Reconciler run history ────────────────────────────────────
+    this.reconcilerRunsTable = new dynamodb.Table(this, 'SRE-POC-ReconcilerRunsTable', {
+      tableName: `${PREFIX}-reconciler-runs`,
       partitionKey: { name: 'runId', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       timeToLiveAttribute: 'ttl',
@@ -45,7 +45,7 @@ export class AliasMgrStack extends cdk.Stack {
     });
 
     // GSI: query runs by status + time (for recent-runs panel)
-    this.cleanserRunsTable.addGlobalSecondaryIndex({
+    this.reconcilerRunsTable.addGlobalSecondaryIndex({
       indexName: 'status-triggeredAt-index',
       partitionKey: { name: 'status',      type: dynamodb.AttributeType.STRING },
       sortKey:      { name: 'triggeredAt', type: dynamodb.AttributeType.STRING },
@@ -87,7 +87,7 @@ export class AliasMgrStack extends cdk.Stack {
       resources: [props.aliasTableArn],
     }));
 
-    // Cleanser runs table
+    // Reconciler runs table
     lambdaRole.addToPolicy(new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       actions: [
@@ -95,8 +95,8 @@ export class AliasMgrStack extends cdk.Stack {
         'dynamodb:Query', 'dynamodb:Scan',
       ],
       resources: [
-        this.cleanserRunsTable.tableArn,
-        `${this.cleanserRunsTable.tableArn}/index/*`,
+        this.reconcilerRunsTable.tableArn,
+        `${this.reconcilerRunsTable.tableArn}/index/*`,
       ],
     }));
 
@@ -125,10 +125,10 @@ export class AliasMgrStack extends cdk.Stack {
     };
 
     const commonEnv = {
-      NEPTUNE_ENDPOINT:    props.neptuneClusterEndpoint,
-      ALIAS_TABLE_NAME:    props.aliasTableName,
-      CLEANSER_RUNS_TABLE: this.cleanserRunsTable.tableName,
-      USE_IAM:             'true',
+      NEPTUNE_ENDPOINT:     props.neptuneClusterEndpoint,
+      ALIAS_TABLE_NAME:     props.aliasTableName,
+      RECONCILER_RUNS_TABLE: this.reconcilerRunsTable.tableName,
+      USE_IAM:              'true',
     };
 
     // ── Lambda: alias-manager ─────────────────────────────────────────────
@@ -223,9 +223,9 @@ export class AliasMgrStack extends cdk.Stack {
       value: `${aliasMgrApi.url}alias-manager`,
       description: 'Alias Manager API endpoint',
     });
-    new cdk.CfnOutput(this, 'SRE-POC-CleanserRunsTableName', {
-      value: this.cleanserRunsTable.tableName,
-      description: 'DynamoDB table for cleanser run history',
+    new cdk.CfnOutput(this, 'SRE-POC-ReconcilerRunsTableName', {
+      value: this.reconcilerRunsTable.tableName,
+      description: 'DynamoDB table for reconciler run history',
     });
   }
 }
