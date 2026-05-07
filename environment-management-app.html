@@ -11153,26 +11153,37 @@ ORDER BY DESC(?inboundCount)`;
         reader.onload = function (e) {
           try {
             const content = e.target.result;
-            const entities = parseDcmPropertiesToEntities(content, file.name);
-            // Store parsed entities globally so env-name changes can regenerate JSON
-            window._dcmParsedEntities = entities;
+            const { parentEntity, urlEntities } = parseDcmPropertiesToEntities(content, file.name);
+            const allEntities = [parentEntity, ...urlEntities];
 
-            // Populate JSON textarea (no env link yet)
-            document.getElementById("bulk-json-input").value = JSON.stringify({ entities }, null, 2);
+            // Store structured metadata so post-import linking knows the shape
+            window._dcmParsedEntities = { parentEntity, urlEntities };
+
+            // Populate JSON textarea
+            document.getElementById("bulk-json-input").value = JSON.stringify({ entities: allEntities }, null, 2);
             validateBulkJson();
 
             // Show the env mapping panel
             const panel = document.getElementById("dcm-mapping-panel");
             panel.style.display = "block";
             document.getElementById("dcm-env-name-input").value = "";
-            document.getElementById("dcm-mapping-status").textContent = "";
 
-            // Pre-populate env suggestions from existing entity list if available
+            const urlCount = urlEntities.length;
+            const configCount = Object.keys(parentEntity.configurations).length;
+            document.getElementById("dcm-mapping-status").innerHTML =
+              `Parsed: <strong>1</strong> parent entity "<strong>${escapeHtml(parentEntity.name)}</strong>" ` +
+              `(<strong>${configCount}</strong> non-URL config(s)) + ` +
+              `<strong>${urlCount}</strong> integration target(s) from URL values.`;
+
+            // Pre-populate env name suggestions
             populateDcmEnvSuggestions();
 
             showAlert(
               "bulk-alerts",
-              `DCM properties file "<strong>${file.name}</strong>" parsed into <strong>${entities.length}</strong> entity group(s). Enter the <strong>Primary Environment Name</strong> above to link them after import.`,
+              `DCM properties file "<strong>${escapeHtml(file.name)}</strong>" parsed: ` +
+              `<strong>${configCount}</strong> custom config(s) → "<strong>${escapeHtml(parentEntity.name)}</strong>", ` +
+              `<strong>${urlCount}</strong> URL value(s) → integration Environment entities. ` +
+              `Enter the <strong>Primary Environment Name</strong> below to link them after import.`,
               "success",
               { isHtml: true, timeout: 0 },
             );
@@ -11207,42 +11218,48 @@ ORDER BY DESC(?inboundCount)`;
       function onDcmEnvNameChange() {
         const envName = (document.getElementById("dcm-env-name-input").value || "").trim();
         const statusEl = document.getElementById("dcm-mapping-status");
-        const entities = window._dcmParsedEntities;
-        if (!entities) return;
+        const meta = window._dcmParsedEntities;
+        if (!meta || !meta.parentEntity) return;
+
+        const { parentEntity, urlEntities } = meta;
+        const allEntities = [parentEntity, ...urlEntities];
+        const configCount = Object.keys(parentEntity.configurations).length;
+
+        // Refresh JSON preview (always clean — no injected preview keys)
+        document.getElementById("bulk-json-input").value = JSON.stringify({ entities: allEntities }, null, 2);
 
         if (!envName) {
-          statusEl.textContent = "No environment set — entities will be imported without a link.";
+          statusEl.innerHTML =
+            `Parsed: <strong>1</strong> parent "<strong>${escapeHtml(parentEntity.name)}</strong>" ` +
+            `(${configCount} config(s)) + <strong>${urlEntities.length}</strong> integration target(s). ` +
+            `<em>Enter environment name above to auto-link after import.</em>`;
           statusEl.style.color = "var(--text-secondary)";
-          document.getElementById("bulk-json-input").value = JSON.stringify({ entities }, null, 2);
           return;
         }
 
-        // Embed linkedEnvironment into each entity's configurations for visibility in JSON preview
-        const tagged = entities.map(e => ({
-          ...e,
-          configurations: { ...e.configurations, linkedEnvironment: envName },
-        }));
-        document.getElementById("bulk-json-input").value = JSON.stringify({ entities: tagged }, null, 2);
-
-        statusEl.innerHTML = `Will link <strong>${entities.length}</strong> entity/entities to "<strong>${escapeHtml(envName)}</strong>" via <code>hasApplication</code> after import.`;
+        statusEl.innerHTML =
+          `After import: ` +
+          `<strong>${escapeHtml(envName)}</strong> <code>hasApplication</code> → ` +
+          `<strong>${escapeHtml(parentEntity.name)}</strong> ` +
+          `<code>hasIntegration</code> → ` +
+          urlEntities.map(e => `<strong>${escapeHtml(e.name)}</strong>`).join(", ") +
+          (urlEntities.length === 0 ? "<em>(no URL values found)</em>" : "");
         statusEl.style.color = "var(--primary-color)";
       }
 
       /**
-       * Parse a Java-style .properties file (key=value, # comments)
-       * and group properties by their first dotted-prefix segment into entities.
+       * Parse a Java-style .properties file (key=value, # / ! comments).
        *
-       * If all keys share the same root prefix (or none use dots), the entire
-       * file maps to a single entity named after the file.
+       * Returns { parentEntity, urlEntities } where:
+       *   parentEntity  — the single DCM app entity; non-URL values stored as configurations.
+       *   urlEntities   — one Environment entity per unique hostname found in URL values;
+       *                   the parent links to each via hasIntegration after import.
        *
-       * Well-known mapping keys inside each group:
-       *   name / display.name / app.name  → entity name
-       *   description / desc              → entity description
-       *   owner / team                    → entity owner
-       *   type / entity.type              → entity type (default: Environment)
+       * URL detection: any value starting with http://, https://, or ftp://.
+       * Deduplication: multiple keys pointing to the same hostname merge into one entity.
        */
       function parseDcmPropertiesToEntities(content, fileName) {
-        // Parse raw key=value pairs (skip blank lines and # comments)
+        // --- 1. Parse raw key=value pairs ---
         const pairs = {};
         for (const rawLine of content.split(/\r?\n/)) {
           const line = rawLine.trim();
@@ -11253,61 +11270,63 @@ ORDER BY DESC(?inboundCount)`;
           const val = line.substring(eqIdx + 1).trim();
           if (key) pairs[key] = val;
         }
-
         if (Object.keys(pairs).length === 0) {
           throw new Error("No key=value pairs found in the file.");
         }
 
-        // Group by first segment of dotted keys
-        const groups = {};
+        // --- 2. Helpers ---
+        const isUrl = (v) => /^https?:\/\//i.test(v) || /^ftp:\/\//i.test(v);
+        const urlToHostname = (url) => {
+          try { return new URL(url).hostname; }
+          catch { return url.replace(/^[a-z]+:\/\//i, "").split("/")[0]; }
+        };
+
+        // --- 3. Resolve parent entity identity from well-known keys ---
+        const baseName = fileName.replace(/\.properties$/i, "");
+        const nameKeys = ["application.name", "app.name", "service.name", "name", "display.name"];
+        const nameKey = nameKeys.find(k => pairs[k] && !isUrl(pairs[k]));
+        const parentName = nameKey ? pairs[nameKey] : baseName;
+
+        const descKey  = ["description", "app.description", "application.description"].find(k => pairs[k] && !isUrl(pairs[k]));
+        const ownerKey = ["owner", "team", "app.owner", "application.owner"].find(k => pairs[k] && !isUrl(pairs[k]));
+        const typeKey  = ["type", "entity.type", "app.type"].find(k => pairs[k] && !isUrl(pairs[k]));
+
+        // --- 4. Split into non-URL configs and URL-derived integration targets ---
+        const configurations = {};
+        const hostnameMap = {}; // hostname → { keys: [], urls: [] }
+
         for (const [key, val] of Object.entries(pairs)) {
-          const dotIdx = key.indexOf(".");
-          const prefix = dotIdx !== -1 ? key.substring(0, dotIdx) : "__root__";
-          if (!groups[prefix]) groups[prefix] = {};
-          groups[prefix][key] = val;
+          if (isUrl(val)) {
+            const hostname = urlToHostname(val);
+            if (!hostnameMap[hostname]) hostnameMap[hostname] = { keys: [], urls: [] };
+            hostnameMap[hostname].keys.push(key);
+            hostnameMap[hostname].urls.push(val);
+          } else {
+            configurations[key] = val;
+          }
         }
 
-        // If only one group or all ended up in __root__, treat as single entity
-        const groupKeys = Object.keys(groups);
-        const isSingle = groupKeys.length === 1;
+        // --- 5. Build parent entity ---
+        const parentEntity = {
+          type: typeKey ? pairs[typeKey] : "Application",
+          name: parentName,
+          description: descKey ? pairs[descKey] : `Imported from ${fileName}`,
+          owner: ownerKey ? pairs[ownerKey] : "",
+          configurations,
+        };
 
-        const baseName = fileName.replace(/\.properties$/i, "");
+        // --- 6. Build one Environment entity per unique hostname ---
+        const urlEntities = Object.entries(hostnameMap).map(([hostname, { keys, urls }]) => ({
+          type: "Environment",
+          name: hostname,
+          description: `Auto-discovered from ${fileName} (${keys[0]})`,
+          owner: "",
+          configurations: Object.fromEntries(
+            keys.map((k, i) => [k, urls[i]])
+          ),
+        }));
 
-        return groupKeys.map((prefix) => {
-          const props = groups[prefix];
-          const isRoot = prefix === "__root__";
-
-          // Try to resolve a display name from well-known keys
-          const nameKey = ["name", "display.name", "app.name", "service.name",
-                           prefix + ".name", prefix + ".display.name"]
-                          .find(k => props[k]);
-          const resolvedName = nameKey
-            ? props[nameKey]
-            : (isSingle || isRoot ? baseName : `${baseName} - ${prefix}`);
-
-          const descKey = ["description", "desc", prefix + ".description"].find(k => props[k]);
-          const ownerKey = ["owner", "team", prefix + ".owner"].find(k => props[k]);
-          const typeKey  = ["type", "entity.type", prefix + ".type"].find(k => props[k]);
-
-          // Build configurations from all remaining keys
-          const configurations = {};
-          for (const [k, v] of Object.entries(props)) {
-            // Strip group prefix from sub-keys for cleaner storage
-            const shortKey = (!isRoot && k.startsWith(prefix + "."))
-              ? k.substring(prefix.length + 1)
-              : k;
-            configurations[shortKey] = v;
-          }
-
-          return {
-            type: typeKey ? props[typeKey] : "Environment",
-            name: resolvedName,
-            description: descKey ? props[descKey] : `Imported from ${fileName}`,
-            owner: ownerKey ? props[ownerKey] : "",
-            sourceFile: fileName,
-            configurations,
-          };
-        });
+        return { parentEntity, urlEntities };
       }
 
       function parseCsvToEntities(csvContent) {
@@ -11781,23 +11800,63 @@ ORDER BY DESC(?inboundCount)`;
               loadEntitiesForDeletion();
             }
 
-            // Auto-link DCM entities to their primary environment
+            // Auto-link after import
             const envName = (document.getElementById("dcm-env-name-input").value || "").trim();
-            if (envName && data.results && data.successful > 0) {
-              const successfulNames = data.results
-                .filter(r => r.status === "success" && r.name)
-                .map(r => r.name);
-              if (successfulNames.length > 0) {
+            const dcmMeta = window._dcmParsedEntities; // set only for .properties imports
+
+            if (data.results && data.successful > 0) {
+              const importedNames = new Set(
+                data.results.filter(r => r.status === "success" && r.name).map(r => r.name)
+              );
+
+              if (dcmMeta && dcmMeta.parentEntity) {
+                // --- DCM .properties import ---
+                const parentName = dcmMeta.parentEntity.name;
+                const urlTargets = dcmMeta.urlEntities
+                  .map(e => e.name)
+                  .filter(n => importedNames.has(n));
+
+                const linkSteps = [];
+
+                // Step 1: parentEntity --hasIntegration--> each URL-derived environment
+                if (urlTargets.length > 0) {
+                  showAlert("bulk-alerts",
+                    `<span class="spinner"></span>Creating <strong>${urlTargets.length}</strong> integration link(s) from "<strong>${escapeHtml(parentName)}</strong>"…`,
+                    "info", { isHtml: true, timeout: 0 });
+                  const integResults = await linkEntitiesFromSource(parentName, "hasIntegration", urlTargets);
+                  linkSteps.push(...integResults.map(r => ({ ...r, rel: "hasIntegration" })));
+                }
+
+                // Step 2: namedEnv --hasApplication--> parentEntity
+                if (envName && importedNames.has(parentName)) {
+                  showAlert("bulk-alerts",
+                    `<span class="spinner"></span>Linking "<strong>${escapeHtml(envName)}</strong>" → "<strong>${escapeHtml(parentName)}</strong>" via hasApplication…`,
+                    "info", { isHtml: true, timeout: 0 });
+                  const appResults = await linkEntitiesToEnvironment([parentName], envName);
+                  linkSteps.push(...appResults.map(r => ({ ...r, rel: "hasApplication" })));
+                }
+
+                if (linkSteps.length > 0) {
+                  const ok = linkSteps.filter(r => r.ok).length;
+                  const failed = linkSteps.filter(r => !r.ok);
+                  let msg = `DCM linking complete: <strong>${ok}</strong>/<strong>${linkSteps.length}</strong> relationship(s) created.`;
+                  if (failed.length > 0)
+                    msg += `<br>Failed: ${failed.map(r => escapeHtml(r.name) + " [" + r.rel + "]: " + escapeHtml(r.error)).join(", ")}`;
+                  showAlert("bulk-alerts", msg, failed.length === 0 ? "success" : "warning", { isHtml: true, timeout: 0 });
+                }
+
+              } else if (envName) {
+                // --- Regular bulk import with env mapping ---
+                const successfulNames = [...importedNames];
                 showAlert("bulk-alerts",
-                  `<span class="spinner"></span>Linking <strong>${successfulNames.length}</strong> entity/entities to environment "<strong>${escapeHtml(envName)}</strong>"…`,
+                  `<span class="spinner"></span>Linking <strong>${successfulNames.length}</strong> entity/entities to "<strong>${escapeHtml(envName)}</strong>"…`,
                   "info", { isHtml: true, timeout: 0 });
                 const linkResults = await linkEntitiesToEnvironment(successfulNames, envName);
                 const linked = linkResults.filter(r => r.ok).length;
                 const linkFailed = linkResults.filter(r => !r.ok);
-                let linkMsg = `Linked <strong>${linked}</strong> of <strong>${successfulNames.length}</strong> entity/entities to "<strong>${escapeHtml(envName)}</strong>" via <code>hasApplication</code>.`;
-                if (linkFailed.length > 0) {
-                  linkMsg += `<br>Failed to link: ${linkFailed.map(r => escapeHtml(r.name) + " (" + escapeHtml(r.error) + ")").join(", ")}`;
-                }
+                let linkMsg = `Linked <strong>${linked}</strong>/<strong>${successfulNames.length}</strong> entity/entities to "<strong>${escapeHtml(envName)}</strong>" via <code>hasApplication</code>.`;
+                if (linkFailed.length > 0)
+                  linkMsg += `<br>Failed: ${linkFailed.map(r => escapeHtml(r.name) + " (" + escapeHtml(r.error) + ")").join(", ")}`;
                 showAlert("bulk-alerts", linkMsg, linkFailed.length === 0 ? "success" : "warning", { isHtml: true, timeout: 0 });
               }
             }
@@ -11818,17 +11877,23 @@ ORDER BY DESC(?inboundCount)`;
         }
       }
 
+      // source --hasApplication--> each target name (original behaviour)
       async function linkEntitiesToEnvironment(entityNames, envName) {
+        return linkEntitiesFromSource(envName, "hasApplication", entityNames);
+      }
+
+      // Generic: sourceName --relType--> each targetName
+      async function linkEntitiesFromSource(sourceName, relType, targetNames) {
         const results = [];
-        for (const name of entityNames) {
+        for (const name of targetNames) {
           try {
             const res = await fetch(CONFIG.INGEST_URL, {
               method: "POST",
               headers: { "Content-Type": "application/json", "x-api-key": CONFIG.API_KEY_NEPTUNE },
               body: JSON.stringify({
                 operation: "create-relationship",
-                sourceEntityName: envName,
-                relationshipType: "hasApplication",
+                sourceEntityName: sourceName,
+                relationshipType: relType,
                 targetEntityName: name,
               }),
             });
