@@ -11841,30 +11841,27 @@ ORDER BY DESC(?inboundCount)`;
             if (dcmMeta && envName) {
               // --- DCM .properties import ---
               const { nonUrlConfigs, urlIntegrations, targetEnvEntities, integrationMap } = dcmMeta;
-              const importedNames = new Set(
-                (data.results || []).filter(r => r.status === "success" && r.name).map(r => r.name)
-              );
               const linkSteps = [];
 
               // Step 1: primaryEnv --hasIntegration--> each Integration node
-              const importedIntegrations = urlIntegrations.map(e => e.name).filter(n => importedNames.has(n));
-              if (importedIntegrations.length > 0) {
+              // Use all Integration names from the parsed file (not just newly imported ones)
+              // because the entity may already exist in Neptune — create-relationship is idempotent.
+              const allIntegrationNames = urlIntegrations.map(e => e.name);
+              if (allIntegrationNames.length > 0) {
                 showAlert("bulk-alerts",
-                  `<span class="spinner"></span>Linking <strong>${importedIntegrations.length}</strong> Integration(s) to "<strong>${escapeHtml(envName)}</strong>"…`,
+                  `<span class="spinner"></span>Linking <strong>${allIntegrationNames.length}</strong> Integration(s) to "<strong>${escapeHtml(envName)}</strong>"…`,
                   "info", { isHtml: true, timeout: 0 });
-                const r1 = await linkEntitiesFromSource(envName, "hasIntegration", importedIntegrations);
+                const r1 = await linkEntitiesFromSource(envName, "hasIntegration", allIntegrationNames);
                 linkSteps.push(...r1.map(r => ({ ...r, rel: "hasIntegration" })));
               }
 
               // Step 2: Integration --integratesWith--> target Environment
-              const integChainPairs = integrationMap.filter(
-                ({ integrationName, hostname }) => importedNames.has(integrationName) && importedNames.has(hostname)
-              );
-              if (integChainPairs.length > 0) {
+              // Wire every pair — covers both new and pre-existing nodes to prevent orphans.
+              if (integrationMap.length > 0) {
                 showAlert("bulk-alerts",
-                  `<span class="spinner"></span>Wiring <strong>${integChainPairs.length}</strong> Integration → target Environment link(s)…`,
+                  `<span class="spinner"></span>Wiring <strong>${integrationMap.length}</strong> Integration → target Environment link(s)…`,
                   "info", { isHtml: true, timeout: 0 });
-                for (const { integrationName, hostname } of integChainPairs) {
+                for (const { integrationName, hostname } of integrationMap) {
                   const r2 = await linkEntitiesFromSource(integrationName, "integratesWith", [hostname]);
                   linkSteps.push(...r2.map(r => ({ ...r, rel: `${integrationName} → integratesWith` })));
                 }
