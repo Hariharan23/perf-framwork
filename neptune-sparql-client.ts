@@ -1117,6 +1117,75 @@ export class NeptuneSparqlClient {
   }
 
   /**
+   * Rename an environment node — replaces the env:name triple in place.
+   */
+  async renameEnvironment(nodeId: string, newName: string): Promise<void> {
+    const update = `
+      PREFIX env: <${this.ontologyPrefix}>
+      DELETE {
+        ?entity env:name ?oldName .
+      }
+      INSERT {
+        ?entity env:name "${this.escapeSparql(newName)}" .
+      }
+      WHERE {
+        ?entity env:id "${this.escapeSparql(nodeId)}" ;
+                env:name ?oldName .
+      }
+    `;
+    await this.executeSparqlUpdate(update);
+  }
+
+  /**
+   * Merge the source environment node into the target:
+   * 1. Re-point all Relationship edges that reference sourceId to targetId.
+   * 2. Delete all triples of the source node.
+   */
+  async mergeEnvironments(sourceId: string, targetId: string): Promise<void> {
+    // Re-point relationships where source env is the sourceEntityId
+    const rerouteSource = `
+      PREFIX env: <${this.ontologyPrefix}>
+      DELETE {
+        ?rel env:sourceEntityId "${this.escapeSparql(sourceId)}" .
+      }
+      INSERT {
+        ?rel env:sourceEntityId "${this.escapeSparql(targetId)}" .
+      }
+      WHERE {
+        ?rel env:type "Relationship" ;
+             env:sourceEntityId "${this.escapeSparql(sourceId)}" .
+      }
+    `;
+    await this.executeSparqlUpdate(rerouteSource);
+
+    // Re-point relationships where source env is the targetEntityId
+    const rerouteTarget = `
+      PREFIX env: <${this.ontologyPrefix}>
+      DELETE {
+        ?rel env:targetEntityId "${this.escapeSparql(sourceId)}" .
+      }
+      INSERT {
+        ?rel env:targetEntityId "${this.escapeSparql(targetId)}" .
+      }
+      WHERE {
+        ?rel env:type "Relationship" ;
+             env:targetEntityId "${this.escapeSparql(sourceId)}" .
+      }
+    `;
+    await this.executeSparqlUpdate(rerouteTarget);
+
+    // Delete the source entity node itself
+    const deleteSource = `
+      PREFIX env: <${this.ontologyPrefix}>
+      DELETE WHERE {
+        ?entity env:id "${this.escapeSparql(sourceId)}" ;
+                ?p ?o .
+      }
+    `;
+    await this.executeSparqlUpdate(deleteSource);
+  }
+
+  /**
    * Initialize ontology following the complete schema
    */
   async initializeOntology(): Promise<void> {
