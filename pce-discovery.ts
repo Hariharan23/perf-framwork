@@ -134,6 +134,41 @@ async function handleApiGateway(event: APIGatewayProxyEvent): Promise<any> {
       };
     }
 
+    // --- operation: connect-orphan-node ---
+    if (parsed.operation === 'connect-orphan-node') {
+      const { nodeId, orphanName, sourceEnvName, rawHostname, createdByRun, createdAt,
+              propertyKey, fullUrl, protocol, port, path: urlPath, endpointHint, sourceFile } = parsed;
+      if (!nodeId || !sourceEnvName) {
+        return {
+          statusCode: 400,
+          headers: CORS_HEADERS,
+          body: JSON.stringify({ error: 'nodeId and sourceEnvName are required' }),
+        };
+      }
+      const neptune = new NeptuneSparqlClient(
+        process.env.NEPTUNE_ENDPOINT || '',
+        process.env.AWS_REGION || 'us-east-1',
+      );
+      const extraConfig: Record<string, string> = {};
+      if (rawHostname)    extraConfig.hostname          = rawHostname;
+      if (propertyKey)    extraConfig.propertyKey       = propertyKey;
+      if (fullUrl)        extraConfig.fullUrl            = fullUrl;
+      if (protocol)       extraConfig.protocol           = protocol;
+      if (port)           extraConfig.port               = String(port);
+      if (urlPath)        extraConfig.path               = urlPath;
+      if (endpointHint)   extraConfig.endpointHint       = endpointHint;
+      if (sourceFile)     extraConfig.sourceFile         = sourceFile;
+      if (createdByRun)   extraConfig.createdByRun       = createdByRun;
+      if (createdAt)      extraConfig.discoveredAt       = createdAt;
+      if (sourceEnvName)  extraConfig.sourceEnvironment  = sourceEnvName;
+      await neptune.connectOrphanNode(nodeId, orphanName || nodeId, sourceEnvName, extraConfig);
+      return {
+        statusCode: 200,
+        headers: CORS_HEADERS,
+        body: JSON.stringify({ success: true, message: `Connected "${orphanName || nodeId}" to "${sourceEnvName}"` }),
+      };
+    }
+
     // --- CSV upload via JSON envelope ---
     if (parsed.csv) {
       csvContent = parsed.csv;

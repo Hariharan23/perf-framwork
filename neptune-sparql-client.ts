@@ -68,6 +68,12 @@ export interface Entity {
   stats?: EntityStats;
 }
 
+export interface OrphanEnvironment extends Entity {
+  rawHostname?: string;
+  createdBySource?: string;
+  createdByRun?: string;
+}
+
 export interface Environment extends Entity {
   type: 'Environment';
 }
@@ -1061,14 +1067,17 @@ export class NeptuneSparqlClient {
    * Find Environment nodes that have no Relationship referencing them
    * (neither as source nor target). These are disconnected/orphan nodes.
    */
-  async listOrphanEnvironments(): Promise<Entity[]> {
+  async listOrphanEnvironments(): Promise<OrphanEnvironment[]> {
     const query = `
       PREFIX env: <${this.ontologyPrefix}>
-      SELECT ?id ?name ?description WHERE {
+      SELECT ?id ?name ?description ?discoveredBy ?discoveredAt ?rawHostname WHERE {
         ?entity env:type "Environment" ;
                 env:id ?id ;
                 env:name ?name .
         OPTIONAL { ?entity env:description ?description }
+        OPTIONAL { ?entity env:config_discoveredBy ?discoveredBy }
+        OPTIONAL { ?entity env:config_discoveredAt ?discoveredAt }
+        OPTIONAL { ?entity env:config_hostname ?rawHostname }
         FILTER NOT EXISTS {
           ?rel env:type "Relationship" ;
                env:sourceEntityId ?id .
@@ -1085,6 +1094,9 @@ export class NeptuneSparqlClient {
       name: b.name?.value || '',
       type: 'Environment',
       description: b.description?.value || '',
+      createdAt: b.discoveredAt?.value || '',
+      createdBySource: b.discoveredBy?.value || '',
+      rawHostname: b.rawHostname?.value || '',
     }));
   }
 
@@ -1114,6 +1126,35 @@ export class NeptuneSparqlClient {
       }
     }
     return { deleted, errors };
+  }
+
+  /**
+   * Convert an orphan Environment node into an Integration node and wire it
+   * to a source environment via a hasIntegration Relationship.
+   * Any extra config properties (hostname, propertyKey, etc.) are stored as config_* triples.
+   */
+  async connectOrphanNode(
+    orphanId: string,
+    orphanName: string,
+    sourceEnvName: string,
+    extraConfig: Record<string, string> = {},
+  ): Promise<void> {
+    // 1. Re-type the orphan node: Environment → Integration
+    const changeType = `
+      PREFIX env: <${this.ontologyPrefix}>
+      DELETE { ?e env:type "Environment" }
+      INSERT { ?e env:type "Integration" }
+      WHERE  { ?e env:id "${this.escapeSparql(orphanId)}" ; env:type "Environment" }
+    `;
+    await this.executeSparqlUpdate(changeType);
+
+    // 2. Persist any extra config properties on the (now) Integration node
+    if (Object.keys(extraConfig).length > 0) {
+      await this.addConfigurationProperties(orphanId, extraConfig);
+    }
+
+    // 3. Create hasIntegration Relationship: sourceEnv → Integration
+    await this.createRelationship(sourceEnvName, 'hasIntegration', orphanName);
   }
 
   /**
