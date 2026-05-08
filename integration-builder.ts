@@ -4,7 +4,7 @@
 
 import { NeptuneSparqlClient, Environment, Integration } from './neptune-sparql-client';
 import { ClassifiedProperty } from './url-parser';
-import { toIntegrationName, toFullIntegrationName, parsePropertyKey } from './key-parser';
+import { toFullIntegrationName, parsePropertyKey } from './key-parser';
 import { HostnameResolver, ResolvedTarget, ConnectionType } from './hostname-resolver';
 
 export interface DiscoveryResult {
@@ -177,12 +177,9 @@ export class IntegrationBuilder {
       }
     }
 
-    // Build integration name from property key.
-    // For PAS PCE discovery use the full property name (service + endpoint hint)
-    // so each endpoint is tracked as a distinct integration.
-    const integrationName = discoveredBy === 'pce-discovery-pipeline'
-      ? toFullIntegrationName(prop.propertyKey)
-      : toIntegrationName(prop.propertyKey);
+    // Build integration name from property key using the full property name
+    // (service + endpoint hint) so each endpoint is tracked as a distinct integration.
+    const integrationName = toFullIntegrationName(prop.propertyKey);
     const parsedKey = parsePropertyKey(prop.propertyKey);
 
     // Idempotency key: integration name + source environment
