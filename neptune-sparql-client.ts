@@ -1058,6 +1058,65 @@ export class NeptuneSparqlClient {
   }
 
   /**
+   * Find Environment nodes that have no Relationship referencing them
+   * (neither as source nor target). These are disconnected/orphan nodes.
+   */
+  async listOrphanEnvironments(): Promise<Entity[]> {
+    const query = `
+      PREFIX env: <${this.ontologyPrefix}>
+      SELECT ?id ?name ?description WHERE {
+        ?entity env:type "Environment" ;
+                env:id ?id ;
+                env:name ?name .
+        OPTIONAL { ?entity env:description ?description }
+        FILTER NOT EXISTS {
+          ?rel env:type "Relationship" ;
+               env:sourceEntityId ?id .
+        }
+        FILTER NOT EXISTS {
+          ?rel env:type "Relationship" ;
+               env:targetEntityId ?id .
+        }
+      }
+    `;
+    const result = await this.executeSparqlQuery(query);
+    return (result.results?.bindings || []).map((b: any) => ({
+      id: b.id?.value || '',
+      name: b.name?.value || '',
+      type: 'Environment',
+      description: b.description?.value || '',
+    }));
+  }
+
+  /**
+   * Delete a list of orphan Environment nodes by id.
+   * Also removes any config/stat triples attached to each node.
+   * Returns the count of successfully deleted nodes.
+   */
+  async deleteOrphanEnvironments(ids: string[]): Promise<{ deleted: number; errors: string[] }> {
+    let deleted = 0;
+    const errors: string[] = [];
+    for (const id of ids) {
+      try {
+        const update = `
+          PREFIX env: <${this.ontologyPrefix}>
+          DELETE WHERE {
+            ?entity env:id "${this.escapeSparql(id)}" ;
+                    ?p ?o .
+          }
+        `;
+        await this.executeSparqlUpdate(update);
+        deleted++;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        errors.push(`${id}: ${msg}`);
+        console.error(`Failed to delete orphan environment ${id}:`, err);
+      }
+    }
+    return { deleted, errors };
+  }
+
+  /**
    * Initialize ontology following the complete schema
    */
   async initializeOntology(): Promise<void> {
