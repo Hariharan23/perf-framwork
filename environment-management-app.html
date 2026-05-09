@@ -4445,12 +4445,20 @@ Example:
               <h3 class="card-title" style="margin: 0">
                 Registered Connectors
               </h3>
-              <button
-                class="btn btn-secondary btn-sm"
-                onclick="loadTopoConnectors()"
-              >
-                Refresh
-              </button>
+              <div style="display: flex; gap: 0.5rem">
+                <button
+                  class="btn btn-secondary btn-sm"
+                  onclick="loadTopoConnectors()"
+                >
+                  Refresh
+                </button>
+                <button
+                  class="btn btn-primary btn-sm"
+                  onclick="openRegisterConnectorModal()"
+                >
+                  + Register Connector
+                </button>
+              </div>
             </div>
             <div
               id="topo-connector-list"
@@ -13924,7 +13932,7 @@ ORDER BY DESC(?inboundCount)`;
             <thead>
               <tr style="text-align:left;border-bottom:2px solid var(--border)">
                 <th style="padding:0.5rem 0.75rem">Name</th>
-                <th style="padding:0.5rem 0.75rem">Host</th>
+                <th style="padding:0.5rem 0.75rem">Config</th>
                 <th style="padding:0.5rem 0.75rem">Schedule</th>
                 <th style="padding:0.5rem 0.75rem">Last Run</th>
                 <th style="padding:0.5rem 0.75rem">Actions</th>
@@ -13946,7 +13954,7 @@ ORDER BY DESC(?inboundCount)`;
                   return `
                   <tr style="border-bottom:1px solid var(--border)">
                     <td style="padding:0.5rem 0.75rem;font-weight:500">${escapeHtml(env.envName || env.envId)}</td>
-                    <td style="padding:0.5rem 0.75rem;color:var(--text-secondary)">${escapeHtml(env.host || "")}</td>
+                    <td style="padding:0.5rem 0.75rem;color:var(--text-secondary)">${escapeHtml(env.host || env.apps || "")}</td>
                     <td style="padding:0.5rem 0.75rem">${schedLabel}</td>
                     <td style="padding:0.5rem 0.75rem">${lastRun}</td>
                     <td style="padding:0.5rem 0.75rem">
@@ -13955,6 +13963,7 @@ ORDER BY DESC(?inboundCount)`;
                         <button class="btn btn-sm ${sched ? "btn-secondary" : "btn-primary"}" onclick="openPipelineScheduleModal('${escapeHtml(env.envId)}')">${schedBtnLabel}</button>
                         <button class="btn btn-sm btn-secondary" onclick="triggerPipelineSync('${escapeHtml(env.envId)}')">Run Now</button>
                         <button class="btn btn-sm btn-secondary" onclick="openPipelineHistoryModal('${escapeHtml(env.envId)}')">History</button>
+                        ${_pipelineSelectedSource === "DCM" ? `<button class="btn btn-sm btn-primary" onclick="openDcmUploadModal('${escapeHtml(env.envId)}','${escapeHtml(env.apps || "")}')">Upload Files</button>` : ""}
                       </div>
                     </td>
                   </tr>`;
@@ -15170,6 +15179,225 @@ ORDER BY DESC(?inboundCount)`;
       }
 
       // ════════════════════════════════════════════════════════════════════
+      // DCM FILE UPLOAD
+      // ════════════════════════════════════════════════════════════════════
+
+      var _dcmUploadEnvId = null;
+      var _dcmUploadApps = [];
+      var _dcmFilesCache = [];
+
+      async function openDcmUploadModal(envId, appsStr) {
+        _dcmUploadEnvId = envId;
+        _dcmUploadApps = (appsStr || "")
+          .split(",")
+          .map((a) => a.trim())
+          .filter(Boolean);
+
+        document.getElementById("dcm-upload-env-label").textContent = envId;
+        const appSel = document.getElementById("dcm-upload-app-select");
+        appSel.innerHTML = _dcmUploadApps.length
+          ? _dcmUploadApps
+              .map(
+                (a) =>
+                  `<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`,
+              )
+              .join("")
+          : '<option value="">No apps configured</option>';
+
+        document.getElementById("dcm-upload-file-input").value = "";
+        document.getElementById("dcm-upload-status").textContent = "";
+        document.getElementById("dcm-upload-modal").style.display = "flex";
+        await refreshDcmFileList();
+      }
+
+      function closeDcmUploadModal() {
+        document.getElementById("dcm-upload-modal").style.display = "none";
+        _dcmUploadEnvId = null;
+        _dcmUploadApps = [];
+        _dcmFilesCache = [];
+      }
+
+      async function refreshDcmFileList() {
+        const listEl = document.getElementById("dcm-file-list");
+        listEl.innerHTML =
+          '<div style="color:var(--text-secondary);font-size:0.8rem">Loading files…</div>';
+        try {
+          const files = await pipelineCall({
+            operation: "list-dcm-files",
+            envId: _dcmUploadEnvId,
+          });
+          _dcmFilesCache = files || [];
+          if (!files || !files.length) {
+            listEl.innerHTML =
+              '<div style="color:var(--text-secondary);font-size:0.8rem">No .properties files uploaded yet.</div>';
+            return;
+          }
+          listEl.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:0.8rem">
+            <thead><tr style="text-align:left;border-bottom:1px solid var(--border-color)">
+              <th style="padding:0.3rem 0.5rem">App</th>
+              <th style="padding:0.3rem 0.5rem">File</th>
+              <th style="padding:0.3rem 0.5rem">Size</th>
+              <th style="padding:0.3rem 0.5rem">Modified</th>
+              <th style="padding:0.3rem 0.5rem"></th>
+            </tr></thead>
+            <tbody>${files
+              .map(
+                (f) => `
+              <tr style="border-bottom:1px solid var(--border-color)">
+                <td style="padding:0.3rem 0.5rem;font-weight:500">${escapeHtml(f.appName)}</td>
+                <td style="padding:0.3rem 0.5rem">${escapeHtml(f.filename)}</td>
+                <td style="padding:0.3rem 0.5rem;color:var(--text-secondary)">${f.size ? Math.ceil(f.size / 1024) + "KB" : "—"}</td>
+                <td style="padding:0.3rem 0.5rem;color:var(--text-secondary)">${f.lastModified ? formatRelativeTime(f.lastModified) : "—"}</td>
+                <td style="padding:0.3rem 0.5rem">
+                  <button class="btn btn-sm btn-danger" onclick="deleteDcmFile('${escapeHtml(f.key)}')">Delete</button>
+                </td>
+              </tr>`,
+              )
+              .join("")}
+            </tbody></table>`;
+        } catch (e) {
+          listEl.innerHTML = `<div style="color:var(--danger-color);font-size:0.8rem">Error: ${escapeHtml(e.message)}</div>`;
+        }
+      }
+
+      async function uploadDcmFile() {
+        const statusEl = document.getElementById("dcm-upload-status");
+        const appName = document.getElementById("dcm-upload-app-select").value;
+        const fileInput = document.getElementById("dcm-upload-file-input");
+        const file = fileInput.files && fileInput.files[0];
+
+        if (!appName) {
+          statusEl.textContent = "Select an app folder first.";
+          statusEl.style.color = "var(--danger-color)";
+          return;
+        }
+        if (!file) {
+          statusEl.textContent = "Choose a .properties file first.";
+          statusEl.style.color = "var(--danger-color)";
+          return;
+        }
+        if (!file.name.endsWith(".properties")) {
+          statusEl.textContent = "Only .properties files are accepted.";
+          statusEl.style.color = "var(--danger-color)";
+          return;
+        }
+
+        statusEl.textContent = "Uploading…";
+        statusEl.style.color = "var(--text-secondary)";
+
+        try {
+          const arrayBuf = await file.arrayBuffer();
+          const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuf)));
+          await pipelineCall({
+            operation: "upload-dcm-properties",
+            envId: _dcmUploadEnvId,
+            appName,
+            filename: file.name,
+            content: base64,
+          });
+          statusEl.textContent = `✓ ${file.name} uploaded successfully.`;
+          statusEl.style.color = "var(--success)";
+          fileInput.value = "";
+          await refreshDcmFileList();
+        } catch (e) {
+          statusEl.textContent = "Upload failed: " + e.message;
+          statusEl.style.color = "var(--danger-color)";
+        }
+      }
+
+      async function deleteDcmFile(s3Key) {
+        const confirmed = await showConfirmDialog(
+          "Delete File",
+          `Delete "${s3Key}"?`,
+          true,
+        );
+        if (!confirmed) return;
+        try {
+          await pipelineCall({ operation: "delete-dcm-file", s3Key });
+          showToastNotification("File deleted", "success");
+          await refreshDcmFileList();
+        } catch (e) {
+          showToastNotification("Delete failed: " + e.message, "error");
+        }
+      }
+
+      // ════════════════════════════════════════════════════════════════════
+      // REGISTER CONNECTOR (Topology tab)
+      // ════════════════════════════════════════════════════════════════════
+
+      function openRegisterConnectorModal() {
+        document.getElementById("rc-source-type").value = "";
+        document.getElementById("rc-display-name").value = "";
+        document.getElementById("rc-description").value = "";
+        document.getElementById("rc-icon").value = "";
+        document.getElementById("rc-status").textContent = "";
+        document.getElementById("register-connector-modal").style.display =
+          "flex";
+      }
+
+      function closeRegisterConnectorModal() {
+        document.getElementById("register-connector-modal").style.display =
+          "none";
+      }
+
+      async function saveRegisterConnector(event) {
+        event.preventDefault();
+        const statusEl = document.getElementById("rc-status");
+        const sourceType = document
+          .getElementById("rc-source-type")
+          .value.trim()
+          .toUpperCase();
+        const displayName = document
+          .getElementById("rc-display-name")
+          .value.trim();
+        const description = document
+          .getElementById("rc-description")
+          .value.trim();
+        const icon = document.getElementById("rc-icon").value.trim();
+
+        if (!sourceType) {
+          statusEl.textContent = "Source Type is required.";
+          statusEl.style.color = "var(--danger-color)";
+          return;
+        }
+        if (!displayName) {
+          statusEl.textContent = "Display Name is required.";
+          statusEl.style.color = "var(--danger-color)";
+          return;
+        }
+        if (!/^[A-Z0-9_-]+$/.test(sourceType)) {
+          statusEl.textContent =
+            "Source Type must be uppercase letters, numbers, _ or -.";
+          statusEl.style.color = "var(--danger-color)";
+          return;
+        }
+
+        statusEl.textContent = "Registering…";
+        statusEl.style.color = "var(--text-secondary)";
+
+        try {
+          await pipelineCall({
+            operation: "register-connector",
+            connector: {
+              sourceType,
+              displayName,
+              description,
+              icon,
+              fields: [],
+              defaultEdges: [],
+            },
+          });
+          statusEl.textContent = `✓ Connector "${sourceType}" registered.`;
+          statusEl.style.color = "var(--success)";
+          setTimeout(closeRegisterConnectorModal, 1200);
+          await loadTopoConnectors();
+        } catch (e) {
+          statusEl.textContent = "Error: " + e.message;
+          statusEl.style.color = "var(--danger-color)";
+        }
+      }
+
+      // ════════════════════════════════════════════════════════════════════
       // TOPOLOGY TAB
       // ════════════════════════════════════════════════════════════════════
 
@@ -16024,6 +16252,279 @@ ORDER BY DESC(?inboundCount)`;
               Cancel
             </button>
             <button type="submit" class="btn btn-primary">Save</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- DCM: Upload Properties Modal -->
+    <div
+      id="dcm-upload-modal"
+      class="modal-overlay"
+      style="display: none"
+      onclick="if (event.target === this) closeDcmUploadModal();"
+    >
+      <div
+        class="modal-content"
+        style="
+          max-width: 640px;
+          width: 100%;
+          display: flex;
+          flex-direction: column;
+          max-height: calc(100vh - 80px);
+          overflow: hidden;
+        "
+      >
+        <div
+          style="
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            flex-shrink: 0;
+          "
+        >
+          <h3 style="margin: 0">
+            Upload .properties Files —
+            <span id="dcm-upload-env-label" style="color: var(--accent)"></span>
+          </h3>
+          <button
+            class="btn btn-secondary btn-sm"
+            onclick="closeDcmUploadModal()"
+          >
+            ✕
+          </button>
+        </div>
+
+        <!-- Upload controls -->
+        <div
+          style="
+            display: flex;
+            gap: 0.5rem;
+            align-items: flex-end;
+            margin-bottom: 0.75rem;
+            flex-wrap: wrap;
+            flex-shrink: 0;
+          "
+        >
+          <div style="flex: 0 0 auto; min-width: 140px">
+            <label
+              style="
+                display: block;
+                font-size: 0.8rem;
+                font-weight: 600;
+                margin-bottom: 0.25rem;
+              "
+              >App Folder</label
+            >
+            <select
+              id="dcm-upload-app-select"
+              class="form-select"
+              style="width: 100%"
+            ></select>
+          </div>
+          <div style="flex: 1; min-width: 200px">
+            <label
+              style="
+                display: block;
+                font-size: 0.8rem;
+                font-weight: 600;
+                margin-bottom: 0.25rem;
+              "
+            >
+              .properties File
+              <span style="font-weight: 400; color: var(--text-secondary)"
+                >(max 1 MB)</span
+              >
+            </label>
+            <input
+              id="dcm-upload-file-input"
+              type="file"
+              accept=".properties"
+              style="
+                display: block;
+                width: 100%;
+                font-size: 0.85rem;
+                color: var(--text-primary);
+              "
+            />
+          </div>
+          <button
+            class="btn btn-primary btn-sm"
+            style="flex-shrink: 0; padding: 0.45rem 0.9rem"
+            onclick="uploadDcmFile()"
+          >
+            Upload
+          </button>
+        </div>
+        <div
+          id="dcm-upload-status"
+          style="
+            font-size: 0.8rem;
+            min-height: 1.2em;
+            margin-bottom: 0.75rem;
+            flex-shrink: 0;
+          "
+        ></div>
+
+        <!-- File list -->
+        <div style="flex: 1; overflow-y: auto">
+          <div
+            style="font-size: 0.8rem; font-weight: 600; margin-bottom: 0.4rem"
+          >
+            Uploaded Files
+          </div>
+          <div
+            id="dcm-file-list"
+            style="font-size: 0.8rem; color: var(--text-secondary)"
+          >
+            Loading…
+          </div>
+        </div>
+
+        <div
+          style="
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 1rem;
+            flex-shrink: 0;
+            border-top: 1px solid var(--border-color);
+            padding-top: 0.75rem;
+          "
+        >
+          <button class="btn btn-secondary" onclick="closeDcmUploadModal()">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Topology: Register Connector Modal -->
+    <div
+      id="register-connector-modal"
+      class="modal-overlay"
+      style="display: none"
+      onclick="if (event.target === this) closeRegisterConnectorModal();"
+    >
+      <div class="modal-content" style="max-width: 460px; width: 100%">
+        <div
+          style="
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+          "
+        >
+          <h3 style="margin: 0">Register Connector</h3>
+          <button
+            class="btn btn-secondary btn-sm"
+            onclick="closeRegisterConnectorModal()"
+          >
+            ✕
+          </button>
+        </div>
+        <form onsubmit="saveRegisterConnector(event)" autocomplete="off">
+          <div style="margin-bottom: 0.75rem">
+            <label
+              style="
+                display: block;
+                font-size: 0.8rem;
+                font-weight: 600;
+                margin-bottom: 0.25rem;
+              "
+            >
+              Source Type <span style="color: var(--error)">*</span>
+            </label>
+            <input
+              id="rc-source-type"
+              class="form-input"
+              type="text"
+              required
+              placeholder="e.g. DCM, SALESFORCE  (uppercase)"
+              style="width: 100%; text-transform: uppercase"
+              oninput="this.value = this.value.toUpperCase()"
+            />
+            <div
+              style="
+                font-size: 0.75rem;
+                color: var(--text-secondary);
+                margin-top: 0.2rem;
+              "
+            >
+              Uppercase letters, numbers, _ and - only. Cannot be changed after
+              registration.
+            </div>
+          </div>
+          <div style="margin-bottom: 0.75rem">
+            <label
+              style="
+                display: block;
+                font-size: 0.8rem;
+                font-weight: 600;
+                margin-bottom: 0.25rem;
+              "
+            >
+              Display Name <span style="color: var(--error)">*</span>
+            </label>
+            <input
+              id="rc-display-name"
+              class="form-input"
+              type="text"
+              required
+              placeholder="e.g. DCM Properties"
+              style="width: 100%"
+            />
+          </div>
+          <div style="margin-bottom: 0.75rem">
+            <label
+              style="
+                display: block;
+                font-size: 0.8rem;
+                font-weight: 600;
+                margin-bottom: 0.25rem;
+              "
+              >Description</label
+            >
+            <input
+              id="rc-description"
+              class="form-input"
+              type="text"
+              placeholder="Short description of this data source"
+              style="width: 100%"
+            />
+          </div>
+          <div style="margin-bottom: 1rem">
+            <label
+              style="
+                display: block;
+                font-size: 0.8rem;
+                font-weight: 600;
+                margin-bottom: 0.25rem;
+              "
+              >Icon (emoji)</label
+            >
+            <input
+              id="rc-icon"
+              class="form-input"
+              type="text"
+              maxlength="4"
+              placeholder="🔌"
+              style="width: 4rem; font-size: 1.1rem; text-align: center"
+            />
+          </div>
+          <div
+            id="rc-status"
+            style="font-size: 0.8rem; min-height: 1.2em; margin-bottom: 0.75rem"
+          ></div>
+          <div style="display: flex; gap: 0.5rem; justify-content: flex-end">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              onclick="closeRegisterConnectorModal()"
+            >
+              Cancel
+            </button>
+            <button type="submit" class="btn btn-primary">Register</button>
           </div>
         </form>
       </div>
