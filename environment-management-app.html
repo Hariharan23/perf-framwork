@@ -15611,7 +15611,12 @@ ORDER BY DESC(?inboundCount)`;
           await populateTopoInstanceFilter();
           _topoInitialized = true;
         }
-        if (!_topoData) await loadTopology();
+        await Promise.all([
+          _topoData ? Promise.resolve() : loadTopology(),
+          _topoConnectors.length === 0
+            ? loadTopoConnectors()
+            : Promise.resolve(),
+        ]);
       }
 
       async function populateTopoInstanceFilter() {
@@ -15974,8 +15979,19 @@ ORDER BY DESC(?inboundCount)`;
           const edge = edges.find((e) => e.pk === pk);
           if (edge) {
             document.getElementById("topo-edge-pk").value = edge.pk || "";
-            document.getElementById("topo-edge-fromSource").value =
-              edge.fromSource || "";
+            // Set fromSource — ensure the option exists in the select first
+            const srcSel = document.getElementById("topo-edge-fromSource");
+            const fromSrcVal = edge.fromSource || "";
+            if (
+              fromSrcVal &&
+              !Array.from(srcSel.options).some((o) => o.value === fromSrcVal)
+            ) {
+              const tmpOpt = document.createElement("option");
+              tmpOpt.value = fromSrcVal;
+              tmpOpt.textContent = fromSrcVal;
+              srcSel.appendChild(tmpOpt);
+            }
+            srcSel.value = fromSrcVal;
             document.getElementById("topo-edge-toEntityType").value =
               edge.toEntityType || "Environment";
             document.getElementById("topo-edge-mode").value =
@@ -16204,16 +16220,26 @@ ORDER BY DESC(?inboundCount)`;
             return;
           }
           _topoConnectors = connectors;
-          // Refresh fromSource dropdown with real connector list
+          // Refresh fromSource dropdown with real connector list (exclude csv-upload)
           const srcSelect = document.getElementById("topo-edge-fromSource");
           if (srcSelect) {
             while (srcSelect.options.length > 1) srcSelect.remove(1);
-            connectors.forEach((c) => {
-              const opt = document.createElement("option");
-              opt.value = c.sourceType || c.pk?.replace("CONNECTOR#", "") || "";
-              opt.textContent = c.displayName || opt.value;
-              srcSelect.appendChild(opt);
-            });
+            connectors
+              .filter((c) => {
+                const st = (
+                  c.sourceType ||
+                  c.pk?.replace("CONNECTOR#", "") ||
+                  ""
+                ).toLowerCase();
+                return !st.includes("csv");
+              })
+              .forEach((c) => {
+                const opt = document.createElement("option");
+                opt.value =
+                  c.sourceType || c.pk?.replace("CONNECTOR#", "") || "";
+                opt.textContent = c.displayName || opt.value;
+                srcSelect.appendChild(opt);
+              });
           }
           const table = `<table style="width:100%;border-collapse:collapse;font-size:0.8rem">
             <thead>
@@ -16464,8 +16490,6 @@ ORDER BY DESC(?inboundCount)`;
                 onchange="updateRulePreview()"
               >
                 <option value="">Select source…</option>
-                <option value="pce-database">PAS / pce-database</option>
-                <option value="pce-csv-upload">CSV / pce-csv-upload</option>
               </select>
             </div>
             <div class="form-group">
