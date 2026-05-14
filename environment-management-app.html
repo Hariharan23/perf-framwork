@@ -622,10 +622,8 @@
         background: rgba(0, 0, 0, 0.04);
       }
       .nip-collapse-title {
-        font-size: 0.68rem;
+        font-size: 0.75rem;
         font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
         color: #2563eb;
       }
       .nip-collapse-arrow {
@@ -651,15 +649,34 @@
         line-height: 1.5;
         align-items: baseline;
       }
+      /* Stacked layout for long keys (config section) */
+      .nip-kv-stack {
+        flex-direction: column;
+        gap: 2px;
+        margin-bottom: 7px;
+      }
+      .nip-kv-stack .nip-kv-key {
+        max-width: none !important;
+        min-width: 0 !important;
+        flex-shrink: 1;
+        white-space: normal;
+        word-break: break-all;
+        overflow: visible;
+      }
+      .nip-kv-stack .nip-kv-val {
+        padding-left: 4px;
+        border-left: 2px solid var(--border-color);
+      }
       .nip-kv-key {
         color: var(--text-secondary);
         min-width: 88px;
         max-width: 100px;
         flex-shrink: 0;
-        font-size: 0.7rem;
+        font-size: 0.72rem;
         font-weight: 600;
-        letter-spacing: 0.02em;
-        text-transform: uppercase;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
       .nip-kv-val {
         color: var(--text-primary);
@@ -690,10 +707,8 @@
         border-bottom: none;
       }
       .node-info-panel .nip-section-label {
-        font-size: 0.65rem;
+        font-size: 0.72rem;
         font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
         color: #2563eb;
         margin-bottom: 0.3rem;
       }
@@ -10136,10 +10151,7 @@ ORDER BY DESC(?inboundCount)`;
           let cfgHtml = "";
           configs.forEach(([k, v]) => {
             const display = String(v);
-            cfgHtml += kv(
-              k,
-              `<span style="color:var(--text-primary);">${esc(display)}</span>`,
-            );
+            cfgHtml += `<div class="nip-kv nip-kv-stack"><span class="nip-kv-key">${esc(k)}</span><span class="nip-kv-val">${esc(display)}</span></div>`;
           });
           configBody.innerHTML = cfgHtml;
           configBody.style.display = "none";
