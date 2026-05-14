@@ -2827,8 +2827,8 @@ Example:
                 </button>
                 <button
                   class="graph-zoom-btn"
-                  onclick="loadNetworkData(getSelectedEnvIds())"
-                  title="Refresh Graph"
+                  onclick="resetToOverview()"
+                  title="Reset to Overview"
                   style="font-size: 15px"
                 >
                   &#8635;
@@ -8148,17 +8148,40 @@ ORDER BY DESC(?inboundCount)`;
             d3
               .forceLink(networkData.edges)
               .id((d) => d.id)
-              .distance(120),
+              // Links involving high-degree nodes stretch longer so hubs push apart
+              .distance((d) => {
+                const sDeg =
+                  d.source && d.source.degree != null ? d.source.degree : 0;
+                const tDeg =
+                  d.target && d.target.degree != null ? d.target.degree : 0;
+                const hub = Math.max(sDeg, tDeg);
+                return 100 + hub * 20;
+              })
+              // Weaker link spring lets repulsion & collision dominate layout
+              .strength(0.4),
           )
           .force(
             "charge",
-            d3.forceManyBody().strength(isOverviewMode ? -400 : -300),
+            d3
+              .forceManyBody()
+              // Each node repels in proportion to its own degree — hubs push far away
+              .strength((d) => -220 - (d.degree || 0) * 90)
+              // Cap range so the force doesn't destabilise the whole graph
+              .distanceMax(700),
           )
-          .force("center", d3.forceCenter(width / 2, height / 2))
+          // Gentle gravity toward centre — just enough to stop isolated nodes drifting off
+          .force("center", d3.forceCenter(width / 2, height / 2).strength(0.06))
           .force(
             "collision",
-            d3.forceCollide().radius(isOverviewMode ? 40 : 30),
-          );
+            // Padding scales with node radius so larger (higher-degree) nodes never overlap
+            d3
+              .forceCollide()
+              .radius((d) => getEnvNodeRadius(d) + 20)
+              .strength(1),
+          )
+          // Slower decay → simulation runs longer and reaches a more spread-out equilibrium
+          .alphaDecay(0.012)
+          .velocityDecay(0.35);
 
         const link = g
           .append("g")
@@ -8330,8 +8353,9 @@ ORDER BY DESC(?inboundCount)`;
       // Radius scales with number of rendered edges connected to this node (degree)
       function getEnvNodeRadius(d) {
         const degree = d.degree || 0;
-        // min 6px, scales up with sqrt(degree), capped at 22px
-        return Math.max(6, Math.min(22, 6 + Math.sqrt(degree) * 2.5));
+        // min 8px, scales with sqrt(degree), capped at 30px
+        // More aggressive scaling so hub nodes are clearly larger
+        return Math.max(8, Math.min(30, 8 + Math.sqrt(degree) * 3.5));
       }
 
       // --- Health state detection ---
@@ -9511,438 +9535,243 @@ ORDER BY DESC(?inboundCount)`;
       function showTooltip(event, d) {
         const tooltip = document.getElementById("tooltip");
         tooltip.style.opacity = 1;
-        tooltip.style.left = event.pageX + 10 + "px";
-        tooltip.style.top = event.pageY - 10 + "px";
+        tooltip.style.left = event.pageX + 14 + "px";
+        tooltip.style.top = event.pageY - 14 + "px";
 
-        // Debug logging to see what data we have
-        console.log("Tooltip data for node:", d);
-        console.log("Configurations property:", d.configurations);
-        console.log(
-          "Config_ properties:",
-          Object.keys(d).filter((k) => k.startsWith("config_")),
-        );
-        console.log("All node properties:", Object.keys(d));
+        // ── Helpers ───────────────────────────────────────────────────────────
+        const esc = (s) =>
+          String(s ?? "")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;");
 
-        // Build table-based tooltip
-        let tooltipContent = `
-          <div style="font-weight: 600; margin-bottom: 8px; color: #e2e8f0;">
-            ${d.label || d.name || d.id}
-          </div>
-          <div style="color: #94a3b8; font-size: 0.8rem; margin-bottom: 10px;">
-            ${d.type || "Unknown"}
-          </div>
-        `;
+        const statusColor = (s) => {
+          const sl = (s || "").toLowerCase();
+          if (["active", "healthy", "up", "running", "online"].includes(sl))
+            return "#34d399";
+          if (["warning", "degraded", "maintenance", "partial"].includes(sl))
+            return "#fbbf24";
+          if (
+            ["critical", "down", "error", "unreachable", "offline"].includes(sl)
+          )
+            return "#f87171";
+          return "#94a3b8";
+        };
 
-        // Collect all properties excluding internal D3 properties and config_ properties
-        const excludeProps = [
-          "label",
-          "name",
-          "type",
-          "id",
-          "x",
-          "y",
-          "vx",
-          "vy",
-          "fx",
-          "fy",
-          "index",
-          "size",
-          "configurations",
-          "properties",
-          "status",
-        ];
+        const row = (label, value, style = "") =>
+          `<tr>
+            <td style="padding:3px 10px;color:#94a3b8;font-size:0.75rem;white-space:nowrap;">${esc(label)}</td>
+            <td style="padding:3px 10px;font-size:0.75rem;${style}">${value}</td>
+          </tr>`;
 
-        const properties = Object.keys(d).filter(
-          (key) =>
-            !excludeProps.includes(key) &&
-            !key.startsWith("config_") &&
-            d[key] !== null &&
-            d[key] !== undefined &&
-            d[key] !== "" &&
-            typeof d[key] !== "object", // Exclude nested objects
-        );
+        // ── Collect data from node object ─────────────────────────────────────
+        const name = d.name || d.label || d.id || "Environment";
+        const type = d.type || "Environment";
+        const status =
+          d.status || (d.properties && d.properties.status) || null;
+        const owner =
+          d.owner ||
+          (d.properties && d.properties.owner) ||
+          (d.configurations && d.configurations.owner) ||
+          null;
+        const region =
+          (d.properties && d.properties.region) ||
+          (d.configurations && d.configurations.region) ||
+          d.region ||
+          null;
+        const endpoint =
+          (d.properties && d.properties.endpoint) ||
+          (d.configurations && d.configurations.endpoint) ||
+          d.endpoint ||
+          null;
+        const srcSvc =
+          d.sourceService ||
+          (d.properties && d.properties.sourceService) ||
+          null;
+        const tag = d.tag || (d.configurations && d.configurations.tag) || null;
+        const tagColor =
+          d.tagColor ||
+          (d.configurations && d.configurations.tagColor) ||
+          "#059669";
+        const degree = d.degree || 0;
 
-        // Sort so timestamp fields (createdAt, updatedAt) appear last
-        const timestampProps = [
-          "createdAt",
-          "updatedAt",
-          "created_at",
-          "updated_at",
-        ];
-        properties.sort((a, b) => {
-          const aIsTs = timestampProps.includes(a);
-          const bIsTs = timestampProps.includes(b);
-          if (aIsTs && !bIsTs) return 1;
-          if (!aIsTs && bIsTs) return -1;
-          return 0;
-        });
+        // ── Header ────────────────────────────────────────────────────────────
+        let html = `
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+            <div style="width:12px;height:12px;border-radius:50%;background:${esc(tagColor)};flex-shrink:0;"></div>
+            <span style="font-weight:700;font-size:0.9rem;color:#f1f5f9;">${esc(name)}</span>
+          </div>`;
 
-        // Create properties table if there are any properties
-        if (properties.length > 0) {
-          tooltipContent += `
-            <table style="width: 100%; border-collapse: collapse; margin-bottom: 10px;">
-              <thead>
-                <tr>
-                  <th style="background: #1e293b; color: #94a3b8; padding: 4px 8px; text-align: left; font-size: 0.75rem; border-bottom: 1px solid #334155;">Property</th>
-                  <th style="background: #1e293b; color: #94a3b8; padding: 4px 8px; text-align: left; font-size: 0.75rem; border-bottom: 1px solid #334155;">Value</th>
-                </tr>
-              </thead>
-              <tbody>
-          `;
-
-          properties.forEach((prop) => {
-            const value = d[prop];
-
-            // Clean up property name - remove URI prefixes and format nicely
-            let cleanPropName = prop;
-            if (prop.includes("#")) {
-              cleanPropName = prop.split("#").pop();
-            } else if (prop.includes("/")) {
-              cleanPropName = prop.split("/").pop();
-            }
-
-            // Convert camelCase to Title Case
-            const formattedProp = cleanPropName
-              .replace(/([A-Z])/g, " $1")
-              .replace(/^./, (str) => str.toUpperCase())
-              .replace(/_/g, " ");
-
-            // Handle different value types
-            let displayValue;
-            if (typeof value === "object") {
-              if (Array.isArray(value)) {
-                displayValue =
-                  value.length > 0 ? `[${value.join(", ")}]` : "[]";
-              } else {
-                const objEntries = Object.entries(value)
-                  .filter(([k, v]) => v !== null && v !== undefined && v !== "")
-                  .map(([k, v]) => `${k}: ${v}`)
-                  .slice(0, 3);
-                displayValue =
-                  objEntries.length > 0 ? `{${objEntries.join(", ")}}` : "{}";
-                if (Object.keys(value).length > 3) {
-                  displayValue += "...";
-                }
-              }
-            } else {
-              displayValue = String(value);
-            }
-
-            // Truncate very long values
-            if (displayValue.length > 60) {
-              displayValue = displayValue.substring(0, 60) + "...";
-            }
-
-            tooltipContent += `
-              <tr>
-                <td style="padding: 3px 8px; border-bottom: 1px solid #1e293b; color: #94a3b8; font-size: 0.75rem; font-weight: 500;">${formattedProp}</td>
-                <td style="padding: 3px 8px; border-bottom: 1px solid #1e293b; color: #cbd5e1; font-size: 0.75rem;">${displayValue}</td>
-              </tr>
-            `;
-          });
-
-          tooltipContent += `
-              </tbody>
-            </table>
-          `;
+        if (tag) {
+          html += `<div style="display:inline-block;padding:2px 8px;border-radius:99px;background:${esc(tagColor)};color:#fff;font-size:0.7rem;font-weight:600;margin-bottom:8px;">${esc(tag)}</div>`;
         }
 
-        // Create configurations table - look for config_ properties directly on the node
-        let configurationsData = null;
+        // ── Core info table ───────────────────────────────────────────────────
+        html += `<table style="width:100%;border-collapse:collapse;">`;
 
-        // Display stats section if the node has stats
-        if (
-          d.stats &&
-          typeof d.stats === "object" &&
-          Object.keys(d.stats).length > 0
-        ) {
-          const metaLabels = {
-            deviceName: "Device Name",
-            deviceDescription: "Description",
-            ipAddress: "IP Address",
-            deviceHostname: "Hostname",
-            deviceClass: "Device Class",
-            subClass: "Sub-Class",
-            category: "Category",
-            organization: "Organization",
-            managedType: "Managed Type",
-            collectionMode: "Collection Mode",
-            collectorGroup: "Collector/Group",
-            uptime: "Uptime",
-            collectionTime: "Collection Time",
-            sourceId: "Source ID",
-            sourceSystem: "Source System",
-          };
-
-          const healthLabels = {
-            currentState: "Current State",
-            availability: "Availability",
-            latency: "Latency",
-            cpu: "CPU",
-            memory: "Memory",
-            swap: "Swap",
-            storage: "Storage",
-            healthScore: "Health Score",
-          };
-
-          const metaKeys = Object.keys(metaLabels);
-          const healthKeys = Object.keys(healthLabels);
-
-          // Separate stats into meta and health entries
-          const metaEntries = Object.entries(d.stats).filter(
-            ([key, value]) =>
-              metaKeys.includes(key) &&
-              value !== null &&
-              value !== undefined &&
-              value !== "",
+        if (status) {
+          const sc = statusColor(status);
+          html += row(
+            "Status",
+            `<span style="color:${sc};font-weight:600;">${esc(status)}</span>`,
           );
-          const healthEntries = Object.entries(d.stats).filter(
-            ([key, value]) =>
-              healthKeys.includes(key) &&
-              value !== null &&
-              value !== undefined &&
-              value !== "",
+        }
+
+        html += row("Type", `<span style="color:#93c5fd;">${esc(type)}</span>`);
+        html += row(
+          "Connections",
+          `<span style="color:#a78bfa;font-weight:600;">${degree}</span>
+           <span style="color:#64748b;font-size:0.7rem;"> edge${degree !== 1 ? "s" : ""} in view</span>`,
+        );
+
+        if (owner)
+          html += row(
+            "Owner",
+            `<span style="color:#e2e8f0;">${esc(owner)}</span>`,
+          );
+        if (region)
+          html += row(
+            "Region",
+            `<span style="color:#e2e8f0;">${esc(region)}</span>`,
+          );
+        if (endpoint)
+          html += row(
+            "Endpoint",
+            `<span style="color:#67e8f9;font-family:monospace;font-size:0.7rem;">${esc(endpoint)}</span>`,
+          );
+        if (srcSvc)
+          html += row(
+            "Source",
+            `<span style="color:#e2e8f0;">${esc(srcSvc)}</span>`,
           );
 
-          const totalStatsCount = metaEntries.length + healthEntries.length;
+        html += `</table>`;
 
-          if (totalStatsCount > 0) {
-            let syncLine = "";
-            if (d.stats.lastSyncedAt) {
-              const syncDate = new Date(d.stats.lastSyncedAt);
-              if (!isNaN(syncDate.getTime())) {
-                const syncDisplay = syncDate.toLocaleString("en-US", {
-                  timeZone: CONFIG.TIMEZONE,
-                  dateStyle: "medium",
-                  timeStyle: "short",
-                });
-                syncLine = `<div style="color: #64748b; font-size: 0.7rem; margin: 2px 0 6px 0;">Last synced: ${syncDisplay}</div>`;
+        // ── Health stats ──────────────────────────────────────────────────────
+        if (d.stats && typeof d.stats === "object") {
+          const healthKeys = [
+            "currentState",
+            "healthScore",
+            "availability",
+            "latency",
+            "cpu",
+            "memory",
+            "storage",
+          ];
+          const present = healthKeys.filter(
+            (k) =>
+              d.stats[k] !== null &&
+              d.stats[k] !== undefined &&
+              d.stats[k] !== "",
+          );
+          if (present.length > 0) {
+            html += `<div style="margin-top:8px;padding-top:6px;border-top:1px solid #1e293b;">
+              <div style="color:#60a5fa;font-size:0.75rem;font-weight:600;margin-bottom:4px;">Health</div>
+              <table style="width:100%;border-collapse:collapse;">`;
+            const labels = {
+              currentState: "State",
+              healthScore: "Score",
+              availability: "Avail",
+              latency: "Latency",
+              cpu: "CPU",
+              memory: "Memory",
+              storage: "Storage",
+            };
+            present.forEach((k) => {
+              let val = String(d.stats[k]);
+              let style = "color:#cbd5e1;";
+              if (["cpu", "memory", "storage", "swap"].includes(k)) {
+                const n = parseFloat(val);
+                val += "%";
+                style =
+                  n > 90
+                    ? "color:#f87171;font-weight:600;"
+                    : n > 70
+                      ? "color:#fbbf24;"
+                      : "color:#34d399;";
+              } else if (k === "availability") {
+                const n = parseFloat(val);
+                val = n.toFixed(2) + "%";
+                style =
+                  n >= 99.9
+                    ? "color:#34d399;font-weight:600;"
+                    : n >= 99
+                      ? "color:#34d399;"
+                      : n >= 97
+                        ? "color:#eab308;"
+                        : "color:#f87171;font-weight:600;";
+              } else if (k === "latency") {
+                const n = parseFloat(val);
+                val += " ms";
+                style =
+                  n <= 50
+                    ? "color:#34d399;"
+                    : n <= 200
+                      ? "color:#fbbf24;"
+                      : "color:#f87171;";
+              } else if (k === "healthScore") {
+                const n = parseFloat(val);
+                style =
+                  n >= 80
+                    ? "color:#34d399;font-weight:600;"
+                    : n >= 50
+                      ? "color:#fbbf24;"
+                      : "color:#f87171;font-weight:600;";
+              } else if (k === "currentState") {
+                style = `color:${statusColor(val)};font-weight:600;`;
               }
-            }
-            tooltipContent += `
-              <div style="color: #60a5fa; font-weight: 600; font-size: 0.8rem; margin-bottom: 2px; cursor: pointer;" onclick="toggleStatsDetails()">
-                Infrastructure Monitoring (${totalStatsCount}) [Show]
-              </div>
-              ${syncLine}
-              <div id="stats-details" style="display: none;">
-            `;
-
-            // --- Device Meta subsection ---
-            if (metaEntries.length > 0) {
-              tooltipContent += `
-                <div style="color: #94a3b8; font-weight: 600; font-size: 0.75rem; margin: 6px 0 4px 8px; cursor: pointer;" onclick="toggleStatsMetaDetails(event)">
-                  Device Meta (${metaEntries.length}) [Show]
-                </div>
-                <div id="stats-meta-details" style="display: none;">
-                <table style="width: 100%; border-collapse: collapse; margin-bottom: 8px;">
-                  <thead>
-                    <tr>
-                      <th style="background: #1e293b; color: #60a5fa; padding: 4px 8px; text-align: left; font-size: 0.75rem; border-bottom: 1px solid #334155;">Field</th>
-                      <th style="background: #1e293b; color: #60a5fa; padding: 4px 8px; text-align: left; font-size: 0.75rem; border-bottom: 1px solid #334155;">Value</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-              `;
-
-              metaEntries.forEach(([key, value]) => {
-                const label = metaLabels[key] || key;
-                tooltipContent += `
-                  <tr>
-                    <td style="padding: 3px 8px; border-bottom: 1px solid #1e293b; color: #94a3b8; font-size: 0.75rem; font-weight: 500;">${label}</td>
-                    <td style="padding: 3px 8px; border-bottom: 1px solid #1e293b; font-size: 0.75rem; color: #cbd5e1;">${String(value)}</td>
-                  </tr>
-                `;
-              });
-
-              tooltipContent += `
-                  </tbody>
-                </table>
-                </div>
-              `;
-            }
-
-            // --- Performance Stats subsection ---
-            if (healthEntries.length > 0) {
-              tooltipContent += `
-                <div style="color: #94a3b8; font-weight: 600; font-size: 0.75rem; margin: 6px 0 4px 8px; cursor: pointer;" onclick="toggleStatsHealthDetails(event)">
-                  Performance Stats (${healthEntries.length}) [Show]
-                </div>
-                <div id="stats-health-details" style="display: none;">
-                <table style="width: 100%; border-collapse: collapse; margin-bottom: 8px;">
-                  <thead>
-                    <tr>
-                      <th style="background: #1e293b; color: #60a5fa; padding: 4px 8px; text-align: left; font-size: 0.75rem; border-bottom: 1px solid #334155;">Metric</th>
-                      <th style="background: #1e293b; color: #60a5fa; padding: 4px 8px; text-align: left; font-size: 0.75rem; border-bottom: 1px solid #334155;">Value</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-              `;
-
-              healthEntries.forEach(([key, value]) => {
-                const label = healthLabels[key] || key;
-                let displayVal = String(value);
-
-                // Add % suffix for percentage fields, color code health
-                let valueStyle = "color: #cbd5e1;";
-                if (["cpu", "memory", "storage", "swap"].includes(key)) {
-                  displayVal += "%";
-                  const num = parseFloat(value);
-                  if (num > 90)
-                    valueStyle = "color: #f87171; font-weight: 600;";
-                  else if (num > 70) valueStyle = "color: #fbbf24;";
-                  else valueStyle = "color: #34d399;";
-                } else if (key === "availability") {
-                  const num = parseFloat(value);
-                  let bucket = "";
-                  if (num >= 99.9) {
-                    valueStyle = "color: #34d399; font-weight: 600;";
-                    bucket = "Excellent";
-                  } else if (num >= 99.0) {
-                    valueStyle = "color: #34d399;";
-                    bucket = "Good";
-                  } else if (num >= 97.0) {
-                    valueStyle = "color: #eab308;";
-                    bucket = "Fair";
-                  } else if (num >= 95.0) {
-                    valueStyle = "color: #f97316; font-weight: 600;";
-                    bucket = "Poor";
-                  } else {
-                    valueStyle = "color: #ef4444; font-weight: 600;";
-                    bucket = "Critical";
-                  }
-                  displayVal = num.toFixed(2) + "%";
-                } else if (key === "latency") {
-                  displayVal += " ms";
-                  const num = parseFloat(value);
-                  if (num <= 50) valueStyle = "color: #34d399;";
-                  else if (num <= 200) valueStyle = "color: #fbbf24;";
-                  else valueStyle = "color: #f87171; font-weight: 600;";
-                } else if (key === "healthScore") {
-                  const num = parseFloat(value);
-                  if (num >= 80)
-                    valueStyle = "color: #34d399; font-weight: 600;";
-                  else if (num >= 50) valueStyle = "color: #fbbf24;";
-                  else valueStyle = "color: #f87171; font-weight: 600;";
-                } else if (key === "currentState") {
-                  const stateLower = String(value).toLowerCase();
-                  if (
-                    ["active", "healthy", "up", "running"].includes(stateLower)
-                  )
-                    valueStyle = "color: #34d399; font-weight: 600;";
-                  else if (
-                    ["warning", "degraded", "maintenance"].includes(stateLower)
-                  )
-                    valueStyle = "color: #fbbf24; font-weight: 600;";
-                  else if (
-                    ["critical", "down", "error", "unreachable"].includes(
-                      stateLower,
-                    )
-                  )
-                    valueStyle = "color: #f87171; font-weight: 600;";
-                }
-
-                tooltipContent += `
-                  <tr>
-                    <td style="padding: 3px 8px; border-bottom: 1px solid #1e293b; color: #94a3b8; font-size: 0.75rem; font-weight: 500;">${label}</td>
-                    <td style="padding: 3px 8px; border-bottom: 1px solid #1e293b; font-size: 0.75rem; ${valueStyle}">${displayVal}</td>
-                  </tr>
-                `;
-              });
-
-              tooltipContent += `
-                  </tbody>
-                </table>
-                </div>
-              `;
-            }
-
-            tooltipContent += `
-              </div>
-            `;
+              html += row(
+                labels[k] || k,
+                `<span style="${style}">${esc(val)}</span>`,
+              );
+            });
+            html += `</table></div>`;
           }
         }
 
-        // Look for properties that start with "config_"
-        const configProps = Object.keys(d).filter(
-          (key) =>
-            key.startsWith("config_") &&
-            d[key] &&
-            d[key] !== null &&
-            d[key] !== undefined &&
-            d[key] !== "",
-        );
-
-        if (configProps.length > 0) {
-          configurationsData = {};
-          configProps.forEach((prop) => {
-            // Remove the config_ prefix for display
-            const displayKey = prop.replace("config_", "");
-            configurationsData[displayKey] = d[prop];
+        // ── Configurations ────────────────────────────────────────────────────
+        const skipConfigs = new Set([
+          "tag",
+          "tagColor",
+          "region",
+          "endpoint",
+          "owner",
+        ]);
+        const configs =
+          d.configurations && typeof d.configurations === "object"
+            ? Object.entries(d.configurations).filter(
+                ([k, v]) =>
+                  !skipConfigs.has(k) &&
+                  v !== null &&
+                  v !== undefined &&
+                  v !== "",
+              )
+            : [];
+        if (configs.length > 0) {
+          html += `<div style="margin-top:8px;padding-top:6px;border-top:1px solid #1e293b;">
+            <div style="color:#94a3b8;font-size:0.75rem;font-weight:600;margin-bottom:4px;">Config (${configs.length})</div>
+            <table style="width:100%;border-collapse:collapse;">`;
+          configs.slice(0, 6).forEach(([k, v]) => {
+            let display = String(v);
+            if (display.length > 50) display = display.slice(0, 50) + "…";
+            html += row(
+              k,
+              `<span style="color:#cbd5e1;">${esc(display)}</span>`,
+            );
           });
+          if (configs.length > 6) {
+            html += `<tr><td colspan="2" style="padding:3px 10px;color:#64748b;font-size:0.7rem;">+${configs.length - 6} more…</td></tr>`;
+          }
+          html += `</table></div>`;
         }
 
-        // Also check if there's a separate configurations object (fallback)
-        if (
-          !configurationsData &&
-          d.configurations &&
-          typeof d.configurations === "object" &&
-          Object.keys(d.configurations).length > 0
-        ) {
-          configurationsData = d.configurations;
-        }
+        // ── History placeholder (populated async) ─────────────────────────────
+        html += `<div id="tooltip-history" style="margin-top:8px;padding-top:6px;border-top:1px solid #1e293b;">
+          <span style="color:#64748b;font-size:0.7rem;">Loading history…</span>
+        </div>`;
 
-        if (
-          configurationsData &&
-          typeof configurationsData === "object" &&
-          Object.keys(configurationsData).length > 0
-        ) {
-          const configCount = Object.keys(configurationsData).length;
-          tooltipContent += `
-            <div style="color: #94a3b8; font-weight: 600; font-size: 0.8rem; margin-bottom: 5px; cursor: pointer;" onclick="toggleConfigDetails()">
-              Custom Configuration (${configCount}) [Show]
-            </div>
-            <div id="config-details" style="display: none;">
-            <table style="width: 100%; border-collapse: collapse; margin-bottom: 10px;">
-              <thead>
-                <tr>
-                  <th style="background: #1e293b; color: #64748b; padding: 4px 8px; text-align: left; font-size: 0.75rem; border-bottom: 1px solid #334155;">Config Key</th>
-                  <th style="background: #1e293b; color: #64748b; padding: 4px 8px; text-align: left; font-size: 0.75rem; border-bottom: 1px solid #334155;">Value</th>
-                </tr>
-              </thead>
-              <tbody>
-          `;
+        tooltip.innerHTML = html;
 
-          Object.entries(configurationsData).forEach(([key, value]) => {
-            if (value !== null && value !== undefined && value !== "") {
-              let displayValue = String(value);
-              if (displayValue.length > 50) {
-                displayValue = displayValue.substring(0, 50) + "...";
-              }
-
-              tooltipContent += `
-                <tr>
-                  <td style="padding: 3px 8px; border-bottom: 1px solid #1e293b; color: #94a3b8; font-size: 0.75rem; font-weight: 500;">${key}</td>
-                  <td style="padding: 3px 8px; border-bottom: 1px solid #1e293b; color: #cbd5e1; font-size: 0.75rem;">${displayValue}</td>
-                </tr>
-              `;
-            }
-          });
-
-          tooltipContent += `
-              </tbody>
-            </table>
-            </div>
-          `;
-        }
-
-        // Bottom spacer
-        tooltipContent += `
-          <div style="margin-top: 10px;"></div>
-        `;
-
-        tooltip.innerHTML = tooltipContent;
-
-        // Fetch and display history asynchronously
+        // Fetch history and inject into the placeholder
         fetchAndDisplayHistory(d.id);
       }
 
@@ -9960,24 +9789,18 @@ ORDER BY DESC(?inboundCount)`;
             result.data.history &&
             result.data.history.length > 0
           ) {
-            const tooltip = document.getElementById("tooltip");
+            const historyEl = document.getElementById("tooltip-history");
+            if (!historyEl) return; // tooltip was closed
             const history = result.data.history;
 
             // Create history section HTML
             let historyHtml = `
-              <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid #1e293b;">
-                <div style="color: #94a3b8; font-weight: 600; font-size: 0.8rem; margin-bottom: 8px; cursor: pointer;" onclick="toggleHistoryDetails()">
-                  Change History (${history.length}) [Show]
-                </div>
-                <div id="history-details" style="display: none; max-height: 200px; overflow-y: auto;">
-                  <table style="width: 100%; border-collapse: collapse;">
-                    <thead>
-                      <tr>
-                        <th style="background: #1e293b; color: #64748b; padding: 4px 8px; text-align: left; font-size: 0.7rem;">Action</th>
-                        <th style="background: #1e293b; color: #64748b; padding: 4px 8px; text-align: left; font-size: 0.7rem;">When</th>
-                      </tr>
-                    </thead>
-                    <tbody>
+              <div style="color: #94a3b8; font-weight: 600; font-size: 0.75rem; margin-bottom: 4px; cursor: pointer;" onclick="toggleHistoryDetails()">
+                History (${history.length}) [Show]
+              </div>
+              <div id="history-details" style="display: none; max-height: 200px; overflow-y: auto;">
+                <table style="width: 100%; border-collapse: collapse;">
+                  <tbody>
             `;
 
             history.forEach((event) => {
@@ -9986,45 +9809,23 @@ ORDER BY DESC(?inboundCount)`;
 
               historyHtml += `
                 <tr>
-                  <td style="padding: 4px 8px; font-size: 0.7rem; color: #cbd5e1; border-bottom: 1px solid #1e293b;">
-                    ${event.action}
-                  </td>
-                  <td style="padding: 4px 8px; font-size: 0.7rem; color: #94a3b8; border-bottom: 1px solid #1e293b;">
-                    ${timeAgo}
-                  </td>
+                  <td style="padding: 3px 10px; font-size: 0.7rem; color: #cbd5e1; border-bottom: 1px solid #1e293b;">${event.action}</td>
+                  <td style="padding: 3px 10px; font-size: 0.7rem; color: #64748b; border-bottom: 1px solid #1e293b; white-space: nowrap;">${timeAgo}</td>
                 </tr>
               `;
-
-              // Add changes details if available
-              if (event.changes && typeof event.changes === "object") {
-                const changesStr = JSON.stringify(event.changes, null, 2)
-                  .replace(/"/g, "")
-                  .replace(/[{}]/g, "")
-                  .trim();
-                if (changesStr) {
-                  historyHtml += `
-                    <tr>
-                      <td colspan="2" style="padding: 4px 8px 8px 24px; font-size: 0.65rem; color: #64748b; font-style: italic; border-bottom: 1px solid #1e293b;">
-                        ${changesStr}
-                      </td>
-                    </tr>
-                  `;
-                }
-              }
             });
 
-            historyHtml += `
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            `;
-
-            // Append history to tooltip
-            tooltip.innerHTML += historyHtml;
+            historyHtml += `</tbody></table></div>`;
+            historyEl.innerHTML = historyHtml;
+          } else {
+            const historyEl = document.getElementById("tooltip-history");
+            if (historyEl)
+              historyEl.innerHTML = `<span style="color:#64748b;font-size:0.7rem;">No history recorded</span>`;
           }
         } catch (error) {
           console.error("Error fetching history:", error);
+          const historyEl = document.getElementById("tooltip-history");
+          if (historyEl) historyEl.innerHTML = "";
         }
       }
 
