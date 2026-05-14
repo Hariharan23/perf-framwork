@@ -10943,15 +10943,7 @@ ORDER BY DESC(?inboundCount)`;
                         <div class="entity-details">${entity.description}</div>
                     </div>
                     <div class="btn-group">
-                        ${
-                          entity.type === "Environment" &&
-                          CONFIG.PIPELINE_API_URL
-                            ? `
-                        <button class="btn btn-secondary" style="font-size:0.78rem;padding:0.3rem 0.65rem" onclick="openPcUploadModal('${entity.id}')">
-                            PC File
-                        </button>`
-                            : ""
-                        }
+                        ${entity.type === "Environment" ? `<button class="btn btn-secondary" style="font-size:0.78rem;padding:0.3rem 0.65rem" onclick="openPcUploadModal('${entity.id}')">PC File</button>` : ""}
                         <button class="btn btn-primary" onclick="editEntity('${entity.id}', '${entity.name}', '${entity.type}')">
                             Edit
                         </button>
