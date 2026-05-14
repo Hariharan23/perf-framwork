@@ -562,6 +562,25 @@
         .degree-badge {
           pointer-events: none;
         }
+        /* Node colour key strip between mode banner and graph canvas */
+        .graph-color-key {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          background: rgba(15, 23, 42, 0.75);
+          padding: 4px 14px;
+          font-size: 0.72rem;
+          color: #94a3b8;
+          user-select: none;
+        }
+        .gck-item {
+          display: flex;
+          align-items: center;
+          gap: 5px;
+        }
+        .gck-item svg {
+          flex-shrink: 0;
+        }
       }
       .node-info-panel .nip-header {
         display: flex;
@@ -580,6 +599,13 @@
         overflow: hidden;
         text-overflow: ellipsis;
         max-width: 210px;
+      }
+      .nip-type-badge {
+        font-size: 0.68rem;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 20px;
+        letter-spacing: 0.03em;
       }
       .node-info-panel .nip-close {
         cursor: pointer;
@@ -2637,17 +2663,6 @@ Example:
                 onchange="applyEnvFilter()"
                 title="How many levels of connected nodes to show"
               ></select>
-              <label
-                class="env-connectivity-toggle"
-                title="Show only environment-to-environment connectivity, hiding intermediate integrations and applications"
-              >
-                <input
-                  type="checkbox"
-                  id="env-connectivity-only"
-                  onchange="applyEnvFilter()"
-                />
-                <span>Env Connectivity Only</span>
-              </label>
               <span id="env-filter-info" class="env-filter-info"></span>
               <button
                 id="env-filter-clear-btn"
@@ -2770,6 +2785,28 @@ Example:
               </button>
             </div>
 
+            <!-- Node colour key -->
+            <div class="graph-color-key">
+              <span class="gck-item">
+                <svg width="12" height="12">
+                  <circle cx="6" cy="6" r="5" fill="#059669" />
+                </svg>
+                Environment
+              </span>
+              <span class="gck-item">
+                <svg width="14" height="14">
+                  <circle cx="7" cy="7" r="6" fill="#7c3aed" />
+                </svg>
+                Pipeline-configured
+              </span>
+              <span class="gck-item">
+                <svg width="14" height="14">
+                  <circle cx="7" cy="7" r="6" fill="#d97706" />
+                </svg>
+                Alias / merged
+              </span>
+            </div>
+
             <div class="graph-container">
               <svg id="network-graph"></svg>
               <div class="graph-zoom-controls">
@@ -2823,6 +2860,13 @@ Example:
                     title="Close"
                     >&times;</span
                   >
+                </div>
+                <div style="padding: 2px 0.75rem 6px">
+                  <span
+                    id="nip-type-badge"
+                    class="nip-type-badge"
+                    style="display: none"
+                  ></span>
                 </div>
                 <div class="nip-section">
                   <div class="nip-section-label">Owner</div>
@@ -5397,6 +5441,7 @@ Example:
         renderedNodes: new Map(), // id -> node object
         renderedEdges: new Map(), // id -> edge object
         nodeDegrees: new Map(), // id -> total edge count from server
+        pipelineEnvNames: new Set(), // lowercase env names that have a pipeline config
       };
 
       function _pvSetMode(mode) {
@@ -5430,9 +5475,15 @@ Example:
         for (const n of newNodes || []) {
           if (n.id && !viewState.renderedNodes.has(n.id)) {
             // Normalise shape: overview EnvNodes lack label/properties
+            const label = n.label || n.name || n.id;
+            // Re-apply hasPipeline from cached set (get-environment-detail doesn't carry it)
+            const hasPipeline =
+              n.hasPipeline ||
+              (viewState.pipelineEnvNames.size > 0 &&
+                viewState.pipelineEnvNames.has(label.toLowerCase()));
             viewState.renderedNodes.set(n.id, {
               id: n.id,
-              label: n.label || n.name || n.id,
+              label,
               type: n.type || "Environment",
               properties: n.properties || { status: n.status },
               configurations: n.configurations || {},
@@ -5445,7 +5496,7 @@ Example:
                 n.sourceEnvName ||
                 (n.configurations && n.configurations.sourceEnvName) ||
                 null,
-              hasPipeline: n.hasPipeline || false,
+              hasPipeline,
             });
             added = true;
           }
@@ -5608,6 +5659,11 @@ Example:
           }
           const { nodes, edges } = result.data.overview;
 
+          // Cache pipeline env names for reuse in focused/exploring modes
+          viewState.pipelineEnvNames = new Set(
+            (result.data.pipelineEnvNames || []).map((n) => n.toLowerCase()),
+          );
+
           // Clear state and populate
           viewState.renderedNodes.clear();
           viewState.renderedEdges.clear();
@@ -5680,6 +5736,13 @@ Example:
           viewState.renderedNodes.clear();
           viewState.renderedEdges.clear();
           viewState.focusNodeId = envId;
+
+          // Stamp hasPipeline on focus node using the cached set
+          const focusLabel = focus.label || focus.name || focus.id;
+          focus.hasPipeline =
+            focus.hasPipeline ||
+            (viewState.pipelineEnvNames.size > 0 &&
+              viewState.pipelineEnvNames.has(focusLabel.toLowerCase()));
 
           // Add focus node
           viewState.renderedNodes.set(focus.id, focus);
@@ -8049,7 +8112,21 @@ ORDER BY DESC(?inboundCount)`;
           );
 
           if (result.success && result.data) {
-            networkData = result.data.networkData || result.data;
+            const raw = result.data.networkData || result.data;
+
+            // Always show only Environment nodes — strip Integration/Application nodes
+            const envNodeIds = new Set(
+              (raw.nodes || [])
+                .filter((n) => n.type === "Environment")
+                .map((n) => n.id),
+            );
+            networkData = {
+              ...raw,
+              nodes: (raw.nodes || []).filter((n) => n.type === "Environment"),
+              edges: (raw.edges || []).filter(
+                (e) => envNodeIds.has(e.source) && envNodeIds.has(e.target),
+              ),
+            };
 
             document.getElementById("node-count").textContent =
               networkData.nodes.length;
@@ -8310,8 +8387,8 @@ ORDER BY DESC(?inboundCount)`;
       }
 
       function getNodeColor(type, d) {
-        // Special Environment subtypes
-        if (type === "Environment" && d) {
+        // Only Environment nodes are shown in the graph
+        if (d) {
           // Alias-renamed or merge-surviving nodes (stamped with config_sourceEnvName by cleanser)
           const aliased =
             d.sourceEnvName ||
@@ -8320,12 +8397,7 @@ ORDER BY DESC(?inboundCount)`;
           // Primary environment that has a data pipeline configured for it
           if (d.hasPipeline) return "#7c3aed"; // violet — primary pipeline env
         }
-        const colors = {
-          Environment: "#059669",
-          Application: "#2563eb",
-          Integration: "#d97706",
-        };
-        return colors[type] || "#64748b";
+        return "#059669"; // default green — regular environment
       }
 
       // Radius helper — alias/merged nodes are slightly bigger
@@ -8392,10 +8464,9 @@ ORDER BY DESC(?inboundCount)`;
       }
 
       function updateHealthStatusBar(nodes) {
-        // Only count Environments and Applications for health stats (not Integrations)
-        const healthNodes = nodes.filter((d) => d.type !== "Integration");
+        // All visible nodes are Environments — count them all
         const counts = { critical: 0, major: 0, warning: 0, healthy: 0 };
-        healthNodes.forEach((d) => {
+        nodes.forEach((d) => {
           const state = getNodeHealthState(d);
           counts[state] = (counts[state] || 0) + 1;
         });
@@ -9286,18 +9357,12 @@ ORDER BY DESC(?inboundCount)`;
           ids.forEach((id) => visibleIds.add(id));
         });
 
-        let envCount = 0,
-          appCount = 0,
-          intCount = 0;
+        let envCount = 0;
         allNodes.forEach((n) => {
-          if (visibleIds.has(n.id)) {
-            if (n.type === "Environment") envCount++;
-            else if (n.type === "Application") appCount++;
-            else intCount++;
-          }
+          if (visibleIds.has(n.id)) envCount++;
         });
 
-        infoSpan.textContent = `Showing ${visibleIds.size} nodes (${envCount} env, ${appCount} app, ${intCount} int) within ${depth} hop${depth > 1 ? "s" : ""}`;
+        infoSpan.textContent = `Showing ${envCount} environment${envCount !== 1 ? "s" : ""} within ${depth} hop${depth > 1 ? "s" : ""}`;
 
         svg.selectAll(".node").each(function (d) {
           const el = d3.select(this);
@@ -10426,6 +10491,27 @@ ORDER BY DESC(?inboundCount)`;
         const panel = document.getElementById("node-info-panel");
         document.getElementById("nip-title").textContent =
           d.name || d.label || "Environment";
+
+        // Type badge — show pipeline or alias sub-type under the title
+        const badge = document.getElementById("nip-type-badge");
+        if (badge) {
+          const aliased =
+            d.sourceEnvName ||
+            (d.configurations && d.configurations.sourceEnvName);
+          if (aliased) {
+            badge.textContent = "Alias / merged";
+            badge.style.background = "#92400e";
+            badge.style.color = "#fde68a";
+            badge.style.display = "inline-block";
+          } else if (d.hasPipeline) {
+            badge.textContent = "Pipeline-configured";
+            badge.style.background = "#4c1d95";
+            badge.style.color = "#ddd6fe";
+            badge.style.display = "inline-block";
+          } else {
+            badge.style.display = "none";
+          }
+        }
 
         // Owner
         const ownerEl = document.getElementById("nip-owner");

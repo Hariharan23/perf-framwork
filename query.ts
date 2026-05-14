@@ -395,6 +395,9 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           overview,
           nodeCount: overview.nodes.length,
           edgeCount: overview.edges.length,
+          // Include the set of pipeline env names so the frontend can
+          // re-apply hasPipeline when rebuilding the view in focused mode
+          pipelineEnvNames: Array.from(pipelineEnvNames),
         };
         break;
       }
