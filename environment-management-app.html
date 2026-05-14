@@ -14366,6 +14366,7 @@ ORDER BY DESC(?inboundCount)`;
                         <button class="btn btn-sm btn-secondary" onclick="triggerPipelineSync('${escapeHtml(env.envId)}')">Run Now</button>
                         <button class="btn btn-sm btn-secondary" onclick="openPipelineHistoryModal('${escapeHtml(env.envId)}')">History</button>
                         ${_pipelineSelectedSource === "DCM" ? `<button class="btn btn-sm btn-primary" onclick="openDcmUploadModal('${escapeHtml(env.envId)}','${escapeHtml(env.apps || "")}')">Upload Files</button>` : ""}
+                        ${_pipelineSelectedSource === "PAYMENT_CENTRAL" ? `<button class="btn btn-sm btn-primary" onclick="openPcUploadModal('${escapeHtml(env.envId)}')">Upload File</button>` : ""}
                       </div>
                     </td>
                   </tr>`;
