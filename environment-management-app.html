@@ -13053,6 +13053,10 @@ ORDER BY DESC(?inboundCount)`;
 
       // Toggle AI results view
       let currentAiView = "table";
+      let currentAiResults = [];
+      let aiResultsPage = 0;
+      const AI_RESULTS_PAGE_SIZE = 25;
+
       function toggleAiResultsView(view) {
         currentAiView = view;
         document.getElementById("ai-results-table-view").style.display =
@@ -13061,6 +13065,27 @@ ORDER BY DESC(?inboundCount)`;
           view === "formatted" ? "block" : "none";
         document.getElementById("ai-results-json-view").style.display =
           view === "json" ? "block" : "none";
+      }
+
+      function renderAiResultsTable() {
+        const container = document.getElementById("ai-results-table-view");
+        container.innerHTML = createAiResultsTable(
+          currentAiResults,
+          aiResultsPage,
+          AI_RESULTS_PAGE_SIZE,
+        );
+      }
+
+      function changeAiResultsPage(delta) {
+        const totalPages = Math.max(
+          1,
+          Math.ceil(currentAiResults.length / AI_RESULTS_PAGE_SIZE),
+        );
+        aiResultsPage = Math.max(
+          0,
+          Math.min(totalPages - 1, aiResultsPage + delta),
+        );
+        renderAiResultsTable();
       }
 
       // Execute AI query (simulated — no live Bedrock connectivity)
@@ -13291,16 +13316,19 @@ ORDER BY DESC(?inboundCount)`;
 
         // Table view
         if (result.results && result.results.length > 0) {
-          const table = createAiResultsTable(result.results);
-          document.getElementById("ai-results-table-view").innerHTML = table;
+          currentAiResults = result.results;
+          aiResultsPage = 0;
+          renderAiResultsTable();
         } else {
+          currentAiResults = [];
+          aiResultsPage = 0;
           document.getElementById("ai-results-table-view").innerHTML =
             '<p style="color: var(--text-secondary);">No results found</p>';
         }
       }
 
       // Create styled HTML table from AI query results
-      function createAiResultsTable(results) {
+      function createAiResultsTable(results, page = 0, pageSize = 25) {
         if (!results || results.length === 0) {
           return "<p>No results</p>";
         }
@@ -13309,6 +13337,10 @@ ORDER BY DESC(?inboundCount)`;
           cell && typeof cell === "object" ? cell.value : cell;
 
         const keys = [...new Set(results.flatMap((r) => Object.keys(r)))];
+        const totalPages = Math.max(1, Math.ceil(results.length / pageSize));
+        const safePage = Math.max(0, Math.min(totalPages - 1, page));
+        const start = safePage * pageSize;
+        const pageRows = results.slice(start, start + pageSize);
 
         let html =
           '<div style="overflow-x: auto;"><table class="query-table"><thead><tr>';
@@ -13317,7 +13349,7 @@ ORDER BY DESC(?inboundCount)`;
         });
         html += "</tr></thead><tbody>";
 
-        results.forEach((row) => {
+        pageRows.forEach((row) => {
           html += "<tr>";
           keys.forEach((key) => {
             const value = cellValue(row[key]) || "";
@@ -13327,6 +13359,22 @@ ORDER BY DESC(?inboundCount)`;
         });
 
         html += "</tbody></table></div>";
+
+        if (totalPages > 1) {
+          html += `
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:0.75rem;gap:0.75rem;flex-wrap:wrap;">
+              <div style="font-size:0.8rem;color:var(--text-secondary);">
+                Showing ${start + 1}-${Math.min(start + pageRows.length, results.length)} of ${results.length}
+              </div>
+              <div style="display:flex;align-items:center;gap:0.5rem;">
+                <button class="btn btn-secondary btn-sm" style="font-size:0.75rem;padding:0.2rem 0.55rem;" onclick="changeAiResultsPage(-1)" ${safePage === 0 ? "disabled" : ""}>&laquo; Prev</button>
+                <span style="font-size:0.8rem;color:var(--text-secondary);">Page ${safePage + 1} / ${totalPages}</span>
+                <button class="btn btn-secondary btn-sm" style="font-size:0.75rem;padding:0.2rem 0.55rem;" onclick="changeAiResultsPage(1)" ${safePage >= totalPages - 1 ? "disabled" : ""}>Next &raquo;</button>
+              </div>
+            </div>
+          `;
+        }
+
         return html;
       }
 
