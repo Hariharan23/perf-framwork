@@ -10811,8 +10811,16 @@ ORDER BY DESC(?inboundCount)`;
           .attr("class", "node")
           .attr("r", (d) => getEnvNodeRadius(d))
           .attr("fill", (d) => getNodeColor(d.type, d))
-          .attr("stroke", (d) => d3.rgb(getNodeColor(d.type, d)).darker())
-          .attr("stroke-width", 2)
+          .attr("stroke", (d) => {
+            const hs = getNodeHealthState(d);
+            if (hs === "critical") return "#ef4444";
+            if (hs === "major") return "#f97316";
+            if (hs === "warning") return "#eab308";
+            return d3.rgb(getNodeColor(d.type, d)).darker();
+          })
+          .attr("stroke-width", (d) =>
+            getNodeHealthState(d) !== "healthy" ? 3 : 2,
+          )
           .call(
             d3
               .drag()
@@ -11171,12 +11179,22 @@ ORDER BY DESC(?inboundCount)`;
 
       function resetHealthVisuals(svg) {
         svg.selectAll(".node").each(function (d) {
+          const hs = getNodeHealthState(d);
           d3.select(this)
             .transition()
             .duration(300)
             .attr("opacity", 1)
-            .attr("stroke", d3.rgb(getNodeColor(d.type, d)).darker())
-            .attr("stroke-width", 2);
+            .attr(
+              "stroke",
+              hs === "critical"
+                ? "#ef4444"
+                : hs === "major"
+                  ? "#f97316"
+                  : hs === "warning"
+                    ? "#eab308"
+                    : d3.rgb(getNodeColor(d.type, d)).darker(),
+            )
+            .attr("stroke-width", hs !== "healthy" ? 3 : 2);
         });
         svg
           .selectAll(".node-label")
