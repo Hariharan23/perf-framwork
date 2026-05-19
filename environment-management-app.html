@@ -2517,7 +2517,7 @@
                 <div class="ov-kpi-sub" id="ov-kpi-envs-sub"></div>
               </div>
               <div class="ov-kpi-card ov-green">
-                <div class="ov-kpi-label">Healthy Nodes</div>
+                <div class="ov-kpi-label">Monitored Envs</div>
                 <div class="ov-kpi-value" id="ov-kpi-healthy">–</div>
                 <div class="ov-kpi-sub" id="ov-kpi-healthy-sub"></div>
               </div>
@@ -7126,8 +7126,16 @@ Example:
           networkData.nodes?.filter((n) => n.type === "Environment").length +
             " in graph",
         );
-        ovSet("ov-kpi-healthy", healthData.totalWithStats);
-        ovSet("ov-kpi-healthy-sub", healthData.totalEntities + " total nodes");
+        // Health KPI — environment entities only; show not-tracked count
+        const envTracked = (healthData.entities || []).filter(
+          (e) => (e.type || "") === "Environment",
+        ).length;
+        const notTracked = Math.max(0, envData.length - envTracked);
+        ovSet("ov-kpi-healthy", envTracked);
+        ovSet(
+          "ov-kpi-healthy-sub",
+          notTracked > 0 ? notTracked + " not tracked" : "All envs tracked",
+        );
         ovSet("ov-kpi-ints", integrationsData.length);
         ovSet("ov-kpi-ints-sub", "Active integrations");
         ovSet("ov-kpi-orphans", orphanData.length);
@@ -13119,7 +13127,6 @@ ORDER BY DESC(?inboundCount)`;
                         <div class="entity-details">${entity.description}</div>
                     </div>
                     <div class="btn-group">
-                        ${entity.type === "Environment" ? `<button class="btn btn-secondary" style="font-size:0.78rem;padding:0.3rem 0.65rem" onclick="openPcUploadModal('${entity.id}')">PC File</button>` : ""}
                         <button class="btn btn-primary" onclick="editEntity('${entity.id}', '${entity.name}', '${entity.type}')">
                             Edit
                         </button>
