@@ -398,13 +398,15 @@ async function collectScheduledUpdates(): Promise<any[]> {
       collaborators: b.collaborators?.value || '',
       schedule:      b.scheduledUpdates?.value || '',
     }))
-    .filter(item => item.schedule && item.envId);
+    .filter((item: { schedule: string; envId: string; envName: string; owner: string; collaborators: string }) => item.schedule && item.envId);
+
+  type ScheduleItem = { envId: string; envName: string; owner: string; collaborators: string; schedule: string; windowStart: string; windowEnd: string; description: string; conflict: boolean; conflictWith: string; };
 
   // Parse windows
-  const parsed = items.map(item => {
+  const parsed: ScheduleItem[] = items.map((item: { envId: string; envName: string; owner: string; collaborators: string; schedule: string }) => {
     const { windowStart, windowEnd, description } = parseScheduleWindow(item.schedule);
-    return { ...item, windowStart, windowEnd, description, conflict: false, conflictWith: '' as string };
-  }).filter(item => item.windowStart);
+    return { ...item, windowStart, windowEnd, description, conflict: false, conflictWith: '' };
+  }).filter((item: ScheduleItem) => item.windowStart);
 
   // Detect overlapping windows
   for (let i = 0; i < parsed.length; i++) {
@@ -422,7 +424,7 @@ async function collectScheduledUpdates(): Promise<any[]> {
   }
 
   return parsed
-    .sort((a, b) => new Date(a.windowStart).getTime() - new Date(b.windowStart).getTime())
+    .sort((a: { windowStart: string }, b: { windowStart: string }) => new Date(a.windowStart).getTime() - new Date(b.windowStart).getTime())
     .slice(0, 12);
 }
 

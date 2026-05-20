@@ -155,8 +155,10 @@ async function generateReport(owner: string, reportType: 'weekly' | 'daily', cus
       reportDate: now.toISOString(),
       environmentCount: String(data.environments.length),
       alertCount: String(insights.alerts.length),
-      avgHealth: String(insights.avgHealthScore ?? 0),
+      avgHealth: String(insights.kpi.avgHealthScore ?? 0),
     },
+  }));
+
   const presignedUrl = await getSignedUrl(
     s3,
     new GetObjectCommand({ Bucket: REPORT_BUCKET, Key: s3Key }),
@@ -209,8 +211,11 @@ async function generateReportForEnvs(environmentIds: string[], reportType: 'week
       reportDate: now.toISOString(),
       environmentCount: String(data.environments.length),
       alertCount: String(insights.alerts.length),
-      avgHealth: String(insights.avgHealthScore ?? 0),
+      avgHealth: String(insights.kpi.avgHealthScore ?? 0),
     },
+  }));
+
+  const presignedUrl = await getSignedUrl(
     s3,
     new GetObjectCommand({ Bucket: REPORT_BUCKET, Key: s3Key }),
     { expiresIn: 7 * 24 * 60 * 60 }
