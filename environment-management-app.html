@@ -7531,31 +7531,34 @@ Example:
         const nodeStatus = (n) =>
           (n.properties?.status || n.status || "").toLowerCase();
 
-        // IDs with critical health stats (cpu > 85 or health score < 70)
-        const criticalHealthIds = new Set(
-          (healthEntities || [])
-            .filter((e) => {
-              const s = e.stats || {};
-              return parseFloat(s.cpu) > 85 || parseFloat(s.healthScore) < 70;
-            })
-            .map((e) => e.id),
-        );
-
+        // Filter by currentState performance field (Critical / Warning)
         const criticalIds = new Set(
           (nodes || [])
-            .filter(
-              (n) =>
-                nodeStatus(n) === "critical" ||
-                criticalHealthIds.has(nodeId(n)),
-            )
+            .filter((n) => {
+              const cs = (n.currentState || "").toLowerCase();
+              return cs === "critical" || nodeStatus(n) === "critical";
+            })
             .map(nodeId),
         );
-        const visibleIds = new Set(criticalIds);
+        const warningIds = new Set(
+          (nodes || [])
+            .filter((n) => {
+              const cs = (n.currentState || "").toLowerCase();
+              const ns = nodeStatus(n);
+              return (
+                !criticalIds.has(nodeId(n)) &&
+                (cs === "warning" || ns === "warning" || ns === "degraded")
+              );
+            })
+            .map(nodeId),
+        );
+        const alertIds = new Set([...criticalIds, ...warningIds]);
+        const visibleIds = new Set(alertIds);
         (edges || []).forEach((e) => {
           const s = e.source || e.from,
             t = e.target || e.to;
-          if (criticalIds.has(s)) visibleIds.add(t);
-          if (criticalIds.has(t)) visibleIds.add(s);
+          if (alertIds.has(s)) visibleIds.add(t);
+          if (alertIds.has(t)) visibleIds.add(s);
         });
 
         // No critical nodes → show a message, don't fall back to arbitrary nodes
@@ -7572,7 +7575,7 @@ Example:
             .attr("fill", "#059669")
             .attr("font-size", "14px")
             .attr("font-weight", "600")
-            .text("✓ No critical nodes");
+            .text("✓ No critical or warning nodes");
           svg0
             .append("text")
             .attr("x", W2 / 2)
@@ -7597,7 +7600,18 @@ Example:
           id: nodeId(n),
           label: nodeName(n),
           type: n.type || "Environment",
-          status: nodeStatus(n) || "active",
+          status: (() => {
+            const cs = (n.currentState || "").toLowerCase();
+            if (cs === "critical" || nodeStatus(n) === "critical")
+              return "critical";
+            if (
+              cs === "warning" ||
+              nodeStatus(n) === "warning" ||
+              nodeStatus(n) === "degraded"
+            )
+              return "warning";
+            return nodeStatus(n) || "active";
+          })(),
           r: (n.type || "Environment").toLowerCase() === "environment" ? 11 : 7,
         }));
         const d3links = showEdges.map((e) => ({
@@ -7606,12 +7620,17 @@ Example:
         }));
 
         const neighborCount = showNodes.filter(
-          (n) => !criticalIds.has(nodeId(n)),
+          (n) => !alertIds.has(nodeId(n)),
         ).length;
         const badge = document.getElementById("ov-graph-badge");
         if (badge)
           badge.textContent =
-            criticalIds.size + " critical · " + neighborCount + " connected";
+            criticalIds.size +
+            " critical · " +
+            warningIds.size +
+            " warning · " +
+            neighborCount +
+            " connected";
 
         const W = () => svgEl.clientWidth || 600;
         const svg = d3.select(svgEl);
@@ -7640,6 +7659,18 @@ Example:
           .append("path")
           .attr("d", "M 0 0 L 10 5 L 0 10 z")
           .attr("fill", "#fca5a5");
+        defs
+          .append("marker")
+          .attr("id", "ov-arrow-warn")
+          .attr("viewBox", "0 0 10 10")
+          .attr("refX", 16)
+          .attr("refY", 5)
+          .attr("markerWidth", 5)
+          .attr("markerHeight", 5)
+          .attr("orient", "auto")
+          .append("path")
+          .attr("d", "M 0 0 L 10 5 L 0 10 z")
+          .attr("fill", "#fde68a");
 
         const g = svg.append("g");
         svg.call(
@@ -7666,23 +7697,36 @@ Example:
             d3.forceCollide((d) => d.r + 8),
           );
 
-        const isCritLink = (l) =>
-          criticalIds.has(
-            typeof l.source === "object" ? l.source.id : l.source,
-          ) ||
-          criticalIds.has(
-            typeof l.target === "object" ? l.target.id : l.target,
-          );
+        const isCritLink = (l) => {
+          const s = typeof l.source === "object" ? l.source.id : l.source;
+          const t = typeof l.target === "object" ? l.target.id : l.target;
+          return criticalIds.has(s) || criticalIds.has(t);
+        };
+        const isWarnLink = (l) => {
+          const s = typeof l.source === "object" ? l.source.id : l.source;
+          const t = typeof l.target === "object" ? l.target.id : l.target;
+          return !isCritLink(l) && (warningIds.has(s) || warningIds.has(t));
+        };
         const link = g
           .append("g")
           .selectAll("line")
           .data(d3links)
           .join("line")
-          .attr("stroke", (l) => (isCritLink(l) ? "#fca5a5" : "#cbd5e1"))
-          .attr("stroke-width", (l) => (isCritLink(l) ? 1.8 : 1.2))
-          .attr("stroke-dasharray", (l) => (isCritLink(l) ? null : "4 2"))
+          .attr("stroke", (l) =>
+            isCritLink(l) ? "#fca5a5" : isWarnLink(l) ? "#fde68a" : "#cbd5e1",
+          )
+          .attr("stroke-width", (l) =>
+            isCritLink(l) || isWarnLink(l) ? 1.8 : 1.2,
+          )
+          .attr("stroke-dasharray", (l) =>
+            isCritLink(l) || isWarnLink(l) ? null : "4 2",
+          )
           .attr("marker-end", (l) =>
-            isCritLink(l) ? "url(#ov-arrow-crit)" : "url(#ov-arrow)",
+            isCritLink(l)
+              ? "url(#ov-arrow-crit)"
+              : isWarnLink(l)
+                ? "url(#ov-arrow-warn)"
+                : "url(#ov-arrow)",
           );
 
         const node = g
@@ -7711,7 +7755,7 @@ Example:
           );
 
         node
-          .filter((d) => !criticalIds.has(d.id))
+          .filter((d) => !alertIds.has(d.id))
           .append("circle")
           .attr("r", (d) => d.r + 3)
           .attr("fill", "#f8fafc")
@@ -7723,7 +7767,7 @@ Example:
           .attr("fill", (d) => getColor(d))
           .attr("stroke", "#fff")
           .attr("stroke-width", 2)
-          .attr("fill-opacity", (d) => (criticalIds.has(d.id) ? 1 : 0.55));
+          .attr("fill-opacity", (d) => (alertIds.has(d.id) ? 1 : 0.55));
         node
           .filter((d) => criticalIds.has(d.id))
           .append("circle")
@@ -7734,12 +7778,27 @@ Example:
           .attr("stroke-opacity", 0.35)
           .attr("stroke-dasharray", "4 3");
         node
+          .filter((d) => warningIds.has(d.id))
+          .append("circle")
+          .attr("r", (d) => d.r + 5)
+          .attr("fill", "none")
+          .attr("stroke", "#d97706")
+          .attr("stroke-width", 2)
+          .attr("stroke-opacity", 0.35)
+          .attr("stroke-dasharray", "4 3");
+        node
           .append("text")
           .attr("text-anchor", "middle")
           .attr("dy", (d) => d.r + 12)
-          .attr("font-size", (d) => (criticalIds.has(d.id) ? "7.5px" : "6.5px"))
-          .attr("font-weight", (d) => (criticalIds.has(d.id) ? "700" : "400"))
-          .attr("fill", (d) => (criticalIds.has(d.id) ? "#dc2626" : "#94a3b8"))
+          .attr("font-size", (d) => (alertIds.has(d.id) ? "7.5px" : "6.5px"))
+          .attr("font-weight", (d) => (alertIds.has(d.id) ? "700" : "400"))
+          .attr("fill", (d) =>
+            criticalIds.has(d.id)
+              ? "#dc2626"
+              : warningIds.has(d.id)
+                ? "#d97706"
+                : "#94a3b8",
+          )
           .attr("pointer-events", "none")
           .text((d) =>
             d.label.length > 18 ? d.label.slice(0, 16) + "…" : d.label,
@@ -7762,9 +7821,7 @@ Example:
           .on("mouseover", (e, d) => {
             tooltip
               .style("opacity", 1)
-              .html(
-                `<b>${d.label}</b><br>Type: ${d.type} · Status: ${d.status}`,
-              );
+              .html(`<b>${d.label}</b><br>State: ${d.status}`);
           })
           .on("mousemove", (e) =>
             tooltip
