@@ -376,18 +376,22 @@ function parseScheduleWindow(schedule: string): { windowStart: string; windowEnd
 
 // ── Collect scheduled maintenance windows from Neptune ────────────────────────
 async function collectScheduledUpdates(): Promise<any[]> {
+  // Note: env:type filter intentionally omitted — only environments carry
+  // env:scheduledUpdates, so the join is sufficient without a type guard.
   const query = `
     PREFIX env: <${ONTOLOGY_PREFIX}>
     SELECT ?id ?name ?owner ?scheduledUpdates ?collaborators WHERE {
-      ?entity env:type "Environment" ;
-              env:id ?id ;
+      ?entity env:id ?id ;
               env:name ?name ;
               env:scheduledUpdates ?scheduledUpdates .
       OPTIONAL { ?entity env:owner ?owner }
       OPTIONAL { ?entity env:collaborators ?collaborators }
     }
   `;
+  console.log('collectScheduledUpdates: running SPARQL query');
   const result = await neptune.executeSparqlQuery(query);
+  const bindingCount = result.results?.bindings?.length ?? 0;
+  console.log(`collectScheduledUpdates: Neptune returned ${bindingCount} bindings`);
   const items = (result.results?.bindings || [])
     .map((b: any) => ({
       envId:         b.id?.value         || '',
@@ -398,13 +402,18 @@ async function collectScheduledUpdates(): Promise<any[]> {
     }))
     .filter((item: { schedule: string; envId: string; envName: string; owner: string; collaborators: string }) => item.schedule && item.envId);
 
+  console.log(`collectScheduledUpdates: ${items.length} items with non-empty schedule`);
+
   type ScheduleItem = { envId: string; envName: string; owner: string; collaborators: string; schedule: string; windowStart: string; windowEnd: string; description: string; conflict: boolean; conflictWith: string; };
 
   // Parse windows
   const parsed: ScheduleItem[] = items.map((item: { envId: string; envName: string; owner: string; collaborators: string; schedule: string }) => {
     const { windowStart, windowEnd, description } = parseScheduleWindow(item.schedule);
+    if (!windowStart) console.warn(`collectScheduledUpdates: failed to parse schedule for ${item.envId}: "${item.schedule}"`);
     return { ...item, windowStart, windowEnd, description, conflict: false, conflictWith: '' };
   }).filter((item: ScheduleItem) => item.windowStart);
+
+  console.log(`collectScheduledUpdates: ${parsed.length} items after parse`);
 
   // Detect overlapping windows
   for (let i = 0; i < parsed.length; i++) {
