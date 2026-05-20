@@ -2311,6 +2311,63 @@
         cursor: pointer;
       }
 
+      /* Upcoming Updates card */
+      .ov-upcoming-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.6rem;
+        padding: 0.55rem 0;
+        border-bottom: 1px solid #e2e8f0;
+        font-size: 0.76rem;
+      }
+      .ov-upcoming-item:last-child {
+        border-bottom: none;
+      }
+      .ov-upcoming-name {
+        font-weight: 600;
+        color: #1e293b;
+        font-size: 0.76rem;
+      }
+      .ov-upcoming-name.conflict {
+        color: #dc2626;
+      }
+      .ov-upcoming-window {
+        font-size: 0.7rem;
+        color: #64748b;
+        margin-top: 0.1rem;
+      }
+      .ov-upcoming-badge {
+        margin-left: auto;
+        flex-shrink: 0;
+        font-size: 0.67rem;
+        font-weight: 600;
+        padding: 0.15rem 0.45rem;
+        border-radius: 4px;
+        white-space: nowrap;
+      }
+      .ov-upcoming-badge.soon {
+        background: #fef9c3;
+        color: #854d0e;
+      }
+      .ov-upcoming-badge.medium {
+        background: #dbeafe;
+        color: #1e40af;
+      }
+      .ov-upcoming-badge.far {
+        background: #f1f5f9;
+        color: #475569;
+      }
+      .ov-conflict-badge {
+        display: inline-block;
+        font-size: 0.67rem;
+        font-weight: 600;
+        background: #fee2e2;
+        color: #b91c1c;
+        border-radius: 10px;
+        padding: 0.1rem 0.4rem;
+        margin-left: 0.35rem;
+      }
+
       .ov-chart-wrap {
         position: relative;
         height: 180px;
@@ -2804,6 +2861,45 @@
               </div>
             </div>
 
+            <!-- Upcoming Updates row -->
+            <div
+              class="ov-row"
+              style="grid-template-columns: 1fr 1fr; gap: 1rem"
+            >
+              <div class="ov-card" style="grid-column: 1 / -1">
+                <div class="ov-card-header">
+                  <span class="ov-card-title"
+                    >&#128197; Upcoming Scheduled Updates</span
+                  >
+                  <span
+                    id="ov-conflict-badge"
+                    style="
+                      display: none;
+                      font-size: 0.7rem;
+                      font-weight: 700;
+                      color: #dc2626;
+                      background: #fee2e2;
+                      padding: 0.15rem 0.55rem;
+                      border-radius: 10px;
+                    "
+                  ></span>
+                </div>
+                <div class="ov-card-body" style="padding-top: 0.5rem">
+                  <div
+                    id="ov-upcoming-list"
+                    style="
+                      display: grid;
+                      grid-template-columns: repeat(
+                        auto-fill,
+                        minmax(280px, 1fr)
+                      );
+                      gap: 0 1.5rem;
+                    "
+                  ></div>
+                </div>
+              </div>
+            </div>
+
             <!-- Row 4: Integration changes + Activity feed + Reports -->
             <div class="ov-sec-label">Activity &amp; Reports</div>
             <div class="ov-row ov-row-3">
@@ -2847,6 +2943,10 @@
                       ></span>
                       Removed: <b id="ov-int-removed">–</b></span
                     >
+                    <span style="margin-left: auto"
+                      >Net:
+                      <b id="ov-int-net" style="color: #2563eb">–</b></span
+                    >
                   </div>
                   <div
                     style="
@@ -2874,6 +2974,20 @@
               <div class="ov-card">
                 <div class="ov-card-header">
                   <span class="ov-card-title">Recent Activity</span>
+                  <button
+                    onclick="switchToTab('history')"
+                    style="
+                      font-size: 0.7rem;
+                      padding: 0.2rem 0.55rem;
+                      border: 1px solid #cbd5e1;
+                      border-radius: 4px;
+                      background: #f8fafc;
+                      color: #475569;
+                      cursor: pointer;
+                    "
+                  >
+                    View history →
+                  </button>
                 </div>
                 <div class="ov-card-body">
                   <div id="ov-activity-feed"></div>
@@ -2882,6 +2996,20 @@
               <div class="ov-card">
                 <div class="ov-card-header">
                   <span class="ov-card-title">Reports</span>
+                  <button
+                    onclick="switchToTab('reports')"
+                    style="
+                      font-size: 0.7rem;
+                      padding: 0.2rem 0.55rem;
+                      border: 1px solid #cbd5e1;
+                      border-radius: 4px;
+                      background: #f8fafc;
+                      color: #475569;
+                      cursor: pointer;
+                    "
+                  >
+                    Generate →
+                  </button>
                 </div>
                 <div class="ov-card-body">
                   <div id="ov-reports-list"></div>
@@ -2902,7 +3030,7 @@
                         margin-bottom: 0.5rem;
                       "
                     >
-                      Health Trend (recent snapshots)
+                      Health Trend (4 Weeks)
                     </div>
                     <div style="position: relative; height: 100px">
                       <canvas id="ov-health-chart"></canvas>
@@ -7126,8 +7254,27 @@ Example:
           },
           body: JSON.stringify({ query }),
         });
+        if (!res.ok) {
+          if (res.status === 401 || res.status === 403) {
+            throw new Error(
+              "AppSync API key is invalid or expired (HTTP " +
+                res.status +
+                ") — rotate the key in AWS Console and update OV_APPSYNC_KEY",
+            );
+          }
+          throw new Error(
+            "AppSync HTTP " +
+              res.status +
+              " — " +
+              (await res.text().catch(() => "(no body)")),
+          );
+        }
         const json = await res.json();
-        if (json.errors) throw new Error(JSON.stringify(json.errors));
+        if (json.errors?.length)
+          throw new Error(
+            "AppSync error: " +
+              (json.errors[0]?.message || JSON.stringify(json.errors)),
+          );
         return json.data?.getLatestSnapshot || null;
       }
 
@@ -7146,6 +7293,8 @@ Example:
         const aliasData = snapshot.aliasData || [];
         const reconcilerData = snapshot.reconcilerData || [];
         const reportData = snapshot.reportData || [];
+        const pipelineData = snapshot.pipelineData || [];
+        const scheduleData = snapshot.scheduleData || [];
 
         // KPIs
         ovSet("ov-kpi-envs", envData.length);
@@ -7187,7 +7336,7 @@ Example:
         ovRenderDegrees(degreeData, envData, integrationsData);
 
         // Pipelines (discovery pipeline sources)
-        ovRenderPipelines(snapshot.pipelineData || [], envData);
+        ovRenderPipelines(pipelineData, envData);
 
         // Hygiene
         ovRenderHygiene(envData, orphanData, aliasData);
@@ -7195,16 +7344,25 @@ Example:
         // Reconciler runs detail
         ovRenderReconcilerRuns(reconcilerData);
 
+        // Upcoming scheduled updates
+        ovRenderUpcomingUpdates(scheduleData);
+
         // Integration changes chart
         ovRenderIntChart(historyData);
 
         // Orphans list
         ovRenderOrphans(orphanData);
 
-        // Activity feed
-        ovRenderActivity(historyData);
+        // Activity feed (multi-source)
+        ovRenderActivity(
+          historyData,
+          healthData,
+          pipelineData,
+          scheduleData,
+          reportData,
+        );
 
-        // Reports
+        // Reports + health trend
         ovRenderReports(reportData, healthData);
 
         // Alias / orphan counts in pipeline footer
@@ -7223,7 +7381,7 @@ Example:
         const alerts = (entities || []).flatMap((e) => {
           const rows = [];
           const s = e.stats || {};
-          if (s.cpu > 85)
+          if (parseFloat(s.cpu) > 85)
             rows.push({
               sev: "crit",
               entity: e.name,
@@ -7231,7 +7389,7 @@ Example:
               val: s.cpu + "%",
               since: "–",
             });
-          if (s.memory > 85)
+          if (parseFloat(s.memory) > 85)
             rows.push({
               sev: "warn",
               entity: e.name,
@@ -7239,12 +7397,12 @@ Example:
               val: s.memory + "%",
               since: "–",
             });
-          if (s.health < 70)
+          if (parseFloat(s.healthScore) < 70)
             rows.push({
               sev: "crit",
               entity: e.name,
               issue: "Health Score",
-              val: s.health,
+              val: s.healthScore,
               since: "–",
             });
           return rows;
@@ -7378,7 +7536,7 @@ Example:
           (healthEntities || [])
             .filter((e) => {
               const s = e.stats || {};
-              return s.cpu > 85 || s.health < 70;
+              return parseFloat(s.cpu) > 85 || parseFloat(s.healthScore) < 70;
             })
             .map((e) => e.id),
         );
@@ -8005,14 +8163,17 @@ Example:
           const d = new Date(now - i * 86400000);
           labels.push(d.toLocaleDateString("en-US", { weekday: "short" }));
         }
-        ovSet(
-          "ov-int-added",
-          added.reduce((a, b) => a + b, 0),
-        );
-        ovSet(
-          "ov-int-removed",
-          removed.reduce((a, b) => a + b, 0),
-        );
+        const totalAdded = added.reduce((a, b) => a + b, 0);
+        const totalRemoved = removed.reduce((a, b) => a + b, 0);
+        const net = totalAdded - totalRemoved;
+        ovSet("ov-int-added", totalAdded);
+        ovSet("ov-int-removed", totalRemoved);
+        const netEl = document.getElementById("ov-int-net");
+        if (netEl) {
+          netEl.textContent = (net >= 0 ? "+" : "") + net;
+          netEl.style.color =
+            net > 0 ? "#059669" : net < 0 ? "#dc2626" : "#64748b";
+        }
 
         const ctx = document.getElementById("ov-int-chart");
         if (!ctx) return;
@@ -8057,6 +8218,68 @@ Example:
         });
       }
 
+      function ovRenderUpcomingUpdates(scheduleData) {
+        const el = document.getElementById("ov-upcoming-list");
+        const badge = document.getElementById("ov-conflict-badge");
+        if (!el) return;
+        const items = (scheduleData || []).slice(0, 10);
+        const conflictCount = items.filter((s) => s.conflict).length;
+        if (badge) {
+          if (conflictCount > 0) {
+            badge.textContent =
+              conflictCount + " conflict" + (conflictCount > 1 ? "s" : "");
+            badge.style.display = "";
+          } else {
+            badge.style.display = "none";
+          }
+        }
+        if (!items.length) {
+          el.innerHTML =
+            '<div style="font-size:.78rem;color:#64748b;padding:.4rem 0;">No scheduled updates found</div>';
+          return;
+        }
+        const now = Date.now();
+        el.innerHTML = items
+          .map((s) => {
+            const start = new Date(s.windowStart);
+            const diffMs = start.getTime() - now;
+            const diffDays = Math.round(diffMs / 86400000);
+            const dayLabel =
+              diffDays <= 0
+                ? diffDays === 0
+                  ? "Today"
+                  : Math.abs(diffDays) + "d ago"
+                : "In " + diffDays + "d";
+            const badgeCls =
+              diffDays <= 2 ? "soon" : diffDays <= 7 ? "medium" : "far";
+            const dateStr = start.toLocaleDateString("en-GB", {
+              weekday: "short",
+              day: "numeric",
+              month: "short",
+            });
+            const timeRange =
+              s.windowStart && s.windowEnd
+                ? start.toISOString().slice(11, 16) +
+                  "\u2013" +
+                  new Date(s.windowEnd).toISOString().slice(11, 16) +
+                  " UTC"
+                : s.schedule || "";
+            const ownerStr = s.owner ? " \u00b7 " + ovEscape(s.owner) : "";
+            return (
+              `<div class="ov-upcoming-item">` +
+              `<div style="flex:1;min-width:0;">` +
+              `<div class="ov-upcoming-name${s.conflict ? " conflict" : ""}">` +
+              `${ovEscape(s.envName)}${s.conflict ? `<span class="ov-conflict-badge">conflict</span>` : ""}` +
+              `</div>` +
+              `<div class="ov-upcoming-window">${dateStr} \u00b7 ${timeRange}${ownerStr}</div>` +
+              `</div>` +
+              `<span class="ov-upcoming-badge ${badgeCls}">${dayLabel}</span>` +
+              `</div>`
+            );
+          })
+          .join("");
+      }
+
       function ovRenderOrphans(orphanData) {
         const el = document.getElementById("ov-orphan-list");
         if (!el) return;
@@ -8074,35 +8297,191 @@ Example:
           .join("");
       }
 
-      function ovRenderActivity(historyData) {
+      function ovRenderActivity(
+        historyData,
+        healthData,
+        pipelineData,
+        scheduleData,
+        reportData,
+      ) {
         const el = document.getElementById("ov-activity-feed");
         if (!el) return;
-        const items = (historyData || []).slice(0, 8);
-        if (!items.length) {
-          el.innerHTML =
-            '<div style="font-size:.78rem;color:#64748b;">No recent activity</div>';
-          return;
-        }
+
+        const now = Date.now();
+        const items = []; // { ts, color, html }
+
+        const ageStr = (ts) => {
+          const age = Math.round((now - new Date(ts).getTime()) / 60000);
+          return age < 60
+            ? age + "m ago"
+            : age < 1440
+              ? Math.round(age / 60) + "h ago"
+              : Math.round(age / 1440) + "d ago";
+        };
+        const envLink = (name) =>
+          `<span class="ov-activity-env">${ovEscape(name || "–")}</span>`;
+
+        // 1. CPU / health alerts from current healthData
+        ((healthData && healthData.entities) || []).forEach((e) => {
+          const s = e.stats || {};
+          const cpu = parseFloat(s.cpu);
+          const hs = parseFloat(s.healthScore);
+          const ts = s.lastSyncedAt
+            ? new Date(s.lastSyncedAt).getTime()
+            : now - 2 * 60 * 60 * 1000;
+          if (!isNaN(cpu) && cpu > 85) {
+            items.push({
+              ts,
+              color: "#dc2626",
+              html: `CPU alert triggered on ${envLink(e.name)} (${cpu.toFixed(0)}% \u2014 threshold 80%)`,
+              time: ageStr(ts),
+            });
+          } else if (!isNaN(hs) && hs > 0 && hs < 70) {
+            items.push({
+              ts,
+              color: "#dc2626",
+              html: `Health score critical on ${envLink(e.name)} (${hs.toFixed(0)} / 100)`,
+              time: ageStr(ts),
+            });
+          }
+        });
+
+        // 2. History items from Neptune (create, add-integration, remove-integration, etc.)
         const actionColor = (a) => {
           const l = (a || "").toLowerCase();
           if (l.includes("add") || l === "create") return "#059669";
           if (l.includes("remove") || l === "delete") return "#dc2626";
-          if (l.includes("update") || l.includes("modify")) return "#2563eb";
-          return "#7c3aed";
+          if (l === "rename" || l.includes("merge")) return "#7c3aed";
+          return "#2563eb";
         };
-        el.innerHTML = items
-          .map((h) => {
-            const age = Math.round(
-              (Date.now() - new Date(h.timestamp).getTime()) / 60000,
-            );
-            const ageStr =
-              age < 60
-                ? age + "m ago"
-                : age < 1440
-                  ? Math.round(age / 60) + "h ago"
-                  : Math.round(age / 1440) + "d ago";
-            return `<div class="ov-activity-item"><span class="ov-activity-dot" style="background:${actionColor(h.action)};"></span><div class="ov-activity-content"><div class="ov-activity-msg">${ovEscape(h.action || "Change")} on <span class="ov-activity-env">${ovEscape(h.entityName || h.entityId || "–")}</span>${h.user ? " by <b>" + ovEscape(h.user) + "</b>" : ""}</div><div class="ov-activity-time">${ageStr}</div></div></div>`;
-          })
+        (historyData || []).forEach((h) => {
+          const ts = new Date(h.timestamp).getTime();
+          const action = (h.action || "").toLowerCase();
+          let html = "";
+          if (action === "add-integration") {
+            html = `New integration added: ${envLink(h.entityName || h.entityId)}`;
+          } else if (action === "remove-integration") {
+            html = `Integration removed: ${envLink(h.entityName || h.entityId)}`;
+          } else if (action === "create") {
+            html = `Environment ${envLink(h.entityName || h.entityId)} created${h.user ? " by <b>" + ovEscape(h.user) + "</b>" : ""}`;
+          } else if (action === "delete") {
+            html = `Environment ${envLink(h.entityName || h.entityId)} deleted${h.user ? " by <b>" + ovEscape(h.user) + "</b>" : ""}`;
+          } else if (action === "rename") {
+            html = `Environment ${envLink(h.entityName || h.entityId)} renamed${h.user ? " by <b>" + ovEscape(h.user) + "</b>" : ""}`;
+          } else {
+            html = `${ovEscape(h.action || "Change")} on ${envLink(h.entityName || h.entityId)}${h.user ? " by <b>" + ovEscape(h.user) + "</b>" : ""}`;
+          }
+          items.push({
+            ts,
+            color: actionColor(h.action),
+            html,
+            time: ageStr(ts),
+          });
+        });
+
+        // 3. Pipeline run events
+        (pipelineData || []).forEach((p) => {
+          const run = p.latestRun;
+          if (!run) return;
+          const ts = run.runId
+            ? new Date(run.runId).getTime()
+            : now - 3 * 24 * 60 * 60 * 1000;
+          if (isNaN(ts)) return;
+          const src = ovEscape(run.sourceType || p.sourceType || "Pipeline");
+          const status = (run.status || "").toLowerCase();
+          if (status === "success" || status === "completed") {
+            const synced = run.envsCreated || 0;
+            const newInts = run.integrationsCreated || 0;
+            items.push({
+              ts,
+              color: "#059669",
+              html: `${src} discovery run completed \u2014 ${synced} environment${synced !== 1 ? "s" : ""} synced, ${newInts} new integration${newInts !== 1 ? "s" : ""} found`,
+              time: ageStr(ts),
+            });
+          } else if (status === "failed" || status === "error") {
+            const errMsg = run.error
+              ? ovEscape(run.error.slice(0, 60))
+              : "unknown error";
+            items.push({
+              ts,
+              color: "#dc2626",
+              html: `${src} pipeline failed \u2014 ${errMsg}`,
+              time: ageStr(ts),
+            });
+          } else if (status === "partial") {
+            items.push({
+              ts,
+              color: "#d97706",
+              html: `${src} pipeline completed with warnings (${run.summaryErrors || 0} errors)`,
+              time: ageStr(ts),
+            });
+          }
+        });
+
+        // 4. Schedule conflicts (detected now)
+        const conflicts = (scheduleData || []).filter((s) => s.conflict);
+        if (conflicts.length >= 2) {
+          const a = conflicts[0],
+            b = conflicts[1];
+          const winDate = a.windowStart
+            ? new Date(a.windowStart).toLocaleDateString("en-GB", {
+                weekday: "short",
+                day: "numeric",
+                month: "short",
+              })
+            : "";
+          items.push({
+            ts: now - 8 * 60 * 60 * 1000,
+            color: "#d97706",
+            html: `Schedule conflict detected: ${envLink(a.envName)} and ${envLink(b.envName)}${winDate ? " overlap on " + winDate : ""}`,
+            time: "detected now",
+          });
+        }
+
+        // 5. Recent report generation
+        const recentReport = (reportData || []).find((r) => r.lastModified);
+        if (recentReport) {
+          const ts = new Date(recentReport.lastModified).getTime();
+          const count = recentReport.envCount
+            ? recentReport.envCount + " environments"
+            : "";
+          const health = recentReport.avgHealth
+            ? recentReport.avgHealth.toFixed(1) + " avg health"
+            : "";
+          const meta = [count, health].filter(Boolean).join(", ");
+          items.push({
+            ts,
+            color: "#059669",
+            html: `Weekly report generated and sent${meta ? " \u2014 " + meta : ""}`,
+            time:
+              ageStr(ts) +
+              " · " +
+              new Date(ts).toLocaleDateString("en-GB", {
+                day: "numeric",
+                month: "short",
+              }),
+          });
+        }
+
+        // Sort by timestamp descending, take top 8
+        items.sort((a, b) => b.ts - a.ts);
+        const top = items.slice(0, 8);
+
+        if (!top.length) {
+          el.innerHTML =
+            '<div style="font-size:.78rem;color:#64748b;">No recent activity</div>';
+          return;
+        }
+        el.innerHTML = top
+          .map(
+            (item) =>
+              `<div class="ov-activity-item">` +
+              `<span class="ov-activity-dot" style="background:${item.color};"></span>` +
+              `<div class="ov-activity-content">` +
+              `<div class="ov-activity-msg">${item.html}</div>` +
+              `<div class="ov-activity-time">${item.time}</div>` +
+              `</div></div>`,
+          )
           .join("");
       }
 
@@ -8117,67 +8496,107 @@ Example:
         }
         el.innerHTML = items
           .map((r) => {
-            const name = (r.key || "")
+            const parts = (r.key || "")
               .replace("reports/", "")
               .replace(".html", "")
-              .replace(/-/g, " ");
+              .split("/");
+            const name = (
+              parts.length > 1 ? parts.join(" / ") : parts[0]
+            ).replace(/-/g, " ");
             const date = r.lastModified
               ? new Date(r.lastModified).toLocaleDateString("en-GB", {
+                  weekday: "short",
                   day: "numeric",
                   month: "short",
                   year: "numeric",
                 })
               : "–";
-            const kb = r.size ? Math.round(r.size / 1024) + " KB" : "";
+            const meta = [
+              date,
+              r.envCount ? r.envCount + " envs" : null,
+              r.avgHealth ? r.avgHealth.toFixed(1) + " health" : null,
+            ]
+              .filter(Boolean)
+              .join(" · ");
             const dlBtn = r.url
-              ? `<a href="${r.url}" target="_blank" rel="noopener" style="margin-left:auto;font-size:.72rem;color:#2563eb;text-decoration:none;white-space:nowrap;padding:.15rem .45rem;border:1px solid #bfdbfe;border-radius:4px;" title="Download report">↓ Open</a>`
+              ? `<a href="${r.url}" target="_blank" rel="noopener" style="margin-left:auto;font-size:.72rem;color:#2563eb;text-decoration:none;white-space:nowrap;padding:.15rem .45rem;border:1px solid #bfdbfe;border-radius:4px;" title="Download report">Download</a>`
               : "";
-            return `<div class="ov-report-item" style="display:flex;align-items:center;gap:.5rem;"><div style="flex:1;min-width:0;"><div class="ov-report-name">${ovEscape(name || r.key)}</div><div class="ov-report-meta">${date} · ${kb}</div></div>${dlBtn}</div>`;
+            return `<div class="ov-report-item" style="display:flex;align-items:center;gap:.5rem;"><div style="flex:1;min-width:0;"><div class="ov-report-name">${ovEscape(name || r.key)}</div><div class="ov-report-meta">${ovEscape(meta)}</div></div>${dlBtn}</div>`;
           })
           .join("");
 
-        // Health trend chart — if we have multiple snapshots, use report count as proxy
+        // Health Trend line chart using report history data
         const ctx = document.getElementById("ov-health-chart");
         if (!ctx) return;
         if (ovHealthChart) {
           ovHealthChart.destroy();
           ovHealthChart = null;
         }
-        // Build real health score data from healthData entities
-        const healthEntities = ((healthData && healthData.entities) || [])
-          .filter((e) => e.stats && e.stats.healthScore !== undefined)
-          .sort(
-            (a, b) => (a.stats.healthScore || 0) - (b.stats.healthScore || 0),
-          )
-          .slice(0, 8);
+        ctx.parentElement
+          .querySelectorAll(".ov-health-avg")
+          .forEach((e) => e.remove());
+        ctx.style.display = "";
 
-        if (!healthEntities.length) {
+        // Build trend points from report metadata; fall back to current health score
+        const trendPoints = (reportData || [])
+          .filter((r) => r.lastModified && r.avgHealth)
+          .slice(0, 4)
+          .reverse()
+          .map((r) => ({
+            label: new Date(r.lastModified).toLocaleDateString("en-GB", {
+              day: "numeric",
+              month: "short",
+            }),
+            value: parseFloat(r.avgHealth.toFixed(1)),
+          }));
+
+        // If no report health data, derive current-snapshot average
+        if (!trendPoints.length) {
+          const scores = ((healthData && healthData.entities) || [])
+            .map((e) => parseFloat((e.stats || {}).healthScore || ""))
+            .filter((v) => !isNaN(v) && v > 0);
+          if (scores.length) {
+            const avg =
+              Math.round(
+                (scores.reduce((a, b) => a + b, 0) / scores.length) * 10,
+              ) / 10;
+            trendPoints.push({ label: "Today", value: avg });
+          }
+        } else {
+          // Ensure last point is labelled "Today"
+          trendPoints[trendPoints.length - 1].label = "Today";
+        }
+
+        if (!trendPoints.length) {
           ctx.style.display = "none";
           const msg = document.createElement("div");
+          msg.className = "ov-health-avg";
           msg.style.cssText = "font-size:.78rem;color:#64748b;padding:.4rem 0;";
           msg.textContent = "No health score data available";
           ctx.parentElement.appendChild(msg);
           return;
         }
 
-        const labels = healthEntities.map((e) =>
-          (e.name || e.id || "–").slice(0, 14),
-        );
-        const data = healthEntities.map((e) => e.stats.healthScore || 0);
-        const barColors = data.map((v) =>
-          v >= 85 ? "#059669" : v >= 70 ? "#d97706" : "#dc2626",
-        );
+        const labels = trendPoints.map((p) => p.label);
+        const data = trendPoints.map((p) => p.value);
+        const minVal = Math.max(0, Math.min(...data) - 10);
+        const maxVal = Math.min(100, Math.max(...data) + 10);
+
         ovHealthChart = new Chart(ctx.getContext("2d"), {
-          type: "bar",
+          type: "line",
           data: {
             labels,
             datasets: [
               {
-                label: "Health Score",
+                label: "Avg Health Score",
                 data,
-                backgroundColor: barColors,
-                borderRadius: 4,
-                borderWidth: 0,
+                borderColor: "#2563eb",
+                backgroundColor: "rgba(37,99,235,.08)",
+                borderWidth: 2,
+                pointRadius: 4,
+                pointBackgroundColor: "#2563eb",
+                tension: 0.35,
+                fill: true,
               },
             ],
           },
@@ -8187,15 +8606,28 @@ Example:
             scales: {
               x: { grid: { display: false }, ticks: { font: { size: 9 } } },
               y: {
-                min: 0,
-                max: 100,
-                ticks: { font: { size: 9 }, stepSize: 20 },
+                min: minVal,
+                max: maxVal,
+                ticks: { font: { size: 9 }, stepSize: 5 },
                 grid: { color: "#f1f5f9" },
               },
             },
             plugins: { legend: { display: false } },
           },
         });
+
+        // Footer: storage & retention info
+        const footer =
+          ctx.parentElement.parentElement.querySelector(".ov-report-footer");
+        if (!footer) {
+          const f = document.createElement("div");
+          f.className = "ov-report-footer";
+          f.style.cssText =
+            "display:flex;justify-content:space-between;font-size:.68rem;color:#94a3b8;margin-top:.4rem;";
+          f.innerHTML =
+            "<span>Reports stored in S3</span><span>Retention: 90 days</span>";
+          ctx.parentElement.parentElement.appendChild(f);
+        }
       }
 
       function ovEscape(s) {
@@ -8219,14 +8651,17 @@ Example:
           ".appsync-realtime-api.",
         );
 
-        const headerPayload = btoa(
+        // AppSync requires URL-safe base64 (no +, /, = in query params)
+        const toBase64Url = (str) =>
+          btoa(str).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+        const headerPayload = toBase64Url(
           JSON.stringify({
             host: new URL(OV_APPSYNC_URL).hostname,
             "x-api-key": OV_APPSYNC_KEY,
           }),
         );
         const wsUrl =
-          rtUrl + "?header=" + headerPayload + "&payload=" + btoa("{}");
+          rtUrl + "?header=" + headerPayload + "&payload=" + toBase64Url("{}");
 
         let ws;
         let keepAliveTimer;
@@ -8239,12 +8674,21 @@ Example:
             return;
           }
 
+          // 30-second timeout waiting for connection_ack
+          let ackTimer = setTimeout(() => {
+            console.warn(
+              "Overview WebSocket: no connection_ack after 30s, closing",
+            );
+            ws.close();
+          }, 30000);
+
           ws.onopen = () => {
             ws.send(JSON.stringify({ type: "connection_init" }));
           };
 
           ws.onmessage = (event) => {
             const msg = JSON.parse(event.data);
+            clearTimeout(ackTimer);
             if (msg.type === "connection_ack") {
               const sub = {
                 id: "ov-sub-1",
