@@ -1788,33 +1788,7 @@
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
         transform: translateY(-1px);
       }
-      .ov-kpi-card::before {
-        content: "";
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 3px;
-        border-radius: 10px 10px 0 0;
-      }
-      .ov-kpi-card.ov-blue::before {
-        background: #2563eb;
-      }
-      .ov-kpi-card.ov-green::before {
-        background: #059669;
-      }
-      .ov-kpi-card.ov-amber::before {
-        background: #d97706;
-      }
-      .ov-kpi-card.ov-red::before {
-        background: #dc2626;
-      }
-      .ov-kpi-card.ov-purple::before {
-        background: #7c3aed;
-      }
-      .ov-kpi-card.ov-cyan::before {
-        background: #0891b2;
-      }
+
       .ov-kpi-label {
         font-size: 0.72rem;
         font-weight: 600;
@@ -2410,23 +2384,6 @@
         padding: 0.25rem 0.6rem;
         border-radius: 20px;
       }
-      .ov-badge-live::before {
-        content: "";
-        width: 7px;
-        height: 7px;
-        border-radius: 50%;
-        background: #059669;
-        animation: ov-pulse 2s infinite;
-      }
-      @keyframes ov-pulse {
-        0%,
-        100% {
-          opacity: 1;
-        }
-        50% {
-          opacity: 0.4;
-        }
-      }
 
       .ov-score-wrap {
         display: flex;
@@ -2527,22 +2484,6 @@
               "
             >
               <div style="display: flex; align-items: center; gap: 0.75rem">
-                <div
-                  style="
-                    width: 32px;
-                    height: 32px;
-                    border-radius: 8px;
-                    background: #2563eb;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    color: #fff;
-                    font-weight: 700;
-                    font-size: 0.85rem;
-                  "
-                >
-                  EMS
-                </div>
                 <div>
                   <div
                     style="font-size: 1rem; font-weight: 600; color: #1e293b"
@@ -2675,7 +2616,7 @@
                       border-radius: 4px;
                       font-weight: 600;
                     "
-                    >● Critical focus</span
+                    >Critical focus</span
                   >
                 </div>
                 <svg id="ov-network-svg"></svg>
@@ -2872,9 +2813,7 @@
             >
               <div class="ov-card" style="grid-column: 1 / -1">
                 <div class="ov-card-header">
-                  <span class="ov-card-title"
-                    >&#128197; Upcoming Scheduled Updates</span
-                  >
+                  <span class="ov-card-title">Upcoming Scheduled Updates</span>
                   <span
                     id="ov-conflict-badge"
                     style="
@@ -3077,19 +3016,7 @@
                         </button>
                       </div>
                     </div>
-                    <div style="position: relative; margin-bottom: 0.45rem">
-                      <span
-                        style="
-                          position: absolute;
-                          left: 0.45rem;
-                          top: 50%;
-                          transform: translateY(-50%);
-                          color: #94a3b8;
-                          font-size: 0.7rem;
-                          pointer-events: none;
-                        "
-                        >&#128269;</span
-                      >
+                    <div style="margin-bottom: 0.45rem">
                       <input
                         id="ov-int-search"
                         type="text"
@@ -3099,7 +3026,7 @@
                           width: 100%;
                           box-sizing: border-box;
                           font-size: 0.69rem;
-                          padding: 0.28rem 0.5rem 0.28rem 1.6rem;
+                          padding: 0.28rem 0.5rem;
                           border: 1px solid #e2e8f0;
                           border-radius: 6px;
                           outline: none;
@@ -7467,6 +7394,7 @@ Example:
         };
         const networkData = snapshot.networkData || { nodes: [], edges: [] };
         const historyData = snapshot.historyData || [];
+        const integrationHistoryData = snapshot.integrationHistoryData || null;
         const degreeData = snapshot.degreeData || {};
         const orphanData = snapshot.orphanData || [];
         const aliasData = snapshot.aliasData || [];
@@ -7498,20 +7426,8 @@ Example:
         ovSet("ov-kpi-changes", historyData.length);
         ovSet("ov-kpi-aliases", aliasData.length);
 
-        // Persist today's avg health score for the 7-day trend
-        const _hScores = (healthData.entities || [])
-          .map((e) => parseFloat((e.stats || {}).healthScore || ""))
-          .filter((v) => !isNaN(v) && v > 0);
-        if (_hScores.length) {
-          ovStoreHealth(
-            Math.round(
-              (_hScores.reduce((a, b) => a + b, 0) / _hScores.length) * 10,
-            ) / 10,
-          );
-        }
-
         // Alerts: derive from healthData entities with notable stats
-        ovRenderAlerts(healthData.entities, snapshot.generatedAt);
+        ovRenderAlerts(healthData.entities);
 
         // Status donut
         ovRenderStatusDonut(networkData.nodes);
@@ -7538,8 +7454,9 @@ Example:
         // Upcoming scheduled updates
         ovRenderUpcomingUpdates(scheduleData);
 
-        // Integration changes chart
-        ovRenderIntChart(historyData);
+        // Integration changes chart — use dedicated integration query if available,
+        // fall back to general historyData (backward compat with older snapshots)
+        ovRenderIntChart(integrationHistoryData || historyData);
 
         // Orphans list
         ovRenderOrphans(orphanData);
@@ -7554,7 +7471,7 @@ Example:
         );
 
         // Reports + health trend
-        ovRenderReports(reportData, healthData);
+        ovRenderReports(reportData, snapshot.healthTrendData || {});
 
         // Alias / orphan counts in pipeline footer
         ovSet("ov-alias-count", aliasData.length);
@@ -7566,44 +7483,14 @@ Example:
         if (el) el.textContent = val !== null && val !== undefined ? val : "–";
       }
 
-      // ── Health-history helpers (localStorage) ────────────────────────────────
-      // Persist daily avg health scores so the 7-day trend accumulates over time.
-      const OV_HEALTH_LS_KEY = "ov_health_history";
-
-      function ovStoreHealth(avgHealth) {
-        try {
-          const today = new Date().toISOString().slice(0, 10);
-          const raw = localStorage.getItem(OV_HEALTH_LS_KEY);
-          const hist = raw ? JSON.parse(raw) : {};
-          hist[today] = avgHealth;
-          // Prune anything older than 7 days
-          const cutoff = new Date(Date.now() - 7 * 86400000)
-            .toISOString()
-            .slice(0, 10);
-          Object.keys(hist).forEach((k) => {
-            if (k < cutoff) delete hist[k];
-          });
-          localStorage.setItem(OV_HEALTH_LS_KEY, JSON.stringify(hist));
-        } catch (_) {}
-      }
-
-      function ovLoadHealth() {
-        try {
-          const raw = localStorage.getItem(OV_HEALTH_LS_KEY);
-          return raw ? JSON.parse(raw) : {};
-        } catch (_) {
-          return {};
-        }
-      }
-
-      function ovRenderAlerts(entities, snapshotTs) {
+      function ovRenderAlerts(entities) {
         const tbody = document.getElementById("ov-alerts-body");
         if (!tbody) return;
         const alerts = (entities || []).flatMap((e) => {
           const rows = [];
           const s = e.stats || {};
           const since = (() => {
-            const ts = s.lastSyncedAt || s.collectionTime || snapshotTs;
+            const ts = s.lastSyncedAt || s.collectionTime;
             if (!ts) return "–";
             const ms = Date.now() - new Date(ts).getTime();
             if (ms < 0) return "–";
@@ -8195,9 +8082,6 @@ Example:
             return (
               '<div class="ov-pipeline-row">' +
               '<div style="display:flex;align-items:flex-start;gap:.5rem;flex:1;min-width:0;">' +
-              '<div class="ov-pipeline-icon" style="background:#eff6ff;color:#2563eb;flex-shrink:0;">' +
-              ovEscape(ovFmtSourceType(src.sourceType).charAt(0)) +
-              "</div>" +
               '<div style="min-width:0;"><div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' +
               ovEscape(ovFmtSourceType(src.sourceType)) +
               "</div>" +
@@ -8847,7 +8731,8 @@ Example:
           const ts =
             s.lastSyncedAt || s.collectionTime
               ? new Date(s.lastSyncedAt || s.collectionTime).getTime()
-              : now;
+              : null;
+          if (ts === null) return;
           if (!isNaN(cpu) && cpu > 85) {
             items.push({
               ts,
@@ -9004,7 +8889,7 @@ Example:
           .join("");
       }
 
-      function ovRenderReports(reportData, healthData) {
+      function ovRenderReports(reportData, healthTrendData) {
         const el = document.getElementById("ov-reports-list");
         if (!el) return;
         const items = (reportData || []).slice(0, 4);
@@ -9056,10 +8941,10 @@ Example:
           .forEach((e) => e.remove());
         ctx.style.display = "";
 
-        // Build 7-day health trend from localStorage-accumulated daily snapshots
+        // Build 7-day health trend from Lambda-persisted daily snapshots
         const trendDays = 7;
         const trendNow = Date.now();
-        const healthHist = ovLoadHealth();
+        const healthHist = healthTrendData || {};
         const dayHealthMap = new Array(trendDays).fill(null);
 
         for (let i = 0; i < trendDays; i++) {
