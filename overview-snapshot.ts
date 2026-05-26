@@ -227,7 +227,9 @@ async function collectHealthTrend(entities: any[]): Promise<Record<string, numbe
   }
 
   return hist;
-}(): Promise<any[]> {
+}
+
+async function collectRelationships(): Promise<any[]> {
   const relQuery = `
     PREFIX env: <${ONTOLOGY_PREFIX}>
     SELECT ?id ?relationshipType ?sourceEntity ?targetEntity ?sourceEntityId ?targetEntityId ?createdAt WHERE {
