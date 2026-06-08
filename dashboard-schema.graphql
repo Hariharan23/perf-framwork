@@ -1,0 +1,22 @@
+type SnapshotMeta @aws_api_key @aws_iam {
+  id: ID!
+  generatedAt: AWSDateTime!
+  presignedUrl: String!
+}
+
+type Query @aws_api_key @aws_iam {
+  getLatestSnapshot: SnapshotMeta
+}
+
+type Mutation {
+  notifySnapshotUpdated(
+    id: ID!
+    generatedAt: AWSDateTime!
+    presignedUrl: String!
+  ): SnapshotMeta @aws_iam
+}
+
+type Subscription {
+  onSnapshotUpdated: SnapshotMeta
+    @aws_subscribe(mutations: ["notifySnapshotUpdated"])
+}
