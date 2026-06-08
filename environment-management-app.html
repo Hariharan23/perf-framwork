@@ -2525,7 +2525,7 @@
               <div class="ov-kpi-card ov-blue">
                 <div class="ov-kpi-label">Environments</div>
                 <div class="ov-kpi-value" id="ov-kpi-envs">–</div>
-                <div class="ov-kpi-sub" id="ov-kpi-envs-sub"></div>
+                <div class="ov-kpi-sub">Total registered</div>
               </div>
               <div class="ov-kpi-card ov-green">
                 <div class="ov-kpi-label">Monitored Envs</div>
@@ -7466,10 +7466,6 @@ Example:
 
         // KPIs
         ovSet("ov-kpi-envs", kpi.totalEnvironments);
-        ovSet(
-          "ov-kpi-envs-sub",
-          (kpi.environmentsInGraph ?? "–") + " in graph",
-        );
         ovSet("ov-kpi-healthy", kpi.monitoredEnvironments);
         ovSet("ov-kpi-healthy-sub", kpi.monitoredSubText ?? "");
         ovSet("ov-kpi-ints", kpi.totalIntegrations);

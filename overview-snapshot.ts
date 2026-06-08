@@ -648,14 +648,13 @@ function computeDerivedData(snap: any): any {
   const monitoredEnvs = healthEnts.filter((e: any) => e.type === 'Environment').length;
   const notTracked    = envs.length - monitoredEnvs;
   const kpi = {
-    totalEnvironments:    envs.length,
-    environmentsInGraph:  netNodes.filter((n: any) => n.type === 'Environment').length,
+    totalEnvironments:     envs.length,
     monitoredEnvironments: monitoredEnvs,
-    monitoredSubText:     notTracked > 0 ? `${notTracked} not tracked` : 'All envs tracked',
-    totalIntegrations:    integrations.length,
-    unresolvedOrphans:    orphans.length,
-    configChanges7d:      history.length,
-    totalAliases:         aliases.length,
+    monitoredSubText:      notTracked > 0 ? `${notTracked} not tracked` : 'All envs tracked',
+    totalIntegrations:     integrations.length,
+    unresolvedOrphans:     orphans.length,
+    configChanges7d:       history.length,
+    totalAliases:          aliases.length,
   };
 
   // ── 2 · Active Alerts ───────────────────────────────────────────────────────
@@ -699,14 +698,21 @@ function computeDerivedData(snap: any): any {
   }
 
   // ── 3 · Status Buckets (doughnut chart) ─────────────────────────────────────
+  // Build a status lookup from topology nodes (which carry currentState/status),
+  // then classify every environment so the total matches kpi.totalEnvironments.
   const VALID_STATUS_BUCKETS = new Set(['Active', 'Degraded', 'Critical', 'Inactive']);
-  const buckets: Record<string, number> = { Active: 0, Degraded: 0, Critical: 0, Inactive: 0, Other: 0 };
+  const nodeStatusById = new Map<string, string>();
   for (const node of netNodes) {
-    const raw = (node.properties?.status || node.status || '') as string;
+    const raw = ((node.currentState || node.status || '') as string).trim();
+    if (raw) nodeStatusById.set(String(node.id || ''), raw);
+  }
+  const buckets: Record<string, number> = { Active: 0, Degraded: 0, Critical: 0, Inactive: 0, Other: 0 };
+  for (const env of envs) {
+    const raw = nodeStatusById.get(String(env.id || '')) || (env.status as string) || '';
     const key = raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
     buckets[VALID_STATUS_BUCKETS.has(key) ? key : 'Other']++;
   }
-  const statusBuckets = { ...buckets, total: netNodes.length };
+  const statusBuckets = { ...buckets, total: envs.length };
 
   // ── 4 · Topology Focus (D3 subgraph: alert nodes + one-hop neighbours) ──────
   // Classification sources (in priority order):
