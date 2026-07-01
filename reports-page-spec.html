@@ -1,0 +1,953 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>EMS — Reports Page Spec</title>
+    <style>
+      @page {
+        size: A4;
+        margin: 18mm 18mm 18mm 18mm;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: "Segoe UI", system-ui, sans-serif;
+        font-size: 14px;
+        line-height: 1.6;
+        color: #1e293b;
+        background: #fff;
+      }
+      .cover {
+        min-height: 100vh;
+        background: #0f172a;
+        color: #f8fafc;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding: 72px 64px;
+        page-break-after: always;
+      }
+      .cover-tag {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        color: #38bdf8;
+        margin-bottom: 24px;
+      }
+      .cover-title {
+        font-size: 42px;
+        font-weight: 800;
+        line-height: 1.15;
+        margin-bottom: 16px;
+      }
+      .cover-title span {
+        color: #38bdf8;
+      }
+      .cover-sub {
+        font-size: 17px;
+        color: #94a3b8;
+        max-width: 580px;
+        margin-bottom: 40px;
+      }
+      .cover-meta {
+        display: flex;
+        gap: 32px;
+        flex-wrap: wrap;
+      }
+      .cover-meta div {
+        font-size: 12px;
+        color: #64748b;
+      }
+      .cover-meta strong {
+        display: block;
+        font-size: 13px;
+        color: #e2e8f0;
+        margin-bottom: 2px;
+      }
+      .toc {
+        padding: 56px 64px;
+        page-break-after: always;
+        max-width: 800px;
+        margin: 0 auto;
+      }
+      .toc h1 {
+        font-size: 24px;
+        font-weight: 700;
+        margin-bottom: 28px;
+        color: #0f172a;
+      }
+      .toc ol {
+        padding-left: 20px;
+      }
+      .toc li {
+        padding: 5px 0;
+        font-size: 14px;
+        color: #334155;
+      }
+      .toc li a {
+        color: #2563eb;
+        text-decoration: none;
+      }
+      .body-wrap {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 48px 64px;
+      }
+      section {
+        margin-bottom: 48px;
+      }
+      h2 {
+        font-size: 18px;
+        font-weight: 700;
+        color: #1e293b;
+        border-left: 4px solid #2563eb;
+        background: #eff6ff;
+        padding: 10px 16px;
+        margin-bottom: 20px;
+        border-radius: 0 6px 6px 0;
+      }
+      h3 {
+        font-size: 15px;
+        font-weight: 700;
+        color: #1e293b;
+        margin: 20px 0 10px;
+      }
+      h4 {
+        font-size: 13px;
+        font-weight: 700;
+        color: #475569;
+        margin: 14px 0 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+      p {
+        margin-bottom: 12px;
+        color: #334155;
+      }
+      ul,
+      ol {
+        padding-left: 20px;
+        margin-bottom: 12px;
+        color: #334155;
+      }
+      li {
+        margin-bottom: 4px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 16px;
+        font-size: 13px;
+      }
+      th {
+        background: #f1f5f9;
+        color: #475569;
+        font-weight: 700;
+        padding: 8px 12px;
+        text-align: left;
+        border: 1px solid #e2e8f0;
+      }
+      td {
+        padding: 8px 12px;
+        border: 1px solid #e2e8f0;
+        vertical-align: top;
+        color: #334155;
+      }
+      tr:nth-child(even) td {
+        background: #f8fafc;
+      }
+      pre {
+        background: #0f172a;
+        color: #e2e8f0;
+        padding: 16px 20px;
+        border-radius: 8px;
+        overflow-x: auto;
+        font-size: 12px;
+        font-family: "Cascadia Code", "Fira Code", monospace;
+        margin-bottom: 16px;
+        line-height: 1.55;
+      }
+      code {
+        background: #f1f5f9;
+        color: #0f172a;
+        padding: 1px 5px;
+        border-radius: 3px;
+        font-size: 12px;
+        font-family: "Cascadia Code", "Fira Code", monospace;
+      }
+      .callout {
+        background: #eff6ff;
+        border-left: 4px solid #2563eb;
+        padding: 12px 16px;
+        border-radius: 0 6px 6px 0;
+        margin-bottom: 16px;
+        font-size: 13px;
+        color: #1e3a5f;
+      }
+      .callout.warn {
+        background: #fffbeb;
+        border-color: #f59e0b;
+        color: #78350f;
+      }
+      .callout.green {
+        background: #f0fdf4;
+        border-color: #16a34a;
+        color: #14532d;
+      }
+      .diagram {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 20px 24px;
+        font-family: "Cascadia Code", "Fira Code", monospace;
+        font-size: 12px;
+        line-height: 1.7;
+        white-space: pre;
+        overflow-x: auto;
+        margin-bottom: 16px;
+      }
+      .seq {
+        background: #0f172a;
+        color: #e2e8f0;
+        border-radius: 8px;
+        padding: 20px 24px;
+        font-family: "Cascadia Code", "Fira Code", monospace;
+        font-size: 12px;
+        line-height: 1.75;
+        white-space: pre;
+        overflow-x: auto;
+        margin-bottom: 16px;
+      }
+      .method {
+        font-weight: 700;
+        font-size: 12px;
+        padding: 2px 8px;
+        border-radius: 4px;
+        background: #1d4ed8;
+        color: #fff;
+        margin-right: 6px;
+      }
+      .method.get {
+        background: #15803d;
+      }
+      .endpoint-block {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 16px;
+      }
+      .endpoint-block h4 {
+        margin-top: 0;
+        margin-bottom: 8px;
+      }
+      @media print {
+        .cover {
+          page-break-after: always;
+        }
+        .toc {
+          page-break-after: always;
+        }
+        section {
+          page-break-inside: avoid;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- COVER -->
+    <div class="cover">
+      <div class="cover-tag">EMS · Frontend Specification · v1.0</div>
+      <h1 class="cover-title">
+        Reports<br /><span>Report Generator &amp; History</span>
+      </h1>
+      <p class="cover-sub">
+        Specification for the Reports page — generating on-demand environment
+        health reports, custom date ranges, and browsing the hierarchical report
+        history archive.
+      </p>
+      <div class="cover-meta">
+        <div><strong>Tab ID</strong>reports</div>
+        <div><strong>Audience</strong>React Frontend Developer</div>
+        <div><strong>APIs Used</strong>REPORT_API_URL</div>
+        <div><strong>Status</strong>Specification Draft</div>
+      </div>
+    </div>
+
+    <!-- TOC -->
+    <div class="toc">
+      <h1>Table of Contents</h1>
+      <ol>
+        <li><a href="#overview">Overview</a></li>
+        <li><a href="#layout">Page Layout</a></li>
+        <li><a href="#api">API Endpoints</a></li>
+        <li><a href="#generator">Report Generator Card</a></li>
+        <li><a href="#result-card">Generated Report Result Card</a></li>
+        <li><a href="#history">Report History Card</a></li>
+        <li><a href="#history-tree">History Tree Structure</a></li>
+        <li><a href="#client-state">Client-Side State</a></li>
+        <li><a href="#load-sequence">Load Sequence</a></li>
+        <li><a href="#error-handling">Error Handling</a></li>
+      </ol>
+    </div>
+
+    <!-- BODY -->
+    <div class="body-wrap">
+      <section id="overview">
+        <h2>1 · Overview</h2>
+        <p>The <strong>Reports</strong> page provides two capabilities:</p>
+        <ul>
+          <li>
+            <strong>Report Generator</strong> — select a scope (by owner or by
+            environment list), a time period (daily, weekly, or custom date/time
+            range), then trigger a Lambda that queries Neptune and generates an
+            HTML health report stored in S3.
+          </li>
+          <li>
+            <strong>Report History</strong> — browse all past reports stored in
+            S3, organised in a collapsible Year → Month → Date tree. Reports can
+            be opened in the browser (via pre-signed S3 URL) or downloaded as
+            HTML files.
+          </li>
+        </ul>
+        <div class="callout">
+          Reports are generated server-side by a dedicated Lambda
+          (<code>REPORT_API_URL</code>). The output is an HTML file stored in
+          S3. The frontend never processes report content — it only receives
+          metadata and a pre-signed URL.
+        </div>
+      </section>
+
+      <section id="layout">
+        <h2>2 · Page Layout</h2>
+        <div class="diagram">
+          ┌─────────────────────────────────────────────────────────┐ │ REPORT
+          GENERATOR CARD │ │ │ │ Filter By: ○ Owner ○ Environments │ │ │ │
+          [Owner dropdown (single-select MS)] [Report Type ▾] │ │ OR (when
+          Environments selected) │ │ [Environments multi-select MS] [Report Type
+          ▾] │ │ │ │ [Custom Range box — hidden unless type = "custom"] │ │
+          ┌─────────────────────────────────────────────────┐ │ │ │ Start Date &
+          Time [datetime-local input] │ │ │ │ End Date & Time [datetime-local
+          input] │ │ │ └─────────────────────────────────────────────────┘ │ │ │
+          │ [Generate Report ⟳] status text │ │ │ │ ┌── Result card (hidden
+          until success) ─────────────┐ │ │ │ ✓ Report Generated Successfully │
+          │ │ │ Owner: … Type: … Environments: N Alerts: N │ │ │ │ Generated In:
+          Nms │ │ │ │ [Download HTML] [Open in Browser] │ │ │
+          └───────────────────────────────────────────────────┘ │
+          └─────────────────────────────────────────────────────────┘
+          ┌─────────────────────────────────────────────────────────┐ │ REPORT
+          HISTORY CARD │ │ │ │ Filter by owner: [All Owners ▾] [Refresh] │ │ │ │
+          ▶ 2025 (N reports) │ │ ▶ June 2025 (N) │ │ ▶ WED, 18 JUN 2025 (N) │ │
+          [table: Report | Owner | Type | Time | Size | ↓] │ │ [table row] … │ │
+          ▶ TUE, 17 JUN 2025 (N) │ │ │ │ [← Prev] Page 1 / N [Next →] (5
+          date-groups/page) │
+          └─────────────────────────────────────────────────────────┘
+        </div>
+        <p>
+          The page is a vertical stack of two full-width
+          <code>.card</code> elements. The Generator card sits above and the
+          History card below, both spanning the full content width.
+        </p>
+      </section>
+
+      <section id="api">
+        <h2>3 · API Endpoints</h2>
+
+        <div class="endpoint-block">
+          <h4><span class="method get">GET</span> Generate Report</h4>
+          <p><code>{CONFIG.REPORT_API_URL}/generate-report</code></p>
+          <p>Headers: <code>x-api-key: {API_KEY_REPORT}</code></p>
+          <p><strong>Query params — Owner mode:</strong></p>
+          <pre>owner=platform-team&amp;reportType=weekly</pre>
+          <p><strong>Query params — Environments mode:</strong></p>
+          <pre>
+environmentIds=env-001&amp;environmentIds=env-002&amp;reportType=daily</pre
+          >
+          <p><strong>Query params — Custom range:</strong></p>
+          <pre>
+owner=platform-team&amp;reportType=daily
+&amp;startDate=2025-06-01T00%3A00%3A00.000Z&amp;endDate=2025-06-07T23%3A59%3A59.000Z</pre
+          >
+          <p>
+            <code>environmentIds</code> is a repeated query parameter
+            (multi-value). Lambda reads it from
+            <code>event.multiValueQueryStringParameters.environmentIds</code>.
+          </p>
+          <p>
+            <strong>Success response <code>200</code>:</strong>
+          </p>
+          <pre>
+{
+  "success": true,
+  "presignedUrl": "https://s3.amazonaws.com/…?X-Amz-Signature=…",
+  "owner": "platform-team",
+  "reportType": "weekly",
+  "environmentCount": 12,
+  "alertCount": 3,
+  "durationMs": 4820
+}</pre
+          >
+          <p><strong>Error response:</strong></p>
+          <pre>
+{
+  "success": false,
+  "message": "No environments found for owner: xyz"
+}</pre
+          >
+        </div>
+
+        <div class="endpoint-block">
+          <h4><span class="method get">GET</span> List Owners</h4>
+          <p><code>{CONFIG.REPORT_API_URL}/list-owners</code></p>
+          <p>Headers: <code>x-api-key: {API_KEY_REPORT}</code></p>
+          <p>
+            <strong>Success response <code>200</code>:</strong>
+          </p>
+          <pre>
+{
+  "owners": ["platform-team", "data-team", "infra-team"]
+}</pre
+          >
+        </div>
+
+        <div class="endpoint-block">
+          <h4>
+            <span class="method get">GET</span> Get Report (Pre-signed URL)
+          </h4>
+          <p>
+            <code
+              >{CONFIG.REPORT_API_URL}/get-report?reportKey=reports%2Fplatform-team%2Fweekly%2F2025-06-15.html</code
+            >
+          </p>
+          <p>Headers: <code>x-api-key: {API_KEY_REPORT}</code></p>
+          <p>
+            <strong>Success response <code>200</code>:</strong>
+          </p>
+          <pre>
+{
+  "reportKey": "reports/platform-team/weekly/2025-06-15.html",
+  "presignedUrl": "https://s3.amazonaws.com/…?X-Amz-Signature=…"
+}</pre
+          >
+        </div>
+
+        <div class="endpoint-block">
+          <h4><span class="method get">GET</span> List Reports (History)</h4>
+          <p>
+            <code>{CONFIG.REPORT_API_URL}/list-reports</code> (optional:
+            <code>?owner=platform-team</code>)
+          </p>
+          <p>Headers: <code>x-api-key: {API_KEY_REPORT}</code></p>
+          <p>
+            <strong>Success response <code>200</code>:</strong>
+          </p>
+          <pre>
+{
+  "reports": [
+    {
+      "key": "reports/platform-team/weekly/2025-06-15_report.html",
+      "lastModified": "2025-06-15T08:30:00.000Z",
+      "size": 48320
+    }
+  ]
+}</pre
+          >
+          <p>
+            Reports are sorted client-side by
+            <code>lastModified</code> descending. The <code>key</code> is parsed
+            to extract <code>owner</code>, <code>type</code>, and
+            <code>filename</code> (path segments:
+            <code>reports/{owner}/{type}/{filename}</code>).
+          </p>
+        </div>
+      </section>
+
+      <section id="generator">
+        <h2>4 · Report Generator Card</h2>
+
+        <h3>4.1 Filter Mode Toggle</h3>
+        <ul>
+          <li>
+            Two radio buttons: <strong>Owner</strong> (default) and
+            <strong>Environments</strong>.
+          </li>
+          <li>
+            When "Owner" is selected: show the owner single-select MS dropdown
+            (<code>id="rpt-owner-ms"</code>, <code>data-single="true"</code>),
+            hide the environments multi-select.
+          </li>
+          <li>
+            When "Environments" is selected: hide the owner dropdown, show the
+            environments multi-select (<code>id="rpt-env-ms"</code>) with
+            "Select All" / "Clear All" actions.
+          </li>
+          <li>
+            The filter mode toggle calls <code>toggleReportFilterMode()</code>.
+          </li>
+        </ul>
+
+        <h3>4.2 Owner Dropdown</h3>
+        <ul>
+          <li>Single-select MS-Dropdown (<code>data-single="true"</code>).</li>
+          <li>
+            Populated at tab init from the owners known in the system (load from
+            the list-reports endpoint or a dedicated owners list).
+          </li>
+          <li>Required when filter mode is "Owner" and Generate is clicked.</li>
+        </ul>
+
+        <h3>4.3 Environments Multi-Select</h3>
+        <ul>
+          <li>
+            Multi-select MS-Dropdown (standard, no <code>data-single</code>).
+          </li>
+          <li>
+            Includes "Select All" and "Clear All" links in the dropdown panel.
+          </li>
+          <li>
+            At least one environment must be selected when mode is
+            "Environments" and Generate is clicked.
+          </li>
+        </ul>
+
+        <h3>4.4 Report Type</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Value</th>
+              <th>Label</th>
+              <th>Behaviour</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>daily</code></td>
+              <td>Daily</td>
+              <td>Lambda selects the last 24 h of data</td>
+            </tr>
+            <tr>
+              <td><code>weekly</code></td>
+              <td>Weekly (default)</td>
+              <td>Lambda selects the last 7 days</td>
+            </tr>
+            <tr>
+              <td><code>custom</code></td>
+              <td>Custom Range</td>
+              <td>
+                Shows the Custom Range datetime inputs; both sent as ISO-8601
+                UTC strings
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p>
+          Changing report type to "custom" calls
+          <code>toggleCustomRange()</code> which reveals the custom-range box.
+        </p>
+
+        <h3>4.5 Custom Range Validation</h3>
+        <ul>
+          <li>Both start and end datetime inputs must be filled.</li>
+          <li>
+            <code>new Date(startDate) &lt; new Date(endDate)</code> must be
+            true. If not: show alert "Start date must be before end date".
+          </li>
+          <li>
+            When custom type is selected: the API body sends
+            <code>reportType: "daily"</code> + <code>startDate</code> +
+            <code>endDate</code> (custom is a front-end concept only).
+          </li>
+        </ul>
+
+        <h3>4.6 Generate Button</h3>
+        <ul>
+          <li>
+            ID: <code>#rpt-generate-btn</code>. Label text in
+            <code>#rpt-btn-text</code>, spinner in
+            <code>#rpt-btn-spinner</code>.
+          </li>
+          <li>
+            On click: validate filter mode, validate date range if custom, then
+            GET with query params.
+          </li>
+          <li>
+            During generation: disable button, show spinner, set btn text to
+            "Generating…", set status text "Connecting to Neptune and generating
+            report…".
+          </li>
+          <li>Always re-enable the button in a <code>finally</code> block.</li>
+        </ul>
+      </section>
+
+      <section id="result-card">
+        <h2>5 · Generated Report Result Card</h2>
+        <p>
+          ID: <code>#rpt-result</code>. Hidden by default; displayed on
+          successful generation. Shows:
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Field</th>
+              <th>Element ID</th>
+              <th>Value Source</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Owner</td>
+              <td><code>#rpt-res-owner</code></td>
+              <td><code>data.owner</code> from API response</td>
+            </tr>
+            <tr>
+              <td>Type</td>
+              <td><code>#rpt-res-type</code></td>
+              <td>
+                "Custom Range" if custom, else <code>data.reportType</code>
+              </td>
+            </tr>
+            <tr>
+              <td>Environments</td>
+              <td><code>#rpt-res-envs</code></td>
+              <td><code>data.environmentCount</code></td>
+            </tr>
+            <tr>
+              <td>Alerts</td>
+              <td><code>#rpt-res-alerts</code></td>
+              <td><code>data.alertCount</code></td>
+            </tr>
+            <tr>
+              <td>Generated In</td>
+              <td><code>#rpt-res-duration</code></td>
+              <td><code>data.durationMs + "ms"</code></td>
+            </tr>
+          </tbody>
+        </table>
+        <p>Two action buttons:</p>
+        <ul>
+          <li>
+            <strong>Download HTML</strong> — fetches the S3 pre-signed URL,
+            receives the HTML blob, triggers a client-side download. File name:
+            <code>ems-report-{owner}-{type}-{YYYY-MM-DD}.html</code>. No server
+            call beyond the S3 fetch.
+          </li>
+          <li>
+            <strong>Open in Browser</strong> — calls
+            <code>window.open(currentReportUrl, '_blank')</code>. The
+            module-level variable <code>currentReportUrl</code> holds the S3
+            pre-signed URL from the last generate call.
+          </li>
+        </ul>
+        <div class="callout warn">
+          S3 pre-signed URLs expire (typically 1 hour). Warn the user if they
+          attempt to open/download a report that was generated in a previous
+          session.
+        </div>
+      </section>
+
+      <section id="history">
+        <h2>6 · Report History Card</h2>
+
+        <h3>6.1 Owner Filter</h3>
+        <ul>
+          <li>
+            A <code>&lt;select id="rpt-history-owner"&gt;</code> with "All
+            Owners" as the default option.
+          </li>
+          <li>
+            Additional owner options are populated from the distinct owners
+            found in the report list.
+          </li>
+          <li>
+            On change: calls <code>loadReportHistory()</code> — triggers a fresh
+            GET with the new owner query parameter.
+          </li>
+        </ul>
+
+        <h3>6.2 Refresh Button</h3>
+        <p>
+          Calls <code>loadReportHistory()</code>. Re-fetches the full report
+          list from S3 and rebuilds the tree.
+        </p>
+
+        <h3>6.3 Table Columns (within each date group)</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Column</th>
+              <th>CSS Class</th>
+              <th>Width</th>
+              <th>Data Source</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Report</td>
+              <td><code>.col-report</code></td>
+              <td>38%</td>
+              <td>Filename from S3 key (last path segment)</td>
+            </tr>
+            <tr>
+              <td>Owner</td>
+              <td><code>.col-owner</code></td>
+              <td>14%</td>
+              <td>Path segment [1] of S3 key</td>
+            </tr>
+            <tr>
+              <td>Type</td>
+              <td><code>.col-type</code></td>
+              <td>10%</td>
+              <td>Path segment [2] of S3 key</td>
+            </tr>
+            <tr>
+              <td>Time</td>
+              <td><code>.col-time</code></td>
+              <td>12%</td>
+              <td>Relative time from <code>lastModified</code></td>
+            </tr>
+            <tr>
+              <td>Size</td>
+              <td><code>.col-size</code></td>
+              <td>14%</td>
+              <td><code>(size / 1024).toFixed(1) + " KB"</code></td>
+            </tr>
+            <tr>
+              <td>Action</td>
+              <td><code>.col-action</code></td>
+              <td>12%</td>
+              <td>Download link (opens pre-signed URL in new tab)</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="history-tree">
+        <h2>7 · History Tree Structure</h2>
+        <p>
+          Reports are grouped in a three-level collapsible hierarchy. All levels
+          are collapsed by default. Clicking a header toggles its children.
+        </p>
+
+        <h3>7.1 Tree Levels</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Level</th>
+              <th>CSS Class</th>
+              <th>Toggle</th>
+              <th>Label Format</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Year</td>
+              <td><code>.rh-year</code></td>
+              <td><code>toggleRhGroup(yrId)</code></td>
+              <td><code>2025 (N reports)</code></td>
+            </tr>
+            <tr>
+              <td>Month</td>
+              <td><code>.rh-month</code></td>
+              <td><code>toggleRhGroup(mId)</code></td>
+              <td><code>June 2025 (N)</code></td>
+            </tr>
+            <tr>
+              <td>Date</td>
+              <td><code>.rh-date</code></td>
+              <td><code>toggleRhGroup(dId)</code></td>
+              <td><code>WED, 18 JUN 2025 (N)</code></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>7.2 Pagination</h3>
+        <ul>
+          <li>
+            Paginates on date groups (<strong>5 date groups per page</strong>,
+            constant <code>RPT_PAGE_SIZE = 5</code>).
+          </li>
+          <li>
+            Module-level variables: <code>_rptHistoryData</code> (full list),
+            <code>_rptHistoryPage</code> (0-indexed current page).
+          </li>
+          <li>Navigation buttons: ← Prev · "Page N / Total" · Next →.</li>
+          <li>Prev disabled on page 0; Next disabled on last page.</li>
+        </ul>
+
+        <h3>7.3 Date Timezone</h3>
+        <p>
+          All date grouping and display uses the timezone configured in
+          <code>CONFIG.TIMEZONE</code> (default: MST). Use
+          <code
+            >toLocaleDateString("en-CA", { timeZone: CONFIG.TIMEZONE })</code
+          >
+          to derive the <code>YYYY-MM-DD</code> date key.
+        </p>
+
+        <h3>7.4 Collapse/Expand Animation</h3>
+        <ul>
+          <li>
+            Collapsed body: <code>.rh-body.collapsed { display: none }</code>.
+          </li>
+          <li>
+            Arrow indicator: <code>.rh-arrow</code> rotates 90° when open (<code
+              >.rh-arrow.open { transform: rotate(90deg) }</code
+            >).
+          </li>
+          <li>
+            Toggle function swaps the <code>collapsed</code> class and the
+            <code>open</code> class on the arrow.
+          </li>
+        </ul>
+      </section>
+
+      <section id="client-state">
+        <h2>8 · Client-Side State</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Variable</th>
+              <th>Type</th>
+              <th>Purpose</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>currentReportUrl</code></td>
+              <td><code>string</code></td>
+              <td>
+                Pre-signed S3 URL from the most recent successful generate call.
+                Used by Download and Open buttons.
+              </td>
+            </tr>
+            <tr>
+              <td><code>_rptHistoryData</code></td>
+              <td><code>Array</code></td>
+              <td>
+                Full flat array of report objects loaded from list-reports.
+                Source for pagination and tree rendering.
+              </td>
+            </tr>
+            <tr>
+              <td><code>_rptHistoryPage</code></td>
+              <td><code>number</code></td>
+              <td>Current 0-indexed page in the history tree pagination.</td>
+            </tr>
+            <tr>
+              <td>Filter mode radio</td>
+              <td><code>"owner" | "environments"</code></td>
+              <td>
+                Controls which input section is visible and which field is
+                validated/sent.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="load-sequence">
+        <h2>9 · Load Sequence</h2>
+        <div class="seq">
+          Browser React Component REPORT_API_URL Lambda S3 │ │ │ │ │ navigate
+          /reports │ │ │ │ │ mount: load owners │ │ │ │ for dropdowns │ │ │ │
+          GET /list-owners ────▶│ │ │ │◀──────────────────────┤ { owners: [] } │
+          │ │ populate owner filter │ │ │◀─────────────────│ │ │ mount: load
+          history │ │ │ │ GET /list-reports ───▶│ │ │ │◀──────────────────────┤
+          { reports: [] } │ │ │ populate owner filter │ │ │◀─────────────────│ │
+          │ │ │ │ │ │ [Generate Report] │ │ │─────────────────▶│ validate inputs
+          │ │ │ │ GET /generate-report?…▶│ │ │ │ (30-120s latency) │ query
+          Neptune │ │ │ │ build HTML │ │ │ │ upload to S3 ───────▶│ │
+          │◀──────────────────────┤ {presignedUrl,…} │ │ │ show result card │ │
+          │ │ auto-refresh history │ │ │ │ GET /list-reports ───▶│ │
+          │◀─────────────────│◀──────────────────────┤ │ │ │ │ │ │ [Open Report]
+          │ │ │─────────────────▶│ GET /get-report?reportKey=… │ │
+          │◀──────────────────────┤ { presignedUrl } │ │ │ open in new tab │ │
+          │◀─────────────────│ │ │ │ │ │ │ [Download HTML] │ │ │
+          │─────────────────▶│ fetch presignedUrl ─────────────────────────────
+          ┼──▶ S3 │ │◀────────────────────────────────────────────── ┤ HTML │ │
+          Blob download │ │ │◀─────────────────│ │ │
+        </div>
+        <div class="callout warn">
+          Report generation can take 30–120 seconds depending on environment
+          count and alert volume. Show a spinner and a status message. Do not
+          use a fixed timeout — wait for the response.
+        </div>
+      </section>
+
+      <section id="error-handling">
+        <h2>10 · Error Handling</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Scenario</th>
+              <th>UI Response</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Owner not selected (owner mode)</td>
+              <td>
+                <code>alert("Please select an owner")</code> — halt generate.
+              </td>
+            </tr>
+            <tr>
+              <td>No environments selected (env mode)</td>
+              <td>
+                <code>alert("Please select at least one environment")</code> —
+                halt generate.
+              </td>
+            </tr>
+            <tr>
+              <td>Custom range: missing start or end</td>
+              <td>
+                <code>alert("Please select both start and end date/time")</code>
+                — halt.
+              </td>
+            </tr>
+            <tr>
+              <td>Custom range: start ≥ end</td>
+              <td>
+                <code>alert("Start date must be before end date")</code> — halt.
+              </td>
+            </tr>
+            <tr>
+              <td>Generate API returns <code>success: false</code></td>
+              <td>
+                Show error text in <code>#rpt-status</code>:
+                <code>data.message</code> in red. Hide result card.
+              </td>
+            </tr>
+            <tr>
+              <td>Generate network error</td>
+              <td>
+                Show error text in <code>#rpt-status</code>: "Error:
+                {e.message}" in red.
+              </td>
+            </tr>
+            <tr>
+              <td>History load failure</td>
+              <td>
+                Show error text in <code>#rpt-history-list</code>: "Error
+                loading history: {e.message}" in red.
+              </td>
+            </tr>
+            <tr>
+              <td>HTML download failure</td>
+              <td><code>alert("Download failed: " + e.message)</code>.</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="callout green">
+          After a successful generate, automatically call
+          <code>loadReportHistory()</code> so the new report appears at the top
+          of the history tree without requiring a manual Refresh click.
+        </div>
+      </section>
+    </div>
+  </body>
+</html>
