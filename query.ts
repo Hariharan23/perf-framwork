@@ -11,12 +11,13 @@ type DisplayChange =
   | { field: string; value: string };
 
 const ACTION_BADGE: Record<string, string> = {
-  created:              'created',
-  updated:              'updated',
-  deleted:              'deleted',
-  'create-integration': 'integration added',
-  'delete-integration': 'integration removed',
-  'config-updated':     'config updated',
+  created:                      'created',
+  updated:                      'updated',
+  deleted:                      'deleted',
+  'create-integration':         'integration added',
+  'delete-integration':         'integration removed',
+  'update-integration-target':  'integration retargeted',
+  'config-updated':             'config updated',
 };
 
 function formatTimestamp(iso: string): string {
@@ -40,7 +41,17 @@ function buildDisplayChanges(action: string, changes: Record<string, any>): Disp
   if (action === 'create-integration' || action === 'delete-integration') {
     if (changes.integrationName) out.push({ field: 'Integration', value: changes.integrationName });
     if (changes.targetEnvName)   out.push({ field: 'Target',      value: changes.targetEnvName });
-    if (changes.relationshipType) out.push({ field: 'Type',       value: changes.relationshipType });
+    if (changes.connectionType)  out.push({ field: 'Type',        value: changes.connectionType });
+    if (changes.relationshipType) out.push({ field: 'Relationship', value: changes.relationshipType });
+    return out;
+  }
+
+  if (action === 'update-integration-target') {
+    if (changes.integrationName) out.push({ field: 'Integration', value: changes.integrationName });
+    if (changes.oldTarget && changes.newTarget) {
+      (out as any[]).push({ field: 'Target', from: changes.oldTarget, to: changes.newTarget });
+    }
+    if (changes.connectionType)  out.push({ field: 'Connection type', value: changes.connectionType });
     return out;
   }
 
@@ -103,14 +114,22 @@ function buildSummary(action: string, changes: Record<string, any>, by: string, 
 
   // ── Integration events ──────────────────────────────────────────────────
   if (action === 'create-integration') {
-    const int = c.integrationName || 'an integration';
-    const tgt = c.targetEnvName   || 'another environment';
-    return `Integration '${int}' connected to '${tgt}'`;
+    const int  = c.integrationName || 'an integration';
+    const tgt  = c.targetEnvName   || 'another environment';
+    const conn = c.connectionType  ? ` (${c.connectionType})` : '';
+    return `Integration '${int}' connected to '${tgt}'${conn}`;
   }
   if (action === 'delete-integration') {
     const int = c.integrationName || 'an integration';
     const tgt = c.targetEnvName   || 'another environment';
     return `Integration '${int}' disconnected from '${tgt}'`;
+  }
+  if (action === 'update-integration-target') {
+    const int  = c.integrationName || 'an integration';
+    const from = c.oldTarget        || 'previous target';
+    const to   = c.newTarget        || 'new target';
+    const conn = c.connectionType   ? ` (${c.connectionType})` : '';
+    return `Integration '${int}' retargeted from '${from}' to '${to}'${conn}`;
   }
 
   // ── Lifecycle events ────────────────────────────────────────────────────
