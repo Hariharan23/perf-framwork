@@ -83,16 +83,32 @@ function buildDisplayChanges(action: string, changes: Record<string, any>): Disp
     return out;
   }
 
-  // updated (user/admin-driven) — only surface metadata fields; skip config blob entirely
-  const META_FIELDS = ['name', 'owner', 'description', 'primaryUsage', 'currentUsage',
-                       'scheduledUpdates', 'collaborators', 'status', 'currentBuild', 'team'];
-  for (const field of META_FIELDS) {
-    if (!(field in changes)) continue;
-    const val = changes[field];
+  // updated (user/admin-driven) — show metadata diffs + config diffs; skip stats/system fields
+  for (const [field, val] of Object.entries(changes)) {
+    if (SKIP_FIELDS.has(field) || STATS_FIELDS.has(field)) continue;
+
+    if (field === 'configurations' && typeof val === 'object' && val !== null) {
+      // Pipeline or user-triggered config diff: show only changed keys
+      for (const [k, v] of Object.entries(val as Record<string, any>)) {
+        if (typeof v === 'object' && v !== null && 'old' in v && 'new' in v) {
+          if ((v as any).old === null) {
+            out.push({ field: 'Config added', key: k, value: String((v as any).new) });
+          } else {
+            (out as any[]).push({ field: 'Config changed', key: k, from: String((v as any).old), to: String((v as any).new) });
+          }
+        } else {
+          out.push({ field: 'Config', key: k, value: String(v) });
+        }
+      }
+      continue;
+    }
+
+    const label = META_LABELS[field] || fieldLabel(field);
     if (typeof val === 'object' && val !== null && 'old' in val && 'new' in val) {
-      (out as any[]).push({ field: fieldLabel(field), from: String((val as any).old), to: String((val as any).new) });
+      const from = (val as any).old != null ? String((val as any).old) : '(none)';
+      (out as any[]).push({ field: label, from, to: String((val as any).new) });
     } else if (val !== null && val !== undefined) {
-      out.push({ field: fieldLabel(field), value: String(val) });
+      out.push({ field: label, value: String(val) });
     }
   }
   return out;
@@ -110,7 +126,21 @@ function actorLabel(by: string): string {
 }
 
 const STATS_FIELDS = new Set(['cpu', 'memory', 'swap', 'storage', 'availability', 'latency', 'healthScore', 'currentState']);
-const SKIP_FIELDS  = new Set(['type', 'sourceType', 'envId', 'triggeredBy', 'addedBy', 'removedBy', 'owner', 'description']);
+// Fields that are system/pipeline bookkeeping and should never appear in user-facing summaries
+const SKIP_FIELDS  = new Set(['type', 'sourceType', 'envId', 'triggeredBy', 'addedBy', 'removedBy']);
+// Human-readable labels for known metadata fields
+const META_LABELS: Record<string, string> = {
+  name:             'Name',
+  owner:            'Owner',
+  description:      'Description',
+  status:           'Status',
+  primaryUsage:     'Primary usage',
+  currentUsage:     'Current usage',
+  collaborators:    'Collaborators',
+  currentBuild:     'Current build',
+  scheduledUpdates: 'Scheduled maintenance',
+  team:             'Team',
+};
 
 function buildSummary(action: string, changes: Record<string, any>, by: string, entityName?: string): string {
   const actor  = actorLabel(by);
@@ -175,47 +205,70 @@ function buildSummary(action: string, changes: Record<string, any>, by: string, 
     return parts.length > 0 ? parts.join('; ') : 'Pipeline config updated';
   }
 
-  // ── updated (user/admin metadata change) ────────────────────────────────
+  // ── updated (user/admin change — metadata and/or configs) ───────────────
   const keys = Object.keys(c);
-  const nameChange   = c.name && typeof c.name === 'object' && 'old' in c.name;
-  const statusChange = typeof c.status === 'string' ||
-                       (c.status && typeof c.status === 'object' && 'old' in c.status);
-  const statsChange  = keys.some((k) => STATS_FIELDS.has(k));
-  const metaFields   = keys.filter((k) =>
-    !SKIP_FIELDS.has(k) && !STATS_FIELDS.has(k) &&
-    k !== 'name' && k !== 'status' && k !== 'configurations'
-  );
-
   const parts: string[] = [];
 
-  if (nameChange) {
+  // 1. Name rename
+  if (c.name && typeof c.name === 'object' && 'old' in c.name) {
     parts.push(`Renamed from '${c.name.old}' to '${c.name.new}'`);
   }
-  if (statusChange) {
-    const sv = typeof c.status === 'object' ? c.status.new : c.status;
-    parts.push(`Status changed to '${sv}'`);
+
+  // 2. Status
+  if (c.status) {
+    const sv = typeof c.status === 'object' && 'new' in c.status ? c.status.new : c.status;
+    const so = typeof c.status === 'object' && 'old' in c.status && c.status.old ? ` (was '${c.status.old}')` : '';
+    parts.push(`Status changed to '${sv}'${so}`);
   }
-  if (statsChange) {
-    const statsKeys = keys.filter((k) => STATS_FIELDS.has(k));
-    if (statsKeys.includes('currentState')) {
-      parts.push(`Operational state changed to '${c.currentState}'`);
-    } else if (statsKeys.includes('healthScore')) {
-      parts.push(`Health score updated to ${c.healthScore}`);
-    } else {
-      parts.push('Health metrics refreshed');
+
+  // 3. Owner
+  if (c.owner) {
+    const nv = typeof c.owner === 'object' && 'new' in c.owner ? c.owner.new : c.owner;
+    const ov = typeof c.owner === 'object' && 'old' in c.owner && c.owner.old ? ` from '${c.owner.old}'` : '';
+    parts.push(`Owner changed${ov} to '${nv}'`);
+  }
+
+  // 4. Config diff (user edited configs via UI, or pipeline logged as 'updated')
+  if (c.configurations && typeof c.configurations === 'object') {
+    const entries  = Object.entries(c.configurations as Record<string, any>);
+    const added    = entries.filter(([, v]) => typeof v === 'object' && v !== null && (v as any).old === null);
+    const modified = entries.filter(([, v]) => typeof v === 'object' && v !== null && (v as any).old !== null);
+    const plain    = entries.filter(([, v]) => !(typeof v === 'object' && v !== null && 'old' in (v as any)));
+    const cfgParts: string[] = [];
+    if (modified.length > 0) {
+      const preview = modified.slice(0, 2).map(([k]) => k).join(', ') + (modified.length > 2 ? `, +${modified.length - 2} more` : '');
+      cfgParts.push(`${modified.length} config value${modified.length > 1 ? 's' : ''} changed (${preview})`);
     }
+    if (added.length > 0) {
+      cfgParts.push(`${added.length} new config key${added.length > 1 ? 's' : ''} added`);
+    }
+    if (plain.length > 0 && modified.length === 0 && added.length === 0) {
+      cfgParts.push(`${plain.length} config value${plain.length > 1 ? 's' : ''} updated`);
+    }
+    if (cfgParts.length > 0) parts.push(cfgParts.join(', '));
   }
-  for (const field of metaFields) {
+
+  // 5. Stats / health
+  if (keys.some((k) => STATS_FIELDS.has(k))) {
+    if (c.currentState)  parts.push(`Operational state changed to '${typeof c.currentState === 'object' ? c.currentState.new ?? c.currentState : c.currentState}'`);
+    else if (c.healthScore) parts.push(`Health score updated to ${typeof c.healthScore === 'object' ? c.healthScore.new ?? c.healthScore : c.healthScore}`);
+    else parts.push('Health metrics refreshed');
+  }
+
+  // 6. Other metadata fields
+  const HANDLED = new Set(['name', 'status', 'owner', 'configurations', ...STATS_FIELDS]);
+  for (const field of keys) {
+    if (HANDLED.has(field) || SKIP_FIELDS.has(field)) continue;
     const val = c[field];
-    if (field === 'owner') continue; // skip — owner changes are system bookkeeping
-    if (field === 'currentBuild')    { parts.push(`Build updated to '${val}'`); continue; }
-    if (field === 'collaborators')   { parts.push('Collaborators updated'); continue; }
+    const nv  = typeof val === 'object' && val !== null && 'new' in val ? (val as any).new : val;
+    const ov  = typeof val === 'object' && val !== null && 'old' in val && (val as any).old ? ` from '${(val as any).old}'` : '';
+    if (field === 'description')      { parts.push('Description updated'); continue; }
+    if (field === 'collaborators')    { parts.push('Collaborators updated'); continue; }
     if (field === 'scheduledUpdates') { parts.push('Scheduled maintenance updated'); continue; }
-    if (field === 'primaryUsage' || field === 'currentUsage') { parts.push('Usage details updated'); continue; }
-    if (field === 'description')     { parts.push('Description updated'); continue; }
-    if (field === 'team')            { parts.push(`Team set to '${val}'`); continue; }
-    // generic metadata field
-    parts.push(`${fieldLabel(field)} updated`);
+    if (field === 'primaryUsage' || field === 'currentUsage') { parts.push(`Usage set to '${nv}'`); continue; }
+    if (field === 'currentBuild')     { parts.push(`Build updated to '${nv}'`); continue; }
+    if (field === 'team')             { parts.push(`Team set to '${nv}'`); continue; }
+    parts.push(`${META_LABELS[field] || fieldLabel(field)} updated${ov ? ov + ` to '${nv}'` : ''}`);
   }
 
   return parts.length > 0 ? parts.join('; ') : 'Details updated';
