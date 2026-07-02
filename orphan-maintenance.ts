@@ -292,7 +292,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       // ── bulk-delete-orphans ─────────────────────────────────────────────────
       // Bulk delete — skips retarget-reason nodes unless force=true.
       case 'bulk-delete-orphans': {
-        const { entityIds, force = false }: { entityIds: string[]; force: boolean } = body;
+        const entityIds: string[] = body.entityIds;
+        const force: boolean = body.force ?? false;
         if (!Array.isArray(entityIds) || entityIds.length === 0) {
           return err(400, 'Missing or empty entityIds array');
         }
