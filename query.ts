@@ -741,6 +741,12 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         }
         const detail: EnvironmentDetail = await neptuneClient.getEnvironmentDetail(envId);
 
+        // DEBUG: log raw focus keys to diagnose missing configs
+        const rawFocusDebug = detail.focus as Record<string, any>;
+        const allConfigKeys = Object.keys(rawFocusDebug).filter(k => k.startsWith('config_'));
+        console.log(`[get-environment-detail] envId=${envId} raw config keys (${allConfigKeys.length}):`, JSON.stringify(allConfigKeys));
+        console.log(`[get-environment-detail] configurations map keys:`, JSON.stringify(Object.keys(rawFocusDebug.configurations || {})));
+
         // Post-process focus node:
         // 1. Strip top-level config_* keys (they are noise at that level)
         // 2. Clean bp_*/orphan* entries from the flat configurations map
