@@ -743,7 +743,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
         // Post-process focus node:
         // 1. Strip top-level config_* keys (they are noise at that level)
-        // 2. Add configurationsNew[] array with BP fields (same shape as get-entity)
+        // 2. Clean bp_*/orphan* entries from the flat configurations map
+        // 3. Add configurationsNew[] array with BP fields (same shape as get-entity)
         const rawFocus = detail.focus as Record<string, any>;
         const BP_SKIP = new Set([
           'config_orphanReason', 'config_orphanedAt', 'config_orphanedBy',
@@ -752,30 +753,42 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         const bpVal: Record<string, string> = {};
         const bpBy:  Record<string, string> = {};
         const bpOn:  Record<string, string> = {};
-        const cfgKeys: string[] = [];
+        // Collect config entries as { name, value } before any deletions
+        const cfgEntries: { name: string; value: string }[] = [];
 
         for (const key of Object.keys(rawFocus)) {
           if (!key.startsWith('config_')) continue;
-          if (BP_SKIP.has(key)) { delete rawFocus[key]; continue; }
-          if (key.startsWith('config_bp_'))   { bpVal[key.slice('config_bp_'.length)]  = rawFocus[key]; delete rawFocus[key]; continue; }
-          if (key.startsWith('config_bpBy_')) { bpBy[key.slice('config_bpBy_'.length)] = rawFocus[key]; delete rawFocus[key]; continue; }
-          if (key.startsWith('config_bpOn_')) { bpOn[key.slice('config_bpOn_'.length)] = rawFocus[key]; delete rawFocus[key]; continue; }
-          cfgKeys.push(key);
-          delete rawFocus[key]; // remove top-level config_* key
+          const raw = String(rawFocus[key] ?? '');
+          if (BP_SKIP.has(key))                 { delete rawFocus[key]; continue; }
+          if (key.startsWith('config_bp_'))      { bpVal[key.slice('config_bp_'.length)]  = raw; delete rawFocus[key]; continue; }
+          if (key.startsWith('config_bpBy_'))    { bpBy[key.slice('config_bpBy_'.length)] = raw; delete rawFocus[key]; continue; }
+          if (key.startsWith('config_bpOn_'))    { bpOn[key.slice('config_bpOn_'.length)] = raw; delete rawFocus[key]; continue; }
+          // Normal config key — capture value then remove top-level key
+          cfgEntries.push({ name: key.slice('config_'.length), value: raw });
+          delete rawFocus[key];
         }
 
-        const configurationsNew = cfgKeys.map((key) => {
-          const cfgName  = key.slice('config_'.length);
-          const cfgValue = String(rawFocus.configurations?.[cfgName] ?? '');
-          return {
-            configName:               cfgName,
-            configValue:              cfgValue,
-            configType:               /^https?:\/\/|^ftp:\/\//i.test(cfgValue) ? 'url' : 'text',
-            businessPurpose:          bpVal[cfgName] || '',
-            businessPurposeUpdatedBy: bpBy[cfgName]  || '',
-            businessPurposeUpdatedOn: bpOn[cfgName]  || '',
-          };
-        });
+        // Also clean bp_* and orphan* entries from the nested flat configurations map
+        if (rawFocus.configurations && typeof rawFocus.configurations === 'object') {
+          const flatCfg = rawFocus.configurations as Record<string, string>;
+          for (const k of Object.keys(flatCfg)) {
+            if (
+              k.startsWith('bp_') || k.startsWith('bpBy_') || k.startsWith('bpOn_') ||
+              k.startsWith('orphan') || k === 'previouslyConnected'
+            ) {
+              delete flatCfg[k];
+            }
+          }
+        }
+
+        const configurationsNew = cfgEntries.map(({ name: cfgName, value: cfgValue }) => ({
+          configName:               cfgName,
+          configValue:              cfgValue,
+          configType:               /^https?:\/\/|^ftp:\/\//i.test(cfgValue) ? 'url' : 'text',
+          businessPurpose:          bpVal[cfgName] || '',
+          businessPurposeUpdatedBy: bpBy[cfgName]  || '',
+          businessPurposeUpdatedOn: bpOn[cfgName]  || '',
+        }));
 
         rawFocus.configurationsNew = configurationsNew;
 
