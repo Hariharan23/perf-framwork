@@ -13208,6 +13208,13 @@ Example:
             ? Object.entries(d.configurations).filter(
                 ([k, v]) =>
                   !skipConfigs.has(k) &&
+                  // hide BP metadata triples — they are shown inline per-config, not as separate rows
+                  !k.startsWith("bp_") &&
+                  !k.startsWith("bpBy_") &&
+                  !k.startsWith("bpOn_") &&
+                  // hide orphan triples
+                  !k.startsWith("orphan") &&
+                  k !== "previouslyConnected" &&
                   v !== null &&
                   v !== undefined &&
                   v !== "",
