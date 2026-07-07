@@ -14495,8 +14495,7 @@ Example:
           if (target) configurations.targetService = target;
         }
 
-        // Add custom configurations (none — configs are now read-only in the modal; only BP is editable)
-        // Collect business purposes from the read-only config rows
+        // Collect business purposes from the read-only config rows (send all, not just changed)
         const businessPurposes = {};
         document
           .querySelectorAll("#edit-config-list [data-cfgname]")
@@ -14511,9 +14510,8 @@ Example:
               };
             }
           });
-        if (Object.keys(businessPurposes).length > 0) {
-          updateData.businessPurposes = businessPurposes;
-        }
+        // Always send businessPurposes so the Lambda can (re-)write them after any config update
+        updateData.businessPurposes = businessPurposes;
 
         if (Object.keys(configurations).length > 0) {
           updateData.configurations = configurations;
