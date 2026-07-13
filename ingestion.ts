@@ -1174,60 +1174,49 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
             }
           }
           
-          // Business Purpose save — additive, only writes bp triples, never touches config values
+          // Business Purpose save — batched into as few SPARQL updates as possible
           if (body.businessPurposes && typeof body.businessPurposes === 'object') {
             const bpNow = new Date().toISOString();
             const escSparql = (s: string) => s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+
+            let deleteTriples = '';   // triples to DELETE (both upsert and remove cases)
+            let insertTriples = '';   // triples to INSERT (upsert case only)
+            let optionalPatterns = ''; // OPTIONAL bindings for the WHERE clause
+
             for (const [cfgKey, bpData] of Object.entries(body.businessPurposes as Record<string, any>)) {
               const bpValue = String((bpData as any)?.value ?? '').trim();
               const bpByVal = String((bpData as any)?.by   ?? body.owner ?? 'admin').trim();
               const safeKey = cfgKey.replace(/[^a-zA-Z0-9_-]/g, '_');
+              const vVal = `bpv_${safeKey}`;
+              const vBy  = `bpb_${safeKey}`;
+              const vOn  = `bpo_${safeKey}`;
 
-              if (bpValue === '') {
-                // Empty value → remove all three BP triples for this key
-                const bpDelete = `
-                  PREFIX env: <http://neptune.aws.com/envmgmt/ontology/>
-                  DELETE WHERE {
-                    <${entityUri}> env:config_bp_${safeKey} ?ov .
-                  }
-                `;
-                const bpByDelete = `
-                  PREFIX env: <http://neptune.aws.com/envmgmt/ontology/>
-                  DELETE WHERE {
-                    <${entityUri}> env:config_bpBy_${safeKey} ?ob .
-                  }
-                `;
-                const bpOnDelete = `
-                  PREFIX env: <http://neptune.aws.com/envmgmt/ontology/>
-                  DELETE WHERE {
-                    <${entityUri}> env:config_bpOn_${safeKey} ?oo .
-                  }
-                `;
-                await neptuneClient.executeSparqlUpdate(bpDelete);
-                await neptuneClient.executeSparqlUpdate(bpByDelete);
-                await neptuneClient.executeSparqlUpdate(bpOnDelete);
-              } else {
-                // Non-empty value → upsert all three BP triples
-                const bpUpdate = `
-                  PREFIX env: <http://neptune.aws.com/envmgmt/ontology/>
-                  DELETE {
-                    <${entityUri}> env:config_bp_${safeKey} ?ov ;
-                                   env:config_bpBy_${safeKey} ?ob ;
-                                   env:config_bpOn_${safeKey} ?oo .
-                  }
-                  INSERT {
-                    <${entityUri}> env:config_bp_${safeKey} "${escSparql(bpValue)}" ;
-                                   env:config_bpBy_${safeKey} "${escSparql(bpByVal)}" ;
-                                   env:config_bpOn_${safeKey} "${escSparql(bpNow)}" .
-                  }
-                  WHERE {
-                    OPTIONAL { <${entityUri}> env:config_bp_${safeKey} ?ov }
-                    OPTIONAL { <${entityUri}> env:config_bpBy_${safeKey} ?ob }
-                    OPTIONAL { <${entityUri}> env:config_bpOn_${safeKey} ?oo }
-                  }
-                `;
-                await neptuneClient.executeSparqlUpdate(bpUpdate);
+              // Always delete existing triples for this key (handles both update and clear)
+              deleteTriples    += `  <${entityUri}> <${neptuneClient['ontologyPrefix']}config_bp_${safeKey}> ?${vVal} .\n`;
+              deleteTriples    += `  <${entityUri}> <${neptuneClient['ontologyPrefix']}config_bpBy_${safeKey}> ?${vBy} .\n`;
+              deleteTriples    += `  <${entityUri}> <${neptuneClient['ontologyPrefix']}config_bpOn_${safeKey}> ?${vOn} .\n`;
+              optionalPatterns += `  OPTIONAL { <${entityUri}> <${neptuneClient['ontologyPrefix']}config_bp_${safeKey}> ?${vVal} }\n`;
+              optionalPatterns += `  OPTIONAL { <${entityUri}> <${neptuneClient['ontologyPrefix']}config_bpBy_${safeKey}> ?${vBy} }\n`;
+              optionalPatterns += `  OPTIONAL { <${entityUri}> <${neptuneClient['ontologyPrefix']}config_bpOn_${safeKey}> ?${vOn} }\n`;
+
+              if (bpValue !== '') {
+                // Only insert when value is non-empty
+                insertTriples += `  <${entityUri}> <${neptuneClient['ontologyPrefix']}config_bp_${safeKey}> "${escSparql(bpValue)}" .\n`;
+                insertTriples += `  <${entityUri}> <${neptuneClient['ontologyPrefix']}config_bpBy_${safeKey}> "${escSparql(bpByVal)}" .\n`;
+                insertTriples += `  <${entityUri}> <${neptuneClient['ontologyPrefix']}config_bpOn_${safeKey}> "${escSparql(bpNow)}" .\n`;
               }
+            }
+
+            if (deleteTriples) {
+              const batchQuery = `
+                DELETE {
+${deleteTriples}                }
+                INSERT {
+${insertTriples}                }
+                WHERE {
+${optionalPatterns}                }
+              `;
+              await neptuneClient.executeSparqlUpdate(batchQuery);
             }
           }
 
