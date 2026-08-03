@@ -14809,12 +14809,8 @@ Example:
               entityData.currentBuild || "";
             document.getElementById("edit-entity-environment-type").value =
               entityData.environmentType || "";
-            // Load custom metadata from flat meta_* keys
-            const flatMeta = {};
-            Object.keys(entityData).forEach(function (k) {
-              if (k.startsWith("meta_"))
-                flatMeta[k.replace("meta_", "")] = entityData[k];
-            });
+            // Load custom metadata from the dedicated customMetadata object in the response
+            const flatMeta = result.data.customMetadata || {};
             loadCustomMetadata("edit-custom-meta-list", flatMeta);
             loadScheduledUpdateRows(
               "edit-scheduled-updates-list",
