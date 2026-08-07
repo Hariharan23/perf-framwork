@@ -1203,6 +1203,12 @@
               >
                 Edit Fields
               </button>
+              <button
+                class="btn btn-outline btn-sm"
+                onclick="openMappingModal()"
+              >
+                Field Mapping
+              </button>
               <button class="btn btn-danger btn-sm" onclick="openUnlinkModal()">
                 Unlink
               </button>
@@ -1409,6 +1415,94 @@
           >
             Yes, Unlink
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         MODAL: Field Mapping
+    ══════════════════════════════════════════════════════════════ -->
+    <div class="modal-overlay" id="mapping-modal">
+      <div class="modal" style="max-width: 660px">
+        <div class="modal-header">
+          <h2>CMDB Field Mapping</h2>
+          <button class="modal-close" onclick="closeModal('mapping-modal')">
+            &#x00D7;
+          </button>
+        </div>
+        <div class="modal-body" id="mapping-modal-body">
+          <p style="font-size: 13px; color: var(--muted); margin-bottom: 14px">
+            Map each CMDB field to an existing EMS property. When a CI is
+            refreshed, the mapped EMS property will be overwritten with the CMDB
+            value. Leave blank to store only in
+            <code
+              style="background: #f1f5f9; padding: 1px 5px; border-radius: 3px"
+              >meta_cmdb_*</code
+            >.
+          </p>
+          <table
+            style="width: 100%; border-collapse: collapse; font-size: 13px"
+            id="mapping-table"
+          >
+            <thead>
+              <tr style="background: var(--bg)">
+                <th
+                  style="
+                    padding: 8px 10px;
+                    text-align: left;
+                    border-bottom: 1px solid var(--border);
+                    font-weight: 600;
+                    color: var(--muted);
+                  "
+                >
+                  CMDB Field
+                </th>
+                <th
+                  style="
+                    padding: 8px 10px;
+                    text-align: left;
+                    border-bottom: 1px solid var(--border);
+                    font-weight: 600;
+                    color: var(--muted);
+                  "
+                >
+                  Current Value
+                </th>
+                <th
+                  style="
+                    padding: 8px 10px;
+                    text-align: left;
+                    border-bottom: 1px solid var(--border);
+                    font-weight: 600;
+                    color: var(--muted);
+                  "
+                >
+                  Map to EMS Property
+                </th>
+              </tr>
+            </thead>
+            <tbody id="mapping-rows"></tbody>
+          </table>
+        </div>
+        <div class="modal-footer">
+          <div style="font-size: 12px; color: var(--muted)">
+            Changes are applied immediately on save.
+          </div>
+          <div style="display: flex; gap: 8px">
+            <button
+              class="btn btn-outline"
+              onclick="closeModal('mapping-modal')"
+            >
+              Cancel
+            </button>
+            <button
+              class="btn btn-primary"
+              onclick="saveFieldMapping()"
+              id="save-mapping-btn"
+            >
+              Save Mapping
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -2227,6 +2321,110 @@
         } finally {
           btn.disabled = false;
           btn.textContent = "Save Changes";
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════════
+      // FIELD MAPPING
+      // ═══════════════════════════════════════════════════════════
+
+      // EMS properties that can be targeted by CMDB field mapping
+      const EMS_MAPPABLE_PROPS = [
+        "owner",
+        "team",
+        "description",
+        "region",
+        "tier",
+        "criticality",
+        "contact",
+        "support_group",
+        "business_unit",
+        "environment_type",
+        "sla_tier",
+        "cost_center",
+        "lifecycle_status",
+      ];
+
+      let currentFieldMappings = {}; // cmdbKey -> emsProperty
+
+      async function openMappingModal() {
+        openModal("mapping-modal");
+        const body = document.getElementById("mapping-modal-body");
+        const tbody = document.getElementById("mapping-rows");
+        tbody.innerHTML =
+          '<tr><td colspan="3" style="padding:16px;text-align:center;"><span class="spinner dark" style="width:18px;height:18px;display:inline-block;"></span></td></tr>';
+
+        try {
+          const status = await cmdbApi("cmdb-get-status", "GET", null, {
+            entityId: currentEntity.id,
+          });
+          currentFieldMappings = status.fieldMappings || {};
+          const fieldValues = status.fieldValues || {};
+
+          tbody.innerHTML = "";
+          const fields = Object.keys(fieldValues);
+          if (fields.length === 0) {
+            tbody.innerHTML =
+              '<tr><td colspan="3" style="padding:16px;text-align:center;color:var(--muted);font-size:13px;">No CMDB fields stored. Refresh or edit field selection first.</td></tr>';
+            return;
+          }
+
+          fields.forEach((key) => {
+            const currentMap = currentFieldMappings[key] || "";
+            const opts = ["", ...EMS_MAPPABLE_PROPS]
+              .map(
+                (p) =>
+                  `<option value="${p}" ${p === currentMap ? "selected" : ""}>${p || "— none —"}</option>`,
+              )
+              .join("");
+            const tr = document.createElement("tr");
+            tr.style.borderBottom = "1px solid var(--border)";
+            tr.innerHTML = `
+              <td style="padding:8px 10px;font-family:monospace;font-size:12px;color:var(--muted);">${escHtml(key)}</td>
+              <td style="padding:8px 10px;font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escHtml(fieldValues[key] || "")}">${escHtml((fieldValues[key] || "").slice(0, 50))}${(fieldValues[key] || "").length > 50 ? "…" : ""}</td>
+              <td style="padding:8px 10px;">
+                <select data-cmdb-key="${escHtml(key)}"
+                  style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:5px;font-size:12px;">
+                  ${opts}
+                </select>
+              </td>
+            `;
+            tbody.appendChild(tr);
+          });
+        } catch (e) {
+          tbody.innerHTML = `<tr><td colspan="3" style="padding:16px;color:var(--danger);font-size:13px;">Failed to load: ${escHtml(e.message)}</td></tr>`;
+        }
+      }
+
+      async function saveFieldMapping() {
+        const btn = document.getElementById("save-mapping-btn");
+        btn.disabled = true;
+        btn.innerHTML =
+          '<span class="spinner" style="width:13px;height:13px;border-width:2px;"></span> Saving...';
+
+        try {
+          const mapping = {};
+          document
+            .querySelectorAll("#mapping-rows select[data-cmdb-key]")
+            .forEach((sel) => {
+              mapping[sel.dataset.cmdbKey] = sel.value;
+            });
+
+          const data = await cmdbApi("cmdb-set-mapping", "POST", {
+            entityId: currentEntity.id,
+            mapping,
+          });
+          closeModal("mapping-modal");
+          showToast(
+            "success",
+            `Mapping saved. ${data.applied} field(s) applied to EMS properties.`,
+          );
+          await loadCmdbStatus();
+        } catch (e) {
+          showToast("error", "Save failed: " + e.message);
+        } finally {
+          btn.disabled = false;
+          btn.textContent = "Save Mapping";
         }
       }
 
