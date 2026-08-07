@@ -1,0 +1,2075 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>EMS — CMDB ServiceNow Integration</title>
+    <style>
+      /* ── Reset & Variables ── */
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      :root {
+        --primary: #2563eb;
+        --primary-hover: #1d4ed8;
+        --primary-light: #dbeafe;
+        --success: #059669;
+        --success-light: #dcfce7;
+        --warn: #d97706;
+        --warn-light: #fef3c7;
+        --danger: #dc2626;
+        --danger-light: #fee2e2;
+        --bg: #f8fafc;
+        --card: #ffffff;
+        --border: #e2e8f0;
+        --text: #1e293b;
+        --muted: #64748b;
+        --code-bg: #0f172a;
+        --radius: 8px;
+        --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+        --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      }
+
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        font-size: 14px;
+        line-height: 1.5;
+      }
+
+      /* ── Layout ── */
+      .app-header {
+        background: #0f172a;
+        color: white;
+        padding: 14px 24px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        position: sticky;
+        top: 0;
+        z-index: 200;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+      }
+      .app-header h1 {
+        font-size: 16px;
+        font-weight: 600;
+        opacity: 0.9;
+      }
+      .app-header .back-btn {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: white;
+        padding: 5px 12px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 13px;
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: 1fr 340px;
+        gap: 20px;
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 24px 20px;
+      }
+      @media (max-width: 860px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      /* ── Config Banner ── */
+      .config-banner {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 12px 20px 0;
+      }
+      .config-bar {
+        background: var(--warn-light);
+        border: 1px solid #fde68a;
+        border-left: 4px solid var(--warn);
+        border-radius: var(--radius);
+        padding: 10px 16px;
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .config-bar label {
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      .config-bar input {
+        border: 1px solid #fde68a;
+        border-radius: 5px;
+        padding: 4px 8px;
+        font-size: 12px;
+        font-family: monospace;
+        background: white;
+        width: 280px;
+      }
+      .config-bar input.key-input {
+        width: 240px;
+      }
+      .config-bar button {
+        background: var(--warn);
+        color: white;
+        border: none;
+        border-radius: 5px;
+        padding: 5px 12px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      /* ── Card ── */
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 20px;
+        box-shadow: var(--shadow-sm);
+      }
+      .card-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text);
+        margin-bottom: 14px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      /* ── Entity Card (left demo panel) ── */
+      .entity-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: var(--primary-light);
+        color: var(--primary);
+        border-radius: 20px;
+        padding: 3px 12px;
+        font-size: 12px;
+        font-weight: 600;
+        margin-bottom: 14px;
+      }
+      .entity-props {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-bottom: 16px;
+      }
+      .prop-row {
+        display: flex;
+        gap: 10px;
+        font-size: 13px;
+      }
+      .prop-label {
+        color: var(--muted);
+        width: 110px;
+        flex-shrink: 0;
+      }
+      .prop-value {
+        color: var(--text);
+      }
+
+      /* ── CMDB Panel ── */
+      .cmdb-panel {
+      }
+      .cmdb-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 12px;
+      }
+      .cmdb-title {
+        font-size: 13px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        color: var(--muted);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 3px 10px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 700;
+      }
+      .status-badge.unlinked {
+        background: #f1f5f9;
+        color: #64748b;
+      }
+      .status-badge.linked {
+        background: var(--success-light);
+        color: var(--success);
+      }
+      .status-badge.loading {
+        background: var(--primary-light);
+        color: var(--primary);
+      }
+      .status-badge.error {
+        background: var(--danger-light);
+        color: var(--danger);
+      }
+
+      /* Unlinked state */
+      .unlinked-state {
+        background: var(--bg);
+        border: 2px dashed var(--border);
+        border-radius: var(--radius);
+        padding: 24px 16px;
+        text-align: center;
+      }
+      .unlinked-state p {
+        color: var(--muted);
+        font-size: 13px;
+        margin-bottom: 14px;
+      }
+      .unlinked-state small {
+        color: var(--muted);
+        font-size: 11px;
+        display: block;
+        margin-top: 8px;
+      }
+
+      /* Linked state */
+      .linked-state {
+      }
+      .ci-info-card {
+        background: #f0fdf4;
+        border: 1px solid #bbf7d0;
+        border-radius: 6px;
+        padding: 12px 14px;
+        margin-bottom: 12px;
+      }
+      .ci-info-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 6px;
+      }
+      .ci-name {
+        font-weight: 600;
+        font-size: 14px;
+      }
+      .ci-class-chip {
+        background: #e0f2fe;
+        color: #0369a1;
+        border-radius: 4px;
+        padding: 1px 7px;
+        font-size: 11px;
+        font-weight: 600;
+      }
+      .sn-chip {
+        background: #62c8e8;
+        color: white;
+        border-radius: 4px;
+        padding: 1px 7px;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+      }
+      .ci-meta {
+        font-size: 11px;
+        color: var(--muted);
+        margin-top: 4px;
+      }
+      .ci-meta span + span::before {
+        content: "  ·  ";
+      }
+
+      /* Field value table */
+      .field-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+        margin-bottom: 12px;
+      }
+      .field-table th {
+        background: #f8fafc;
+        padding: 7px 10px;
+        text-align: left;
+        font-weight: 600;
+        color: var(--muted);
+        border-bottom: 1px solid var(--border);
+      }
+      .field-table td {
+        padding: 7px 10px;
+        border-bottom: 1px solid #f1f5f9;
+        vertical-align: top;
+      }
+      .field-table tr:last-child td {
+        border-bottom: none;
+      }
+      .field-table td:first-child {
+        color: var(--muted);
+        white-space: nowrap;
+      }
+      .field-table td:last-child {
+        color: var(--text);
+        word-break: break-word;
+      }
+
+      /* Action row */
+      .action-row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        padding-top: 10px;
+        border-top: 1px solid var(--border);
+      }
+
+      /* ── Buttons ── */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 7px 14px;
+        border: none;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.15s;
+        white-space: nowrap;
+      }
+      .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .btn-primary {
+        background: var(--primary);
+        color: white;
+      }
+      .btn-primary:hover:not(:disabled) {
+        background: var(--primary-hover);
+      }
+      .btn-outline {
+        background: white;
+        color: var(--text);
+        border: 1px solid var(--border);
+      }
+      .btn-outline:hover:not(:disabled) {
+        background: var(--bg);
+      }
+      .btn-success {
+        background: var(--success);
+        color: white;
+      }
+      .btn-success:hover:not(:disabled) {
+        background: #047857;
+      }
+      .btn-danger {
+        background: white;
+        color: var(--danger);
+        border: 1px solid #fecaca;
+      }
+      .btn-danger:hover:not(:disabled) {
+        background: var(--danger-light);
+      }
+      .btn-sm {
+        padding: 5px 10px;
+        font-size: 12px;
+      }
+
+      /* ── Modal Overlay ── */
+      .modal-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      }
+      .modal-overlay.open {
+        display: flex;
+      }
+
+      .modal {
+        background: var(--card);
+        border-radius: 12px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        width: 100%;
+        max-width: 640px;
+        max-height: 90vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .modal-header {
+        padding: 18px 20px 14px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-shrink: 0;
+      }
+      .modal-header h2 {
+        font-size: 16px;
+        font-weight: 600;
+      }
+      .modal-close {
+        background: none;
+        border: none;
+        font-size: 20px;
+        cursor: pointer;
+        color: var(--muted);
+        line-height: 1;
+        padding: 2px 6px;
+      }
+      .modal-close:hover {
+        color: var(--text);
+      }
+
+      /* Step indicator */
+      .steps {
+        display: flex;
+        gap: 0;
+        padding: 12px 20px;
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+      }
+      .step {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--muted);
+        flex: 1;
+      }
+      .step.active {
+        color: var(--primary);
+      }
+      .step.done {
+        color: var(--success);
+      }
+      .step-num {
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        border: 2px solid currentColor;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        font-weight: 700;
+        flex-shrink: 0;
+      }
+      .step.done .step-num {
+        background: var(--success);
+        border-color: var(--success);
+        color: white;
+      }
+      .step.active .step-num {
+        background: var(--primary);
+        border-color: var(--primary);
+        color: white;
+      }
+      .step-arrow {
+        color: #d1d5db;
+        margin: 0 4px;
+      }
+
+      .modal-body {
+        padding: 18px 20px;
+        overflow-y: auto;
+        flex: 1;
+      }
+      .modal-footer {
+        padding: 14px 20px;
+        border-top: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-shrink: 0;
+        background: #fafafa;
+      }
+      .modal-footer .selection-count {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      /* ── Search box ── */
+      .search-box {
+        position: relative;
+        margin-bottom: 14px;
+      }
+      .search-box input {
+        width: 100%;
+        padding: 9px 12px 9px 36px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        font-size: 14px;
+        outline: none;
+        transition: border-color 0.15s;
+      }
+      .search-box input:focus {
+        border-color: var(--primary);
+      }
+      .search-box .search-icon {
+        position: absolute;
+        left: 11px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--muted);
+        font-size: 15px;
+      }
+
+      /* Search results */
+      .search-results {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        min-height: 120px;
+      }
+      .search-result-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 10px 12px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.12s;
+      }
+      .search-result-item:hover {
+        border-color: var(--primary);
+        background: #f0f7ff;
+      }
+      .search-result-item.selected {
+        border-color: var(--primary);
+        background: var(--primary-light);
+      }
+      .result-icon {
+        width: 32px;
+        height: 32px;
+        background: var(--primary-light);
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        flex-shrink: 0;
+      }
+      .result-info {
+        flex: 1;
+        min-width: 0;
+      }
+      .result-name {
+        font-weight: 600;
+        font-size: 13px;
+      }
+      .result-meta {
+        font-size: 11px;
+        color: var(--muted);
+        margin-top: 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      /* ── Field selection ── */
+      .category-group {
+        margin-bottom: 14px;
+      }
+      .category-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 7px 10px;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        user-select: none;
+      }
+      .category-actions {
+        display: flex;
+        gap: 8px;
+      }
+      .cat-action {
+        font-size: 11px;
+        color: var(--primary);
+        cursor: pointer;
+        font-weight: 600;
+        background: none;
+        border: none;
+        padding: 0;
+      }
+      .cat-action:hover {
+        text-decoration: underline;
+      }
+      .category-fields {
+        padding-top: 4px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .field-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 10px;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background 0.1s;
+      }
+      .field-item:hover {
+        background: var(--bg);
+      }
+      .field-item input[type="checkbox"] {
+        width: 15px;
+        height: 15px;
+        cursor: pointer;
+        flex-shrink: 0;
+        accent-color: var(--primary);
+      }
+      .field-label {
+        flex: 1;
+        font-size: 13px;
+      }
+      .field-label strong {
+        display: block;
+        font-weight: 500;
+      }
+      .field-label span {
+        font-size: 11px;
+        color: var(--muted);
+        margin-top: 1px;
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 280px;
+      }
+      .field-type-badge {
+        font-size: 10px;
+        background: #f1f5f9;
+        color: var(--muted);
+        padding: 1px 6px;
+        border-radius: 3px;
+        flex-shrink: 0;
+      }
+      .recommended-badge {
+        font-size: 10px;
+        background: #fef3c7;
+        color: #92400e;
+        padding: 1px 6px;
+        border-radius: 3px;
+        flex-shrink: 0;
+      }
+
+      /* ── Confirm step ── */
+      .confirm-summary {
+        background: #f0fdf4;
+        border: 1px solid #bbf7d0;
+        border-radius: var(--radius);
+        padding: 16px;
+        margin-bottom: 16px;
+      }
+      .confirm-summary .ci-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+      .confirm-summary .ci-header strong {
+        font-size: 15px;
+      }
+      .confirm-summary ul {
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .confirm-summary ul li {
+        font-size: 12px;
+        color: var(--muted);
+        display: flex;
+        gap: 6px;
+        align-items: center;
+      }
+      .confirm-summary ul li::before {
+        content: "→";
+        color: var(--success);
+      }
+      .confirm-keys-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 4px;
+        margin-top: 10px;
+      }
+      .confirm-key-chip {
+        background: #e0f2fe;
+        color: #0369a1;
+        border-radius: 4px;
+        padding: 3px 8px;
+        font-size: 11px;
+        font-family: monospace;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      /* ── Unlink confirm modal ── */
+      .danger-zone {
+        background: var(--danger-light);
+        border: 1px solid #fecaca;
+        border-radius: var(--radius);
+        padding: 16px;
+        font-size: 13px;
+      }
+      .danger-zone p {
+        margin-bottom: 8px;
+      }
+      .danger-zone ul {
+        list-style: disc;
+        padding-left: 18px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .danger-zone ul li + li {
+        margin-top: 4px;
+      }
+
+      /* ── Settings panel ── */
+      .settings-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+      .settings-row label {
+        font-size: 12px;
+        color: var(--muted);
+        width: 120px;
+        flex-shrink: 0;
+        font-weight: 600;
+      }
+      .settings-row input,
+      .settings-row select {
+        flex: 1;
+        padding: 7px 10px;
+        border: 1px solid var(--border);
+        border-radius: 5px;
+        font-size: 12px;
+        font-family: monospace;
+        background: white;
+      }
+      .settings-row input[type="password"] {
+        letter-spacing: 2px;
+      }
+      .connection-result {
+        margin-top: 10px;
+        padding: 10px 14px;
+        border-radius: 6px;
+        font-size: 13px;
+        display: none;
+      }
+      .connection-result.ok {
+        background: var(--success-light);
+        border: 1px solid #bbf7d0;
+        color: var(--success);
+      }
+      .connection-result.err {
+        background: var(--danger-light);
+        border: 1px solid #fecaca;
+        color: var(--danger);
+      }
+
+      /* ── Toast ── */
+      #toast-container {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .toast {
+        padding: 12px 18px;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 500;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+        min-width: 240px;
+        animation: slide-in 0.2s ease;
+      }
+      .toast.success {
+        background: var(--success);
+        color: white;
+      }
+      .toast.error {
+        background: var(--danger);
+        color: white;
+      }
+      .toast.info {
+        background: #1e293b;
+        color: white;
+      }
+      @keyframes slide-in {
+        from {
+          transform: translateX(40px);
+          opacity: 0;
+        }
+        to {
+          transform: none;
+          opacity: 1;
+        }
+      }
+
+      /* ── Spinner ── */
+      .spinner {
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-top-color: white;
+        border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+        display: inline-block;
+      }
+      .spinner.dark {
+        border-color: rgba(0, 0, 0, 0.1);
+        border-top-color: var(--primary);
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* ── Empty state ── */
+      .empty-state {
+        text-align: center;
+        padding: 32px 16px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .empty-state .icon {
+        font-size: 32px;
+        margin-bottom: 8px;
+      }
+
+      /* ── Admin settings page ── */
+      .settings-page {
+        display: none;
+      }
+      .settings-page.visible {
+        display: block;
+      }
+      .page-title {
+        font-size: 18px;
+        font-weight: 700;
+        margin-bottom: 4px;
+      }
+      .page-sub {
+        font-size: 13px;
+        color: var(--muted);
+        margin-bottom: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- App Header -->
+    <div class="app-header">
+      <span style="font-size: 20px">🔗</span>
+      <h1>EMS — CMDB ServiceNow Integration</h1>
+      <div style="margin-left: auto; display: flex; gap: 8px">
+        <button class="back-btn" onclick="toggleSettingsPage()">
+          ⚙️ Settings
+        </button>
+      </div>
+    </div>
+
+    <!-- Config Banner -->
+    <div class="config-banner">
+      <div class="config-bar">
+        <label>CMDB API URL:</label>
+        <input
+          id="cfg-api-url"
+          type="text"
+          placeholder="https://xxxx.execute-api.us-east-1.amazonaws.com/prod"
+        />
+        <label style="margin-left: 8px">API Key:</label>
+        <input
+          id="cfg-api-key"
+          type="text"
+          class="key-input"
+          placeholder="your-api-key-here"
+        />
+        <button onclick="saveConfig()">Save</button>
+        <span
+          id="cfg-saved"
+          style="font-size: 12px; color: #059669; display: none"
+          >✓ Saved</span
+        >
+      </div>
+    </div>
+
+    <!-- Main Layout -->
+    <div class="layout">
+      <!-- Left: Entity Detail (simulated) -->
+      <div>
+        <!-- Simulated entity selector -->
+        <div class="card" style="margin-bottom: 16px">
+          <div class="card-title">🧪 Demo: Select Entity</div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap">
+            <button
+              class="btn btn-outline btn-sm"
+              onclick="
+                selectEntity('env-001', 'PolicyAdmin-Prod', 'Environment')
+              "
+            >
+              PolicyAdmin-Prod
+            </button>
+            <button
+              class="btn btn-outline btn-sm"
+              onclick="
+                selectEntity('env-002', 'ClaimsEngine-DR', 'Environment')
+              "
+            >
+              ClaimsEngine-DR
+            </button>
+            <button
+              class="btn btn-outline btn-sm"
+              onclick="selectEntity('app-001', 'BillingService', 'Application')"
+            >
+              BillingService
+            </button>
+          </div>
+        </div>
+
+        <!-- Entity Detail Card -->
+        <div class="card" id="entity-card">
+          <div id="entity-placeholder" class="empty-state">
+            <div class="icon">📋</div>
+            <p>
+              Select an entity above to see its detail view with the CMDB panel.
+            </p>
+          </div>
+          <div id="entity-detail" style="display: none">
+            <div class="entity-badge" id="entity-type-badge"></div>
+            <div class="entity-props">
+              <div class="prop-row">
+                <span class="prop-label">Name</span
+                ><span class="prop-value" id="ep-name"></span>
+              </div>
+              <div class="prop-row">
+                <span class="prop-label">Status</span
+                ><span class="prop-value"
+                  ><span style="color: #059669">● Healthy</span></span
+                >
+              </div>
+              <div class="prop-row">
+                <span class="prop-label">Environment</span
+                ><span class="prop-value">Production</span>
+              </div>
+              <div class="prop-row">
+                <span class="prop-label">Owner</span
+                ><span class="prop-value">SRE Team</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Settings Page (hidden by default) -->
+        <div
+          class="card settings-page"
+          id="settings-page"
+          style="margin-top: 16px"
+        >
+          <div class="page-title">CMDB Connection Settings</div>
+          <div class="page-sub">
+            Read-only view of current ServiceNow configuration. Update values in
+            SSM Parameter Store via AWS Console.
+          </div>
+          <div class="settings-row">
+            <label>Instance URL</label>
+            <input
+              type="text"
+              id="sn-instance-url"
+              placeholder="/ems/cmdb/instance_url"
+              readonly
+            />
+          </div>
+          <div class="settings-row">
+            <label>Username</label>
+            <input
+              type="text"
+              id="sn-username"
+              placeholder="/ems/cmdb/username"
+              readonly
+            />
+          </div>
+          <div class="settings-row">
+            <label>CI Classes</label>
+            <input
+              type="text"
+              id="sn-ci-classes"
+              placeholder="/ems/cmdb/ci_classes"
+              readonly
+            />
+          </div>
+          <div class="settings-row">
+            <label>Search Limit</label>
+            <input
+              type="text"
+              id="sn-search-limit"
+              placeholder="/ems/cmdb/search_limit"
+              readonly
+            />
+          </div>
+          <button
+            class="btn btn-primary btn-sm"
+            onclick="testConnection()"
+            id="test-conn-btn"
+          >
+            <span>Test Connection</span>
+          </button>
+          <div class="connection-result" id="conn-result"></div>
+          <div
+            style="
+              margin-top: 16px;
+              padding: 12px;
+              background: #f8fafc;
+              border: 1px solid var(--border);
+              border-radius: 6px;
+              font-size: 12px;
+              color: var(--muted);
+            "
+          >
+            <strong>To update credentials:</strong><br />
+            <code
+              style="background: #e2e8f0; padding: 2px 6px; border-radius: 3px"
+              >aws ssm put-parameter --name /ems/cmdb/password --value "..."
+              --type SecureString --overwrite</code
+            >
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: CMDB Panel -->
+      <div id="cmdb-sidebar" style="display: none">
+        <div class="card">
+          <div class="cmdb-header">
+            <div class="cmdb-title">
+              <span>🔗</span>
+              CMDB
+            </div>
+            <span class="status-badge" id="cmdb-status-badge">
+              <span id="cmdb-status-dot">●</span>
+              <span id="cmdb-status-text">Loading…</span>
+            </span>
+          </div>
+
+          <!-- Unlinked State -->
+          <div id="cmdb-unlinked" class="unlinked-state" style="display: none">
+            <p>No Configuration Item linked to this environment.</p>
+            <button class="btn btn-primary" onclick="openLinkModal()">
+              🔗 Link CI
+            </button>
+            <small id="cmdb-provider-hint"></small>
+          </div>
+
+          <!-- Linked State -->
+          <div id="cmdb-linked" class="linked-state" style="display: none">
+            <div class="ci-info-card">
+              <div class="ci-info-row">
+                <span class="ci-name" id="ci-display-name"></span>
+                <span class="sn-chip">SERVICENOW</span>
+                <span class="ci-class-chip" id="ci-display-class"></span>
+              </div>
+              <div class="ci-meta">
+                <span id="ci-linked-by"></span>
+                <span id="ci-linked-at"></span>
+                <span id="ci-last-synced"></span>
+              </div>
+            </div>
+
+            <!-- Stored field values -->
+            <div id="cmdb-fields-wrap">
+              <table class="field-table">
+                <thead>
+                  <tr>
+                    <th>Field</th>
+                    <th>Value</th>
+                  </tr>
+                </thead>
+                <tbody id="cmdb-field-rows"></tbody>
+              </table>
+            </div>
+
+            <div class="action-row">
+              <button
+                class="btn btn-outline btn-sm"
+                onclick="refreshCmdb()"
+                id="refresh-btn"
+              >
+                🔄 Refresh
+              </button>
+              <button
+                class="btn btn-outline btn-sm"
+                onclick="openEditFieldsModal()"
+              >
+                ✏️ Edit Fields
+              </button>
+              <button class="btn btn-danger btn-sm" onclick="openUnlinkModal()">
+                🗑 Unlink
+              </button>
+            </div>
+          </div>
+
+          <!-- Loading state -->
+          <div
+            id="cmdb-loading"
+            style="text-align: center; padding: 24px; display: none"
+          >
+            <div
+              class="spinner dark"
+              style="width: 24px; height: 24px; margin: 0 auto 8px"
+            ></div>
+            <p
+              style="font-size: 12px; color: var(--muted)"
+              id="cmdb-loading-text"
+            >
+              Loading…
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         MODAL: Link CI (3-step wizard)
+    ══════════════════════════════════════════════════════════════ -->
+    <div class="modal-overlay" id="link-modal">
+      <div class="modal">
+        <div class="modal-header">
+          <h2>Link CMDB CI</h2>
+          <button class="modal-close" onclick="closeModal('link-modal')">
+            ×
+          </button>
+        </div>
+
+        <!-- Step indicator -->
+        <div class="steps">
+          <div class="step" id="step-ind-1">
+            <div class="step-num">1</div>
+            <span>Search CI</span>
+          </div>
+          <span class="step-arrow">›</span>
+          <div class="step" id="step-ind-2">
+            <div class="step-num">2</div>
+            <span>Select Fields</span>
+          </div>
+          <span class="step-arrow">›</span>
+          <div class="step" id="step-ind-3">
+            <div class="step-num">3</div>
+            <span>Confirm</span>
+          </div>
+        </div>
+
+        <!-- Step 1: Search -->
+        <div class="modal-body" id="step-1-body">
+          <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input
+              type="text"
+              id="ci-search-input"
+              placeholder="Search CIs by name or description…"
+              oninput="debouncedSearch()"
+              autocomplete="off"
+            />
+          </div>
+          <div id="search-results" class="search-results">
+            <div class="empty-state">
+              <div class="icon">🔍</div>
+              <p>Type to search ServiceNow CIs</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 2: Field Selection -->
+        <div class="modal-body" id="step-2-body" style="display: none">
+          <div id="field-groups-container">
+            <div class="empty-state">
+              <div
+                class="spinner dark"
+                style="width: 24px; height: 24px; margin: 0 auto 8px"
+              ></div>
+              <p>Loading fields…</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 3: Confirm -->
+        <div class="modal-body" id="step-3-body" style="display: none">
+          <div class="confirm-summary" id="confirm-summary-content"></div>
+          <p style="font-size: 12px; color: var(--muted)">
+            Click <strong>Confirm &amp; Store</strong> to save these CMDB fields
+            to the EMS entity in Neptune.
+          </p>
+        </div>
+
+        <div class="modal-footer">
+          <div class="selection-count" id="selection-count-label"></div>
+          <div style="display: flex; gap: 8px">
+            <button
+              class="btn btn-outline"
+              id="link-back-btn"
+              style="display: none"
+              onclick="linkWizardBack()"
+            >
+              ← Back
+            </button>
+            <button
+              class="btn btn-primary"
+              id="link-next-btn"
+              onclick="linkWizardNext()"
+              disabled
+            >
+              Next →
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         MODAL: Edit Field Selection
+    ══════════════════════════════════════════════════════════════ -->
+    <div class="modal-overlay" id="edit-fields-modal">
+      <div class="modal">
+        <div class="modal-header">
+          <h2>Edit Field Selection</h2>
+          <button class="modal-close" onclick="closeModal('edit-fields-modal')">
+            ×
+          </button>
+        </div>
+        <div class="modal-body" id="edit-fields-body">
+          <div class="empty-state">
+            <div
+              class="spinner dark"
+              style="width: 24px; height: 24px; margin: 0 auto 8px"
+            ></div>
+            <p>Loading fields…</p>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <div class="selection-count" id="edit-selection-count"></div>
+          <div style="display: flex; gap: 8px">
+            <button
+              class="btn btn-outline"
+              onclick="closeModal('edit-fields-modal')"
+            >
+              Cancel
+            </button>
+            <button
+              class="btn btn-primary"
+              onclick="saveEditedFields()"
+              id="save-fields-btn"
+            >
+              Save Changes
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         MODAL: Unlink Confirm
+    ══════════════════════════════════════════════════════════════ -->
+    <div class="modal-overlay" id="unlink-modal">
+      <div class="modal" style="max-width: 460px">
+        <div class="modal-header">
+          <h2>Unlink CMDB CI</h2>
+          <button class="modal-close" onclick="closeModal('unlink-modal')">
+            ×
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="danger-zone">
+            <p><strong>Are you sure you want to unlink this CI?</strong></p>
+            <p style="margin-bottom: 10px; color: var(--muted)">
+              The following data will be permanently removed from this
+              environment:
+            </p>
+            <ul>
+              <li>All stored CMDB field values (<code>meta_cmdb_*</code>)</li>
+              <li>CI name, class, and system ID</li>
+              <li>Field selection and sync history</li>
+            </ul>
+            <p style="margin-top: 12px; font-size: 12px; color: var(--muted)">
+              The environment itself and all its EMS integrations will not be
+              affected.
+            </p>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" onclick="closeModal('unlink-modal')">
+            Cancel
+          </button>
+          <button
+            class="btn btn-danger"
+            onclick="confirmUnlink()"
+            id="confirm-unlink-btn"
+          >
+            🗑 Yes, Unlink
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast container -->
+    <div id="toast-container"></div>
+
+    <script>
+      // ═══════════════════════════════════════════════════════════
+      // CONFIG
+      // ═══════════════════════════════════════════════════════════
+
+      const CONFIG = {
+        CMDB_API_URL: localStorage.getItem("ems_cmdb_api_url") || "",
+        CMDB_API_KEY: localStorage.getItem("ems_cmdb_api_key") || "",
+      };
+
+      // Pre-fill inputs from saved config
+      document.getElementById("cfg-api-url").value = CONFIG.CMDB_API_URL;
+      document.getElementById("cfg-api-key").value = CONFIG.CMDB_API_KEY;
+
+      function saveConfig() {
+        CONFIG.CMDB_API_URL = document
+          .getElementById("cfg-api-url")
+          .value.trim()
+          .replace(/\/$/, "");
+        CONFIG.CMDB_API_KEY = document
+          .getElementById("cfg-api-key")
+          .value.trim();
+        localStorage.setItem("ems_cmdb_api_url", CONFIG.CMDB_API_URL);
+        localStorage.setItem("ems_cmdb_api_key", CONFIG.CMDB_API_KEY);
+        const saved = document.getElementById("cfg-saved");
+        saved.style.display = "inline";
+        setTimeout(() => {
+          saved.style.display = "none";
+        }, 2000);
+      }
+
+      // ═══════════════════════════════════════════════════════════
+      // API HELPER
+      // ═══════════════════════════════════════════════════════════
+
+      async function cmdbApi(
+        operation,
+        method = "GET",
+        body = null,
+        extraParams = {},
+      ) {
+        if (!CONFIG.CMDB_API_URL) {
+          throw new Error(
+            "CMDB API URL not configured. Enter it in the banner above.",
+          );
+        }
+
+        const params = new URLSearchParams({ ...extraParams });
+        const url = `${CONFIG.CMDB_API_URL}/cmdb/${operation}${params.toString() ? "?" + params : ""}`;
+
+        const opts = {
+          method,
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": CONFIG.CMDB_API_KEY,
+          },
+        };
+        if (body) opts.body = JSON.stringify(body);
+
+        const resp = await fetch(url, opts);
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+        return data;
+      }
+
+      // ═══════════════════════════════════════════════════════════
+      // STATE
+      // ═══════════════════════════════════════════════════════════
+
+      let currentEntity = null; // { id, name, type }
+      let linkWizardStep = 1;
+      let selectedCi = null; // { sysId, name, ciClass, summary }
+      let allFields = []; // CmdbFieldDefinition[]
+      let selectedFieldKeys = []; // string[]
+
+      // ═══════════════════════════════════════════════════════════
+      // ENTITY SELECTION
+      // ═══════════════════════════════════════════════════════════
+
+      function selectEntity(id, name, type) {
+        currentEntity = { id, name, type };
+
+        // Update entity detail panel
+        document.getElementById("entity-placeholder").style.display = "none";
+        document.getElementById("entity-detail").style.display = "block";
+        document.getElementById("ep-name").textContent = name;
+        document.getElementById("entity-type-badge").textContent = type;
+
+        // Show CMDB sidebar and load status
+        document.getElementById("cmdb-sidebar").style.display = "block";
+        loadCmdbStatus();
+      }
+
+      // ═══════════════════════════════════════════════════════════
+      // LOAD CMDB STATUS
+      // ═══════════════════════════════════════════════════════════
+
+      async function loadCmdbStatus() {
+        if (!currentEntity) return;
+
+        setCmdbLoading("Checking CMDB status…");
+
+        try {
+          const data = await cmdbApi("cmdb-get-status", "GET", null, {
+            entityId: currentEntity.id,
+          });
+          renderCmdbPanel(data);
+        } catch (e) {
+          setCmdbError(e.message);
+        }
+      }
+
+      function renderCmdbPanel(data) {
+        const badge = document.getElementById("cmdb-status-badge");
+        const unlinked = document.getElementById("cmdb-unlinked");
+        const linked = document.getElementById("cmdb-linked");
+        const loading = document.getElementById("cmdb-loading");
+
+        loading.style.display = "none";
+
+        if (!data.linked) {
+          badge.className = "status-badge unlinked";
+          badge.innerHTML = "<span>○</span> Not linked";
+          unlinked.style.display = "block";
+          linked.style.display = "none";
+          document.getElementById("cmdb-provider-hint").textContent =
+            "Provider: ServiceNow";
+        } else {
+          badge.className = "status-badge linked";
+          badge.innerHTML = "<span>●</span> Linked";
+          unlinked.style.display = "none";
+          linked.style.display = "block";
+
+          document.getElementById("ci-display-name").textContent =
+            data.ciName || data.sysId;
+          document.getElementById("ci-display-class").textContent =
+            data.ciClass || "";
+
+          const fmt = (iso) => (iso ? new Date(iso).toLocaleString() : "—");
+          document.getElementById("ci-linked-by").textContent =
+            "Linked by " + (data.linkedBy || "—");
+          document.getElementById("ci-linked-at").textContent = fmt(
+            data.linkedAt,
+          );
+          document.getElementById("ci-last-synced").textContent =
+            "Last synced " + fmt(data.lastSyncedAt);
+
+          // Render field table
+          const tbody = document.getElementById("cmdb-field-rows");
+          tbody.innerHTML = "";
+          const fv = data.fieldValues || {};
+          if (Object.keys(fv).length === 0) {
+            tbody.innerHTML =
+              '<tr><td colspan="2" style="text-align:center;color:var(--muted);font-size:12px;padding:12px;">No fields stored yet</td></tr>';
+          } else {
+            for (const [k, v] of Object.entries(fv)) {
+              const tr = document.createElement("tr");
+              tr.innerHTML = `<td>${k.replace(/_/g, " ")}</td><td>${escHtml(v)}</td>`;
+              tbody.appendChild(tr);
+            }
+          }
+        }
+      }
+
+      function setCmdbLoading(msg) {
+        document.getElementById("cmdb-unlinked").style.display = "none";
+        document.getElementById("cmdb-linked").style.display = "none";
+        document.getElementById("cmdb-loading").style.display = "block";
+        document.getElementById("cmdb-loading-text").textContent = msg;
+        const badge = document.getElementById("cmdb-status-badge");
+        badge.className = "status-badge loading";
+        badge.innerHTML =
+          '<span class="spinner" style="width:10px;height:10px;border-width:1.5px;"></span> Loading';
+      }
+
+      function setCmdbError(msg) {
+        document.getElementById("cmdb-loading").style.display = "none";
+        document.getElementById("cmdb-unlinked").style.display = "block";
+        document.getElementById("cmdb-linked").style.display = "none";
+        const badge = document.getElementById("cmdb-status-badge");
+        badge.className = "status-badge error";
+        badge.innerHTML = "⚠ Error";
+        showToast("error", msg);
+      }
+
+      // ═══════════════════════════════════════════════════════════
+      // LINK WIZARD — Step 1: Search
+      // ═══════════════════════════════════════════════════════════
+
+      let searchTimer = null;
+
+      function openLinkModal() {
+        linkWizardStep = 1;
+        selectedCi = null;
+        selectedFieldKeys = [];
+        allFields = [];
+        document.getElementById("ci-search-input").value = "";
+        document.getElementById("search-results").innerHTML =
+          '<div class="empty-state"><div class="icon">🔍</div><p>Type to search ServiceNow CIs</p></div>';
+        setWizardStep(1);
+        openModal("link-modal");
+      }
+
+      function debouncedSearch() {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(doSearch, 350);
+      }
+
+      async function doSearch() {
+        const q = document.getElementById("ci-search-input").value.trim();
+        const container = document.getElementById("search-results");
+
+        if (!q) {
+          container.innerHTML =
+            '<div class="empty-state"><div class="icon">🔍</div><p>Type to search ServiceNow CIs</p></div>';
+          return;
+        }
+
+        container.innerHTML =
+          '<div class="empty-state"><div class="spinner dark" style="width:20px;height:20px;margin:0 auto 8px;"></div><p>Searching…</p></div>';
+
+        try {
+          const data = await cmdbApi("cmdb-search", "GET", null, { q });
+          const results = data.results || [];
+
+          if (results.length === 0) {
+            container.innerHTML =
+              '<div class="empty-state"><div class="icon">🔍</div><p>No CIs found for "' +
+              escHtml(q) +
+              '"</p></div>';
+            return;
+          }
+
+          container.innerHTML = "";
+          results.forEach((r) => {
+            const div = document.createElement("div");
+            div.className = "search-result-item";
+            div.dataset.sysId = r.sysId;
+            div.dataset.name = r.name;
+            div.dataset.ciClass = r.ciClass;
+            div.innerHTML = `
+              <div class="result-icon">📦</div>
+              <div class="result-info">
+                <div class="result-name">${escHtml(r.name)}</div>
+                <div class="result-meta">
+                  <span class="ci-class-chip" style="margin-right:4px;">${escHtml(r.ciClass)}</span>
+                  ${escHtml(r.summary || "")}
+                </div>
+              </div>
+            `;
+            div.onclick = () => selectSearchResult(r, div);
+            container.appendChild(div);
+          });
+        } catch (e) {
+          container.innerHTML = `<div class="empty-state"><p style="color:var(--danger)">Error: ${escHtml(e.message)}</p></div>`;
+        }
+      }
+
+      function selectSearchResult(r, el) {
+        document
+          .querySelectorAll(".search-result-item")
+          .forEach((e) => e.classList.remove("selected"));
+        el.classList.add("selected");
+        selectedCi = r;
+        document.getElementById("link-next-btn").disabled = false;
+        updateSelectionCount();
+      }
+
+      // ═══════════════════════════════════════════════════════════
+      // LINK WIZARD — Step 2: Field Selection
+      // ═══════════════════════════════════════════════════════════
+
+      async function loadFieldsForCi() {
+        const container = document.getElementById("field-groups-container");
+        container.innerHTML =
+          '<div class="empty-state"><div class="spinner dark" style="width:24px;height:24px;margin:0 auto 8px;"></div><p>Loading CI fields from ServiceNow…</p></div>';
+
+        try {
+          const data = await cmdbApi("cmdb-get-fields", "GET", null, {
+            sysId: selectedCi.sysId,
+            ciClass: selectedCi.ciClass,
+          });
+
+          allFields = data.fields || [];
+          // Pre-select recommended fields
+          selectedFieldKeys = allFields
+            .filter((f) => f.recommended)
+            .map((f) => f.key);
+          renderFieldGroups(container, allFields, selectedFieldKeys, "link-");
+          updateSelectionCount();
+        } catch (e) {
+          container.innerHTML = `<div class="empty-state"><p style="color:var(--danger)">Failed to load fields: ${escHtml(e.message)}</p></div>`;
+        }
+      }
+
+      function renderFieldGroups(container, fields, checked, idPrefix) {
+        if (fields.length === 0) {
+          container.innerHTML =
+            '<div class="empty-state"><p>No fields available for this CI class.</p></div>';
+          return;
+        }
+
+        // Group by category
+        const groups = {};
+        fields.forEach((f) => {
+          if (!groups[f.category]) groups[f.category] = [];
+          groups[f.category].push(f);
+        });
+
+        container.innerHTML = "";
+        const categoryOrder = [
+          "Ownership",
+          "Support",
+          "Lifecycle",
+          "Technical",
+          "Other",
+        ];
+        const ordered = [
+          ...categoryOrder.filter((c) => groups[c]),
+          ...Object.keys(groups).filter((c) => !categoryOrder.includes(c)),
+        ];
+
+        ordered.forEach((cat) => {
+          const catFields = groups[cat];
+          const catId = (idPrefix + cat).replace(/\s+/g, "-").toLowerCase();
+
+          const group = document.createElement("div");
+          group.className = "category-group";
+          group.innerHTML = `
+            <div class="category-header" onclick="toggleCategory('${catId}')">
+              ${cat} <small style="font-weight:400;margin-left:4px;opacity:.7">(${catFields.length})</small>
+              <div class="category-actions">
+                <button class="cat-action" onclick="event.stopPropagation();selectAllCat('${catId}','${idPrefix}')">All</button>
+                <button class="cat-action" onclick="event.stopPropagation();clearCat('${catId}','${idPrefix}')">None</button>
+              </div>
+            </div>
+            <div class="category-fields" id="cat-${catId}"></div>
+          `;
+          container.appendChild(group);
+
+          const catBody = group.querySelector(`#cat-${catId}`);
+          catFields.forEach((f) => {
+            const isChecked = checked.includes(f.key);
+            const item = document.createElement("label");
+            item.className = "field-item";
+            item.innerHTML = `
+              <input type="checkbox" id="${idPrefix}field-${f.key}" data-key="${f.key}" ${isChecked ? "checked" : ""}
+                onchange="onFieldToggle(this, '${idPrefix}')">
+              <div class="field-label">
+                <strong>${escHtml(f.label)}</strong>
+                ${f.currentValue ? `<span title="${escHtml(f.currentValue)}">Current: ${escHtml(f.currentValue.slice(0, 60))}${f.currentValue.length > 60 ? "…" : ""}</span>` : ""}
+              </div>
+              ${f.recommended ? '<span class="recommended-badge">★ Recommended</span>' : ""}
+              <span class="field-type-badge">${f.type}</span>
+            `;
+            catBody.appendChild(item);
+          });
+        });
+      }
+
+      function toggleCategory(catId) {
+        const body = document.getElementById("cat-" + catId);
+        if (body)
+          body.style.display = body.style.display === "none" ? "" : "none";
+      }
+
+      function selectAllCat(catId, prefix) {
+        document
+          .querySelectorAll(`#cat-${catId} input[type=checkbox]`)
+          .forEach((cb) => {
+            cb.checked = true;
+            onFieldToggle(cb, prefix);
+          });
+      }
+
+      function clearCat(catId, prefix) {
+        document
+          .querySelectorAll(`#cat-${catId} input[type=checkbox]`)
+          .forEach((cb) => {
+            cb.checked = false;
+            onFieldToggle(cb, prefix);
+          });
+      }
+
+      function onFieldToggle(cb, prefix) {
+        const key = cb.dataset.key;
+        if (cb.checked) {
+          if (!selectedFieldKeys.includes(key)) selectedFieldKeys.push(key);
+        } else {
+          selectedFieldKeys = selectedFieldKeys.filter((k) => k !== key);
+        }
+        updateSelectionCount();
+        if (prefix === "link-") {
+          document.getElementById("link-next-btn").disabled =
+            selectedFieldKeys.length === 0;
+        }
+      }
+
+      function updateSelectionCount() {
+        const lbl = document.getElementById("selection-count-label");
+        if (linkWizardStep === 1) {
+          lbl.textContent = selectedCi ? `CI: ${selectedCi.name}` : "";
+        } else if (linkWizardStep === 2) {
+          lbl.textContent = `${selectedFieldKeys.length} field${selectedFieldKeys.length !== 1 ? "s" : ""} selected`;
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════════
+      // LINK WIZARD — Step 3: Confirm
+      // ═══════════════════════════════════════════════════════════
+
+      function buildConfirmStep() {
+        const summary = document.getElementById("confirm-summary-content");
+        const selFields = allFields.filter((f) =>
+          selectedFieldKeys.includes(f.key),
+        );
+
+        const keyChips = selectedFieldKeys
+          .map((k) => `<div class="confirm-key-chip">meta_cmdb_${k}</div>`)
+          .join("");
+
+        summary.innerHTML = `
+          <div class="ci-header">
+            <span class="result-icon" style="width:36px;height:36px;">📦</span>
+            <div>
+              <strong>${escHtml(selectedCi.name)}</strong>
+              <div style="margin-top:2px;">
+                <span class="sn-chip">SERVICENOW</span>
+                <span class="ci-class-chip" style="margin-left:4px;">${escHtml(selectedCi.ciClass)}</span>
+              </div>
+            </div>
+          </div>
+          <ul>
+            <li>${selectedFieldKeys.length} CI field${selectedFieldKeys.length !== 1 ? "s" : ""} will be stored as Neptune metadata</li>
+            <li>CI will be linked to entity: <strong>${escHtml(currentEntity.name)}</strong></li>
+            <li>Data refreshable at any time without relinking</li>
+          </ul>
+          <div style="margin-top:14px;">
+            <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.8px;">Neptune keys to be created:</div>
+            <div class="confirm-keys-grid">${keyChips}</div>
+          </div>
+        `;
+      }
+
+      // ═══════════════════════════════════════════════════════════
+      // WIZARD NAVIGATION
+      // ═══════════════════════════════════════════════════════════
+
+      function setWizardStep(step) {
+        linkWizardStep = step;
+
+        ["step-1-body", "step-2-body", "step-3-body"].forEach((id, i) => {
+          document.getElementById(id).style.display =
+            i + 1 === step ? "flex" : "none";
+          document.getElementById(id).style.flexDirection = "column";
+        });
+
+        const indicators = ["step-ind-1", "step-ind-2", "step-ind-3"];
+        indicators.forEach((id, i) => {
+          const el = document.getElementById(id);
+          el.className = "step";
+          if (i + 1 < step) el.classList.add("done");
+          else if (i + 1 === step) el.classList.add("active");
+        });
+
+        document.getElementById("link-back-btn").style.display =
+          step > 1 ? "inline-flex" : "none";
+
+        const nextBtn = document.getElementById("link-next-btn");
+        if (step === 1) {
+          nextBtn.textContent = "Next →";
+          nextBtn.disabled = !selectedCi;
+          nextBtn.onclick = linkWizardNext;
+        } else if (step === 2) {
+          nextBtn.textContent = "Next →";
+          nextBtn.disabled = selectedFieldKeys.length === 0;
+          nextBtn.onclick = linkWizardNext;
+        } else {
+          nextBtn.textContent = "✓ Confirm & Store";
+          nextBtn.disabled = false;
+          nextBtn.onclick = doLinkEntity;
+        }
+
+        updateSelectionCount();
+      }
+
+      async function linkWizardNext() {
+        if (linkWizardStep === 1) {
+          setWizardStep(2);
+          await loadFieldsForCi();
+        } else if (linkWizardStep === 2) {
+          buildConfirmStep();
+          setWizardStep(3);
+          document.getElementById("selection-count-label").textContent =
+            `${selectedFieldKeys.length} field${selectedFieldKeys.length !== 1 ? "s" : ""} selected`;
+        }
+      }
+
+      function linkWizardBack() {
+        if (linkWizardStep > 1) setWizardStep(linkWizardStep - 1);
+      }
+
+      // ═══════════════════════════════════════════════════════════
+      // LINK — API CALL
+      // ═══════════════════════════════════════════════════════════
+
+      async function doLinkEntity() {
+        const btn = document.getElementById("link-next-btn");
+        btn.disabled = true;
+        btn.innerHTML =
+          '<span class="spinner" style="width:13px;height:13px;border-width:2px;"></span> Storing…';
+
+        try {
+          await cmdbApi("cmdb-link", "POST", {
+            entityId: currentEntity.id,
+            sysId: selectedCi.sysId,
+            ciClass: selectedCi.ciClass,
+            ciName: selectedCi.name,
+            selectedFields: selectedFieldKeys,
+            linkedBy: "ems-user",
+          });
+
+          closeModal("link-modal");
+          showToast("success", `CI "${selectedCi.name}" linked successfully`);
+          loadCmdbStatus();
+        } catch (e) {
+          showToast("error", "Link failed: " + e.message);
+          btn.disabled = false;
+          btn.textContent = "✓ Confirm & Store";
+          btn.onclick = doLinkEntity;
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════════
+      // REFRESH
+      // ═══════════════════════════════════════════════════════════
+
+      async function refreshCmdb() {
+        const btn = document.getElementById("refresh-btn");
+        btn.disabled = true;
+        btn.innerHTML =
+          '<span class="spinner" style="width:12px;height:12px;border-width:1.5px;border-top-color:var(--primary);border-color:rgba(0,0,0,.1);"></span> Refreshing…';
+
+        try {
+          const data = await cmdbApi("cmdb-refresh", "POST", {
+            entityId: currentEntity.id,
+          });
+          showToast("success", `Refreshed ${data.refreshedFieldCount} fields`);
+          await loadCmdbStatus();
+        } catch (e) {
+          showToast("error", "Refresh failed: " + e.message);
+        } finally {
+          btn.disabled = false;
+          btn.textContent = "🔄 Refresh";
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════════
+      // EDIT FIELDS
+      // ═══════════════════════════════════════════════════════════
+
+      async function openEditFieldsModal() {
+        openModal("edit-fields-modal");
+        const body = document.getElementById("edit-fields-body");
+        body.innerHTML =
+          '<div class="empty-state"><div class="spinner dark" style="width:24px;height:24px;margin:0 auto 8px;"></div><p>Loading fields…</p></div>';
+
+        try {
+          // Get current status for sysId + ciClass + current selection
+          const status = await cmdbApi("cmdb-get-status", "GET", null, {
+            entityId: currentEntity.id,
+          });
+          // Get fresh field definitions
+          const fieldsData = await cmdbApi("cmdb-get-fields", "GET", null, {
+            sysId: status.sysId,
+            ciClass: status.ciClass,
+          });
+
+          allFields = fieldsData.fields || [];
+          selectedFieldKeys = [...(status.selectedFields || [])];
+          renderFieldGroups(body, allFields, selectedFieldKeys, "edit-");
+          updateEditSelectionCount();
+        } catch (e) {
+          body.innerHTML = `<div class="empty-state"><p style="color:var(--danger)">Failed: ${escHtml(e.message)}</p></div>`;
+        }
+      }
+
+      function updateEditSelectionCount() {
+        document.getElementById("edit-selection-count").textContent =
+          `${selectedFieldKeys.length} field${selectedFieldKeys.length !== 1 ? "s" : ""} selected`;
+      }
+
+      async function saveEditedFields() {
+        const btn = document.getElementById("save-fields-btn");
+        btn.disabled = true;
+        btn.innerHTML =
+          '<span class="spinner" style="width:13px;height:13px;border-width:2px;"></span> Saving…';
+
+        try {
+          const data = await cmdbApi("cmdb-update-fields", "POST", {
+            entityId: currentEntity.id,
+            selectedFields: selectedFieldKeys,
+          });
+          closeModal("edit-fields-modal");
+          showToast(
+            "success",
+            `Added ${data.added.length}, removed ${data.removed.length} field(s)`,
+          );
+          await loadCmdbStatus();
+        } catch (e) {
+          showToast("error", "Save failed: " + e.message);
+        } finally {
+          btn.disabled = false;
+          btn.textContent = "Save Changes";
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════════
+      // UNLINK
+      // ═══════════════════════════════════════════════════════════
+
+      function openUnlinkModal() {
+        openModal("unlink-modal");
+      }
+
+      async function confirmUnlink() {
+        const btn = document.getElementById("confirm-unlink-btn");
+        btn.disabled = true;
+        btn.innerHTML =
+          '<span class="spinner" style="width:13px;height:13px;border-width:2px;border-top-color:var(--danger);border-color:rgba(0,0,0,.1);"></span> Unlinking…';
+
+        try {
+          await cmdbApi("cmdb-unlink", "POST", {
+            entityId: currentEntity.id,
+            unlinkedBy: "ems-user",
+          });
+          closeModal("unlink-modal");
+          showToast("info", "CMDB CI unlinked successfully");
+          await loadCmdbStatus();
+        } catch (e) {
+          showToast("error", "Unlink failed: " + e.message);
+        } finally {
+          btn.disabled = false;
+          btn.textContent = "🗑 Yes, Unlink";
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════════
+      // SETTINGS: Test Connection
+      // ═══════════════════════════════════════════════════════════
+
+      async function testConnection() {
+        const btn = document.getElementById("test-conn-btn");
+        const result = document.getElementById("conn-result");
+        btn.disabled = true;
+        btn.innerHTML =
+          '<span class="spinner" style="width:13px;height:13px;border-width:2px;"></span> Testing…';
+
+        try {
+          const data = await cmdbApi("cmdb-test-connection");
+          result.style.display = "block";
+          result.className = "connection-result ok";
+          result.textContent = `✓ ${data.message}`;
+        } catch (e) {
+          result.style.display = "block";
+          result.className = "connection-result err";
+          result.textContent = `✗ ${e.message}`;
+        } finally {
+          btn.disabled = false;
+          btn.innerHTML = "<span>Test Connection</span>";
+        }
+      }
+
+      function toggleSettingsPage() {
+        const page = document.getElementById("settings-page");
+        page.classList.toggle("visible");
+      }
+
+      // ═══════════════════════════════════════════════════════════
+      // MODAL HELPERS
+      // ═══════════════════════════════════════════════════════════
+
+      function openModal(id) {
+        document.getElementById(id).classList.add("open");
+        document.body.style.overflow = "hidden";
+      }
+
+      function closeModal(id) {
+        document.getElementById(id).classList.remove("open");
+        document.body.style.overflow = "";
+      }
+
+      // Close on overlay click
+      document.querySelectorAll(".modal-overlay").forEach((overlay) => {
+        overlay.addEventListener("click", (e) => {
+          if (e.target === overlay) closeModal(overlay.id);
+        });
+      });
+
+      // ═══════════════════════════════════════════════════════════
+      // TOAST
+      // ═══════════════════════════════════════════════════════════
+
+      function showToast(type, message) {
+        const container = document.getElementById("toast-container");
+        const toast = document.createElement("div");
+        toast.className = `toast ${type}`;
+        toast.textContent = message;
+        container.appendChild(toast);
+        setTimeout(() => toast.remove(), 4000);
+      }
+
+      // ═══════════════════════════════════════════════════════════
+      // UTILS
+      // ═══════════════════════════════════════════════════════════
+
+      function escHtml(str) {
+        return String(str || "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+    </script>
+  </body>
+</html>
