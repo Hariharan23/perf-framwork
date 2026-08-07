@@ -1267,6 +1267,23 @@
 
         <!-- Step 1: Search -->
         <div class="modal-body" id="step-1-body">
+          <!-- Auto-suggest panel (populated on modal open from entity name) -->
+          <div id="ci-suggestions" style="margin-bottom: 10px; display: none">
+            <div
+              style="
+                font-size: 11px;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                color: var(--muted);
+                margin-bottom: 6px;
+              "
+            >
+              Suggested matches for this entity
+            </div>
+            <div id="ci-suggestions-list"></div>
+          </div>
+
           <div class="search-box">
             <span
               class="search-icon"
@@ -1897,72 +1914,199 @@
       // ═══════════════════════════════════════════════════════════
 
       let searchTimer = null;
+      let searchOffset = 0;
+      let searchHasMore = false;
+      let searchQuery = "";
+      const SEARCH_LIMIT = 20;
 
       function openLinkModal() {
         linkWizardStep = 1;
         selectedCi = null;
         selectedFieldKeys = [];
         allFields = [];
+        searchOffset = 0;
+        searchHasMore = false;
+        searchQuery = "";
         document.getElementById("ci-search-input").value = "";
         document.getElementById("search-results").innerHTML =
           '<div class="empty-state"><p>Type to search ServiceNow CIs</p></div>';
+        // hide suggestions panel until loaded
+        const sugPanel = document.getElementById("ci-suggestions");
+        sugPanel.style.display = "none";
+        document.getElementById("ci-suggestions-list").innerHTML = "";
         setWizardStep(1);
         openModal("link-modal");
+        // fire auto-suggest after modal is visible
+        const entityName = currentEntity?.name?.trim() || "";
+        if (entityName) loadSuggestions(entityName);
+      }
+
+      // ── Auto-suggest: search by entity name, small limit, fire-once ──────
+      async function loadSuggestions(entityName) {
+        const sugPanel = document.getElementById("ci-suggestions");
+        const sugList = document.getElementById("ci-suggestions-list");
+        sugList.innerHTML =
+          '<div style="font-size:12px;color:var(--muted);padding:4px 0;">Loading suggestions…</div>';
+        sugPanel.style.display = "block";
+        try {
+          const data = await cmdbApi("cmdb-search", "GET", null, {
+            q: entityName,
+            limit: 5,
+            offset: 0,
+          });
+          const results = (data.results || []).slice(0, 5);
+          if (results.length === 0) {
+            sugPanel.style.display = "none";
+            return;
+          }
+          sugList.innerHTML = "";
+          results.forEach((r) => {
+            const row = document.createElement("div");
+            row.style.cssText =
+              "display:flex;align-items:center;gap:8px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;margin-bottom:4px;cursor:pointer;background:var(--bg);";
+            row.innerHTML = `
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(r.name)}</div>
+                <div style="font-size:11px;color:var(--muted);">${escHtml(r.ciClass)}${r.summary ? " · " + escHtml(r.summary.slice(0, 60)) : ""}</div>
+              </div>
+              <button class="btn btn-outline" style="padding:3px 10px;font-size:11px;white-space:nowrap;">Use this</button>
+            `;
+            row.querySelector("button").onclick = (e) => {
+              e.stopPropagation();
+              selectSuggestion(r);
+            };
+            row.onclick = () => selectSuggestion(r);
+            sugList.appendChild(row);
+          });
+        } catch (_) {
+          sugPanel.style.display = "none";
+        }
+      }
+
+      function selectSuggestion(r) {
+        // Highlight suggestion row and proceed as if user clicked a search result
+        document
+          .getElementById("ci-suggestions-list")
+          .querySelectorAll("div")
+          .forEach((d) => {
+            d.style.background = "";
+            d.style.borderColor = "var(--border)";
+          });
+        selectedCi = r;
+        document.getElementById("link-next-btn").disabled = false;
+        updateSelectionCount();
+        // Show the selection in search results area for clarity
+        const container = document.getElementById("search-results");
+        container.innerHTML = "";
+        appendResultItem(r, container, true);
+        document.getElementById("ci-search-input").value = r.name;
       }
 
       function debouncedSearch() {
         clearTimeout(searchTimer);
-        searchTimer = setTimeout(doSearch, 350);
+        searchTimer = setTimeout(() => doSearch(false), 350);
       }
 
-      async function doSearch() {
+      async function doSearch(append = false) {
         const q = document.getElementById("ci-search-input").value.trim();
         const container = document.getElementById("search-results");
 
         if (!q) {
           container.innerHTML =
             '<div class="empty-state"><p>Type to search ServiceNow CIs</p></div>';
+          searchOffset = 0;
+          searchHasMore = false;
+          searchQuery = "";
           return;
         }
 
-        container.innerHTML =
-          '<div class="empty-state"><div class="spinner dark" style="width:20px;height:20px;margin:0 auto 8px;"></div><p>Searching…</p></div>';
+        // New query — reset pagination
+        if (!append || q !== searchQuery) {
+          searchOffset = 0;
+          searchQuery = q;
+          container.innerHTML =
+            '<div class="empty-state"><div class="spinner dark" style="width:20px;height:20px;margin:0 auto 8px;"></div><p>Searching…</p></div>';
+        } else {
+          // Append: replace load-more button with spinner
+          const lmBtn = document.getElementById("load-more-btn");
+          if (lmBtn)
+            lmBtn.replaceWith(
+              Object.assign(document.createElement("div"), {
+                className: "empty-state",
+                innerHTML:
+                  '<div class="spinner dark" style="width:16px;height:16px;margin:4px auto;"></div>',
+              }),
+            );
+        }
 
         try {
-          const data = await cmdbApi("cmdb-search", "GET", null, { q });
+          const data = await cmdbApi("cmdb-search", "GET", null, {
+            q,
+            offset: searchOffset,
+            limit: SEARCH_LIMIT,
+          });
           const results = data.results || [];
+          searchHasMore = !!data.hasMore;
+          searchOffset += results.length;
 
-          if (results.length === 0) {
-            container.innerHTML =
-              '<div class="empty-state"><p>No CIs found for "' +
-              escHtml(q) +
-              '"</p></div>';
+          if (!append) container.innerHTML = "";
+          else {
+            const ghost = document.getElementById("load-more-btn");
+            if (ghost) ghost.remove();
+            const spinner = container.querySelector(".empty-state");
+            if (spinner) spinner.remove();
+          }
+
+          if (results.length === 0 && !append) {
+            container.innerHTML = `<div class="empty-state"><p>No CIs found for "${escHtml(q)}"</p></div>`;
             return;
           }
 
-          container.innerHTML = "";
-          results.forEach((r) => {
-            const div = document.createElement("div");
-            div.className = "search-result-item";
-            div.dataset.sysId = r.sysId;
-            div.dataset.name = r.name;
-            div.dataset.ciClass = r.ciClass;
-            div.innerHTML = `
-              <div class="result-icon">CI</div>
-              <div class="result-info">
-                <div class="result-name">${escHtml(r.name)}</div>
-                <div class="result-meta">
-                  <span class="ci-class-chip" style="margin-right:4px;">${escHtml(r.ciClass)}</span>
-                  ${escHtml(r.summary || "")}
-                </div>
-              </div>
-            `;
-            div.onclick = () => selectSearchResult(r, div);
-            container.appendChild(div);
-          });
+          results.forEach((r) => appendResultItem(r, container, false));
+
+          // Status bar + load-more button
+          const countEl = document.createElement("div");
+          countEl.id = "search-count-bar";
+          countEl.style.cssText =
+            "font-size:11px;color:var(--muted);text-align:center;padding:6px 0 2px;";
+          const existing = container.querySelector("#search-count-bar");
+          if (existing) existing.remove();
+          const total = searchOffset;
+          countEl.textContent = `Showing ${total} result${total !== 1 ? "s" : ""}`;
+          container.appendChild(countEl);
+
+          if (searchHasMore) {
+            const btn = document.createElement("button");
+            btn.id = "load-more-btn";
+            btn.className = "btn btn-outline";
+            btn.style.cssText = "width:100%;margin-top:6px;font-size:12px;";
+            btn.textContent = "Load more results…";
+            btn.onclick = () => doSearch(true);
+            container.appendChild(btn);
+          }
         } catch (e) {
           container.innerHTML = `<div class="empty-state"><p style="color:var(--danger)">Error: ${escHtml(e.message)}</p></div>`;
         }
+      }
+
+      function appendResultItem(r, container, selected) {
+        const div = document.createElement("div");
+        div.className = "search-result-item" + (selected ? " selected" : "");
+        div.dataset.sysId = r.sysId;
+        div.dataset.name = r.name;
+        div.dataset.ciClass = r.ciClass;
+        div.innerHTML = `
+          <div class="result-icon">CI</div>
+          <div class="result-info">
+            <div class="result-name">${escHtml(r.name)}</div>
+            <div class="result-meta">
+              <span class="ci-class-chip" style="margin-right:4px;">${escHtml(r.ciClass)}</span>
+              ${escHtml(r.summary || "")}
+            </div>
+          </div>
+        `;
+        div.onclick = () => selectSearchResult(r, div);
+        container.appendChild(div);
       }
 
       function selectSearchResult(r, el) {
