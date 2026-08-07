@@ -1050,6 +1050,118 @@
 
       .linked-state {
       }
+
+      .category-group {
+        margin-bottom: 6px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        overflow: hidden;
+      }
+      .category-header {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 9px 14px;
+        background: var(--bg);
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        user-select: none;
+        border-bottom: 1px solid var(--border);
+      }
+      .category-header:hover {
+        background: #e8edf5;
+      }
+      .category-header small {
+        color: var(--muted);
+        font-weight: 400;
+      }
+      .category-actions {
+        margin-left: auto;
+        display: flex;
+        gap: 6px;
+      }
+      .cat-action {
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 2px 8px;
+        font-size: 10px;
+        font-weight: 600;
+        cursor: pointer;
+        color: var(--muted);
+        transition:
+          background 0.1s,
+          color 0.1s;
+      }
+      .cat-action:hover {
+        background: var(--primary-bg);
+        color: var(--primary);
+        border-color: rgba(70, 128, 255, 0.3);
+      }
+      .category-fields {
+        padding: 4px 0;
+      }
+      .field-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 9px 14px;
+        cursor: pointer;
+        border-bottom: 1px solid var(--border);
+        transition: background 0.1s;
+      }
+      .field-item:last-child {
+        border-bottom: none;
+      }
+      .field-item:hover {
+        background: #fafbff;
+      }
+      .field-item input[type="checkbox"] {
+        flex-shrink: 0;
+        width: 15px;
+        height: 15px;
+        cursor: pointer;
+        accent-color: var(--primary);
+      }
+      .field-label {
+        flex: 1;
+        min-width: 0;
+      }
+      .field-label strong {
+        font-size: 13px;
+        font-weight: 600;
+        display: block;
+      }
+      .field-label span {
+        font-size: 11px;
+        color: var(--muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: block;
+        margin-top: 1px;
+      }
+      .field-type-badge {
+        font-size: 10px;
+        font-weight: 600;
+        flex-shrink: 0;
+        padding: 2px 7px;
+        border-radius: 4px;
+        background: #f1f5f9;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .recommended-badge {
+        font-size: 10px;
+        font-weight: 700;
+        flex-shrink: 0;
+        padding: 2px 7px;
+        border-radius: 4px;
+        background: var(--primary-bg);
+        color: var(--primary);
+      }
     </style>
   </head>
   <body>
@@ -1360,19 +1472,16 @@
       </div>
 
       <div class="page" id="page-linked-cis">
-        <div class="page-header fl-sb">
+        <div class="page-header">
           <div>
             <h1>Linked Configuration Items</h1>
             <p>All EMS environments with an associated ServiceNow CI.</p>
           </div>
-          <button class="btn btn-primary btn-sm" onclick="loadAllLinked()">
-            Refresh
-          </button>
         </div>
         <div class="page-body">
           <div class="card">
             <div id="all-linked-content" class="card-inner">
-              <div class="empty">Open this tab to load linked CIs.</div>
+              <div class="empty">Loading linked CIs...</div>
             </div>
           </div>
         </div>
@@ -1623,42 +1732,6 @@
                   Test Connection
                 </button>
                 <div id="conn-result" class="conn-result"></div>
-              </div>
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="card-header">
-              <div>
-                <div class="card-title">Update Password</div>
-                <div class="card-sub">
-                  ServiceNow password stored as AWS SSM SecureString
-                </div>
-              </div>
-            </div>
-            <div class="card-inner">
-              <div
-                style="
-                  background: var(--bg);
-                  border: 1px solid var(--border);
-                  border-radius: var(--radius);
-                  padding: 14px;
-                "
-              >
-                <div class="form-label" style="margin-bottom: 8px">
-                  AWS CLI command
-                </div>
-                <code
-                  style="
-                    font-size: 12px;
-                    background: #e2e8f0;
-                    padding: 4px 10px;
-                    border-radius: 4px;
-                    display: inline-block;
-                  "
-                  >aws ssm put-parameter --name /ems/cmdb/password --value
-                  "YOUR_PASSWORD" --type SecureString --overwrite</code
-                >
               </div>
             </div>
           </div>
@@ -2077,7 +2150,7 @@
           btn.dataset.id = env.id;
           btn.style.cssText =
             "width:100%;justify-content:flex-start;text-align:left;padding:8px 12px;";
-          btn.innerHTML = `<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(env.name)}</span><span style="font-size:10px;color:var(--muted);margin-left:6px;font-family:monospace;">${escHtml(env.id)}</span>`;
+          btn.innerHTML = `<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(env.name)}</span>`;
           btn.onclick = () => selectEntity(env.id, env.name, "Environment");
           container.appendChild(btn);
         });
@@ -2152,12 +2225,12 @@
         try {
           if (!CONFIG.QUERY_URL) throw new Error("QUERY_URL not configured");
           const resp = await fetch(
-            `${CONFIG.QUERY_URL}?operation=get-environment-detail&envId=${encodeURIComponent(id)}`,
-            { headers: { "x-api-key": CONFIG.QUERY_KEY } },
+            `${CONFIG.QUERY_URL}?operation=get-entity&id=${encodeURIComponent(id)}`,
+            { headers: { 'x-api-key': CONFIG.QUERY_KEY } },
           );
           const json = await resp.json();
           if (!resp.ok) throw new Error(json.error || `HTTP ${resp.status}`);
-          renderEntityDetail(json.data?.focus || json.focus || {});
+          renderEntityDetail(json.entity || json.data?.focus || json.focus || {});
         } catch (e) {
           // Fall back to just showing the name row
           console.warn("Entity detail fetch failed:", e.message);
@@ -3109,16 +3182,17 @@
 
       async function loadSchedulerConfig() {
         try {
-          const data = await cmdbApi("cmdb-get-scheduler-config", "GET");
+          const data = await cmdbApi('cmdb-get-scheduler-config', 'GET');
           schedulerConfig = data;
-          document.getElementById("scheduler-enabled").checked = !!data.enabled;
-          document.getElementById("scheduler-enabled-label").textContent = data.enabled ? "Enabled" : "Disabled";
-          const freqEl = document.getElementById("scheduler-frequency");
+          document.getElementById('scheduler-enabled').checked = !!data.enabled;
+          document.getElementById('scheduler-enabled-label').textContent = data.enabled ? 'Enabled' : 'Disabled';
+          const freqEl = document.getElementById('scheduler-frequency');
           if (freqEl) freqEl.value = data.schedule || 'rate(6 hours)';
           renderSchedulerStatus(data);
         } catch (e) {
-          document.getElementById("scheduler-status").textContent = "Could not load scheduler config: " + e.message;
+          document.getElementById('scheduler-status').textContent = 'Could not load scheduler config: ' + e.message;
         }
+        loadPipelineHistory();
       }
 
       function renderSchedulerStatus(data) {
@@ -3137,6 +3211,55 @@
       }
 
       function schedulerFreqChanged() { /* just tracks select state */ }
+
+      async function loadPipelineHistory() {
+        const el = document.getElementById('pipeline-history-content');
+        if (!el) return;
+        if (!CONFIG.CMDB_API_URL) { el.innerHTML = '<div class="empty">Configure API endpoints in Settings first.</div>'; return; }
+        el.innerHTML = '<div class="empty"><div class="spinner" style="width:18px;height:18px;margin:0 auto 8px;"></div>Loading run history...</div>';
+        try {
+          const data = await cmdbApi('cmdb-list-runs', 'GET');
+          const runs = data.runs || [];
+          if (runs.length === 0) {
+            el.innerHTML = '<div class="empty">No pipeline runs recorded yet.</div>';
+            return;
+          }
+          const statusBadge = (r) => r.failed > 0
+            ? `<span class="badge badge-error">${r.failed} failed</span>`
+            : `<span class="badge badge-ok">OK</span>`;
+          const duration = (r) => {
+            if (!r.startedAt || !r.endedAt) return '—';
+            const ms = new Date(r.endedAt) - new Date(r.startedAt);
+            return ms < 60000 ? `${Math.round(ms/1000)}s` : `${Math.round(ms/60000)}m`;
+          };
+          let html = `<table class="data-table">
+            <thead><tr>
+              <th>Started</th>
+              <th>Duration</th>
+              <th>Synced</th>
+              <th>Failed</th>
+              <th>Status</th>
+              <th>Errors</th>
+            </tr></thead><tbody>`;
+          runs.forEach(r => {
+            const started = r.startedAt ? new Date(r.startedAt).toLocaleString() : '—';
+            const errs = (r.errors || []).slice(0, 2).join('; ');
+            html += `<tr>
+              <td style="white-space:nowrap;font-size:12px;">${escHtml(started)}</td>
+              <td style="white-space:nowrap;">${escHtml(duration(r))}</td>
+              <td><strong>${r.succeeded}</strong></td>
+              <td>${r.failed > 0 ? `<strong style="color:var(--danger)">${r.failed}</strong>` : '0'}</td>
+              <td>${statusBadge(r)}</td>
+              <td style="font-size:11px;color:var(--muted);max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escHtml((r.errors||[]).join('; '))}">${escHtml(errs)}</td>
+            </tr>`;
+          });
+          html += '</tbody></table>';
+          html += `<div style="font-size:12px;color:var(--muted);margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">${runs.length} run${runs.length !== 1 ? 's' : ''} shown (last 20)</div>`;
+          el.innerHTML = html;
+        } catch (e) {
+          el.innerHTML = `<div class="empty" style="color:var(--danger);">Failed to load run history: ${escHtml(e.message)}</div>`;
+        }
+      }
 
       async function saveSchedulerConfig() {
         const btn = document.getElementById("save-scheduler-btn");
@@ -3184,36 +3307,33 @@
             return;
           }
           const syncBadge = (s) => {
-            if (!s) return '<span style="color:#94a3b8;">never synced</span>';
-            if (s === 'ok')     return '<span style="color:#16a34a;font-weight:600;">ok</span>';
-            if (s === 'error')  return '<span style="color:#dc2626;font-weight:600;">error</span>';
-            return `<span style="color:#d97706;">${escHtml(s)}</span>`;
+            if (!s) return '<span class="badge badge-none">Never</span>';
+            if (s === 'ok')    return '<span class="badge badge-ok">OK</span>';
+            if (s === 'error') return '<span class="badge badge-error">Error</span>';
+            return `<span class="badge badge-partial">${escHtml(s)}</span>`;
           };
-          let html = `<table style="width:100%;font-size:11px;border-collapse:collapse;">
-            <thead><tr style="background:#f1f5f9;">
-              <th style="padding:5px 8px;text-align:left;">Entity</th>
-              <th style="padding:5px 8px;text-align:left;">CI Name</th>
-              <th style="padding:5px 8px;text-align:left;">Class</th>
-              <th style="padding:5px 8px;text-align:left;">Last Synced</th>
-              <th style="padding:5px 8px;text-align:left;">Status</th>
-              <th style="padding:5px 8px;"></th>
+          let html = `<table class="data-table">
+            <thead><tr>
+              <th>Environment</th>
+              <th>CI Name</th>
+              <th>CI Class</th>
+              <th>Last Synced</th>
+              <th>Sync Status</th>
+              <th></th>
             </tr></thead><tbody>`;
           entities.forEach(e => {
             const ls = e.lastSynced ? new Date(e.lastSynced).toLocaleString() : '\u2014';
-            html += `<tr style="border-bottom:1px solid var(--border);">
-              <td style="padding:5px 8px;font-weight:500;">${escHtml(e.entityName)}</td>
-              <td style="padding:5px 8px;">${escHtml(e.ciName)}</td>
-              <td style="padding:5px 8px;font-family:monospace;">${escHtml(e.ciClass)}</td>
-              <td style="padding:5px 8px;white-space:nowrap;font-size:10px;">${ls}</td>
-              <td style="padding:5px 8px;">${syncBadge(e.syncStatus)}</td>
-              <td style="padding:5px 8px;">
-                <button class="btn btn-outline" style="padding:2px 8px;font-size:10px;"
-                  onclick="selectEntityById('${escHtml(e.entityId)}')">View</button>
-              </td>
+            html += `<tr>
+              <td style="font-weight:600;">${escHtml(e.entityName)}</td>
+              <td>${escHtml(e.ciName)}</td>
+              <td><span class="ci-class-chip">${escHtml(e.ciClass)}</span></td>
+              <td style="white-space:nowrap;font-size:12px;color:var(--muted);">${ls}</td>
+              <td>${syncBadge(e.syncStatus)}</td>
+              <td><button class="btn btn-outline btn-sm" onclick="selectEntityById('${escHtml(e.entityId)}')">View</button></td>
             </tr>`;
           });
           html += `</tbody></table>`;
-          html += `<div style="font-size:10px;color:var(--muted);margin-top:6px;">${entities.length} linked entities total</div>`;
+          html += `<div style="font-size:12px;color:var(--muted);margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">${entities.length} linked environment${entities.length !== 1 ? 's' : ''}</div>`;
           content.innerHTML = html;
         } catch (e) {
           content.innerHTML = `<div style="font-size:12px;color:var(--danger);">Error: ${escHtml(e.message)}</div>`;
