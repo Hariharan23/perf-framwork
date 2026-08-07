@@ -1,11 +1,10 @@
-<!doctype html>
+<\!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>EMS — CMDB ServiceNow Integration</title>
+    <title>EMS — CMDB Integration</title>
     <style>
-      /* ── Reset & Variables ── */
       *,
       *::before,
       *::after {
@@ -13,9 +12,10 @@
         margin: 0;
         padding: 0;
       }
+
       :root {
         --primary: #2563eb;
-        --primary-hover: #1d4ed8;
+        --primary-dark: #1d4ed8;
         --primary-light: #dbeafe;
         --success: #059669;
         --success-light: #dcfce7;
@@ -23,15 +23,13 @@
         --warn-light: #fef3c7;
         --danger: #dc2626;
         --danger-light: #fee2e2;
-        --bg: #f8fafc;
+        --bg: #f1f5f9;
         --card: #ffffff;
         --border: #e2e8f0;
-        --text: #1e293b;
+        --text: #0f172a;
         --muted: #64748b;
-        --code-bg: #0f172a;
-        --radius: 8px;
-        --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-        --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        --radius: 6px;
+        --sh: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
       }
 
       body {
@@ -41,297 +39,381 @@
         color: var(--text);
         font-size: 14px;
         line-height: 1.5;
+        min-height: 100vh;
       }
 
-      /* ── Layout ── */
-      .app-header {
+      /* ── Top navigation ── */
+      .topnav {
         background: #0f172a;
-        color: white;
-        padding: 14px 24px;
         display: flex;
-        align-items: center;
-        gap: 16px;
+        align-items: stretch;
+        height: 48px;
         position: sticky;
         top: 0;
         z-index: 200;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06);
       }
-      .app-header h1 {
-        font-size: 16px;
-        font-weight: 600;
-        opacity: 0.9;
-      }
-      .app-header .back-btn {
-        background: rgba(255, 255, 255, 0.1);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        color: white;
-        padding: 5px 12px;
-        border-radius: 6px;
-        cursor: pointer;
-        font-size: 13px;
-      }
-
-      .layout {
-        display: grid;
-        grid-template-columns: 1fr 340px;
-        gap: 20px;
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 24px 20px;
-      }
-      @media (max-width: 860px) {
-        .layout {
-          grid-template-columns: 1fr;
-        }
-      }
-
-      /* ── Config Banner ── */
-      .config-banner {
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 12px 20px 0;
-      }
-      .config-bar {
-        background: var(--warn-light);
-        border: 1px solid #fde68a;
-        border-left: 4px solid var(--warn);
-        border-radius: var(--radius);
-        padding: 10px 16px;
-        font-size: 13px;
+      .topnav-brand {
         display: flex;
         align-items: center;
-        gap: 8px;
-        flex-wrap: wrap;
+        padding: 0 20px 0 16px;
+        border-right: 1px solid rgba(255, 255, 255, 0.07);
+        gap: 10px;
+        min-width: 200px;
       }
-      .config-bar label {
+      .topnav-brand-name {
+        font-size: 13px;
         font-weight: 600;
+        color: #f8fafc;
+        letter-spacing: -0.01em;
+      }
+      .topnav-brand-sub {
+        font-size: 10px;
+        color: rgba(255, 255, 255, 0.4);
+        letter-spacing: 0.02em;
+      }
+      .topnav-tabs {
+        display: flex;
+        align-items: stretch;
+        flex: 1;
+        padding: 0 4px;
+      }
+      .nav-tab {
+        background: none;
+        border: none;
+        color: rgba(255, 255, 255, 0.5);
+        padding: 0 16px;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        transition:
+          color 0.12s,
+          border-color 0.12s;
+        letter-spacing: 0.01em;
         white-space: nowrap;
       }
-      .config-bar input {
-        border: 1px solid #fde68a;
-        border-radius: 5px;
-        padding: 4px 8px;
-        font-size: 12px;
-        font-family: monospace;
-        background: white;
-        width: 280px;
+      .nav-tab:hover {
+        color: rgba(255, 255, 255, 0.8);
       }
-      .config-bar input.key-input {
-        width: 240px;
+      .nav-tab.active {
+        color: #fff;
+        border-bottom-color: #3b82f6;
       }
-      .config-bar button {
-        background: var(--warn);
-        color: white;
-        border: none;
-        border-radius: 5px;
-        padding: 5px 12px;
-        cursor: pointer;
-        font-size: 12px;
-        font-weight: 600;
+      .topnav-end {
+        display: flex;
+        align-items: center;
+        padding: 0 16px;
+        border-left: 1px solid rgba(255, 255, 255, 0.07);
+      }
+      .config-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #475569;
+        margin-right: 6px;
+        transition: background 0.2s;
+      }
+      .config-dot.ok {
+        background: #22c55e;
+      }
+      .config-label,
+      #header-config-indicator {
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.4);
       }
 
-      /* ── Card ── */
+      /* ── Page visibility ── */
+      .page {
+        display: none;
+        min-height: calc(100vh - 48px);
+      }
+      .page.active {
+        display: block;
+      }
+
+      /* ── Page header ── */
+      .page-header {
+        background: #fff;
+        border-bottom: 1px solid var(--border);
+        padding: 20px 28px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+      .page-header h1 {
+        font-size: 18px;
+        font-weight: 700;
+        line-height: 1.2;
+      }
+      .page-header p {
+        font-size: 13px;
+        color: var(--muted);
+        margin-top: 2px;
+      }
+
+      /* ── Content wrappers ── */
+      .page-body {
+        padding: 24px 28px;
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+      .page-body-wide {
+        padding: 24px 28px;
+        max-width: 1400px;
+        margin: 0 auto;
+      }
+
+      /* ── Cards ── */
       .card {
         background: var(--card);
         border: 1px solid var(--border);
         border-radius: var(--radius);
-        padding: 20px;
-        box-shadow: var(--shadow-sm);
+        padding: 16px;
+        box-shadow: var(--sh);
       }
-      .card-title {
-        font-size: 14px;
-        font-weight: 600;
-        color: var(--text);
-        margin-bottom: 14px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
+      .card + .card {
+        margin-top: 16px;
       }
-
-      /* ── Entity Card (left demo panel) ── */
-      .entity-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        background: var(--primary-light);
-        color: var(--primary);
-        border-radius: 20px;
-        padding: 3px 12px;
-        font-size: 12px;
-        font-weight: 600;
-        margin-bottom: 14px;
-      }
-      .entity-props {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-        margin-bottom: 16px;
-      }
-      .prop-row {
-        display: flex;
-        gap: 10px;
-        font-size: 13px;
-      }
-      .prop-label {
-        color: var(--muted);
-        width: 110px;
-        flex-shrink: 0;
-      }
-      .prop-value {
-        color: var(--text);
-      }
-
-      /* ── CMDB Panel ── */
-      .cmdb-panel {
-      }
-      .cmdb-header {
+      .card-header {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        margin-bottom: 12px;
+        margin-bottom: 14px;
+        gap: 10px;
       }
-      .cmdb-title {
+      .card-title {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text);
+      }
+      .card-sub {
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 2px;
+      }
+
+      /* ── Two-column env layout ── */
+      .env-layout {
+        display: grid;
+        grid-template-columns: 320px 1fr;
+        gap: 20px;
+        align-items: start;
+      }
+      @media (max-width: 900px) {
+        .env-layout {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      /* ── Entity list ── */
+      .entity-search {
+        width: 100%;
+        padding: 8px 10px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        font-size: 13px;
+        background: var(--bg);
+        outline: none;
+        transition:
+          border-color 0.15s,
+          box-shadow 0.15s;
+      }
+      .entity-search:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        background: #fff;
+      }
+      .entity-scroll {
+        max-height: 280px;
+        overflow-y: auto;
+        margin-top: 10px;
+      }
+      .entity-item {
+        padding: 8px 10px;
+        border-radius: var(--radius);
+        cursor: pointer;
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: background 0.1s;
+      }
+      .entity-item:hover {
+        background: var(--bg);
+      }
+      .entity-item.active {
+        background: var(--primary-light);
+        color: var(--primary);
+        font-weight: 500;
+      }
+      .entity-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+
+      /* ── CMDB side panel ── */
+      .cmdb-panel-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding-bottom: 12px;
+        margin-bottom: 12px;
+        border-bottom: 1px solid var(--border);
+      }
+      .cmdb-panel-title {
         font-size: 13px;
         font-weight: 700;
         text-transform: uppercase;
-        letter-spacing: 0.8px;
+        letter-spacing: 0.05em;
         color: var(--muted);
-        display: flex;
-        align-items: center;
-        gap: 6px;
       }
+
+      /* ── Status badge ── */
       .status-badge {
         display: inline-flex;
         align-items: center;
         gap: 5px;
-        padding: 3px 10px;
-        border-radius: 20px;
         font-size: 11px;
-        font-weight: 700;
-      }
-      .status-badge.unlinked {
-        background: #f1f5f9;
-        color: #64748b;
+        font-weight: 600;
+        padding: 3px 8px;
+        border-radius: 20px;
+        letter-spacing: 0.02em;
       }
       .status-badge.linked {
         background: var(--success-light);
         color: var(--success);
       }
-      .status-badge.loading {
-        background: var(--primary-light);
-        color: var(--primary);
+      .status-badge.unlinked {
+        background: var(--bg);
+        color: var(--muted);
+        border: 1px solid var(--border);
       }
-      .status-badge.error {
-        background: var(--danger-light);
-        color: var(--danger);
+      .status-badge.loading {
+        background: #f1f5f9;
+        color: var(--muted);
       }
 
-      /* Unlinked state */
-      .unlinked-state {
+      /* ── CI Info ── */
+      .ci-card {
         background: var(--bg);
-        border: 2px dashed var(--border);
+        border: 1px solid var(--border);
         border-radius: var(--radius);
-        padding: 24px 16px;
+        padding: 12px 14px;
+        margin-bottom: 14px;
+      }
+      .ci-name {
+        font-size: 14px;
+        font-weight: 600;
+      }
+      .ci-chips {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        margin-top: 6px;
+      }
+      .chip {
+        font-size: 10px;
+        font-weight: 600;
+        padding: 2px 7px;
+        border-radius: 20px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+      .chip-sn {
+        background: #e0f2fe;
+        color: #0369a1;
+      }
+      .chip-class {
+        background: #f3e8ff;
+        color: #7e22ce;
+      }
+      .ci-meta {
+        font-size: 11px;
+        color: var(--muted);
+        margin-top: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      /* ── Field table ── */
+      .field-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+      }
+      .field-table th {
+        text-align: left;
+        padding: 6px 8px;
+        background: var(--bg);
+        border-bottom: 1px solid var(--border);
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .field-table td {
+        padding: 7px 8px;
+        border-bottom: 1px solid var(--border);
+        word-break: break-word;
+      }
+      .field-table tr:last-child td {
+        border-bottom: none;
+      }
+
+      /* ── Action buttons row ── */
+      .action-row {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        margin-top: 14px;
+      }
+
+      /* ── Unlinked state ── */
+      .unlinked-state {
         text-align: center;
+        padding: 32px 16px;
       }
       .unlinked-state p {
         color: var(--muted);
         font-size: 13px;
         margin-bottom: 14px;
       }
-      .unlinked-state small {
-        color: var(--muted);
-        font-size: 11px;
-        display: block;
-        margin-top: 8px;
-      }
 
-      /* Linked state */
-      .linked-state {
-      }
-      .ci-info-card {
-        background: #f0fdf4;
-        border: 1px solid #bbf7d0;
-        border-radius: 6px;
-        padding: 12px 14px;
-        margin-bottom: 12px;
-      }
-      .ci-info-row {
+      /* ── Entity props ── */
+      .entity-props .prop-row {
         display: flex;
-        align-items: center;
-        gap: 8px;
-        flex-wrap: wrap;
-        margin-bottom: 6px;
-      }
-      .ci-name {
-        font-weight: 600;
-        font-size: 14px;
-      }
-      .ci-class-chip {
-        background: #e0f2fe;
-        color: #0369a1;
-        border-radius: 4px;
-        padding: 1px 7px;
-        font-size: 11px;
-        font-weight: 600;
-      }
-      .sn-chip {
-        background: #62c8e8;
-        color: white;
-        border-radius: 4px;
-        padding: 1px 7px;
-        font-size: 10px;
-        font-weight: 700;
-        letter-spacing: 0.5px;
-      }
-      .ci-meta {
-        font-size: 11px;
-        color: var(--muted);
-        margin-top: 4px;
-      }
-      .ci-meta span + span::before {
-        content: "  ·  ";
-      }
-
-      /* Field value table */
-      .field-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 12px;
-        margin-bottom: 12px;
-      }
-      .field-table th {
-        background: #f8fafc;
-        padding: 7px 10px;
-        text-align: left;
-        font-weight: 600;
-        color: var(--muted);
+        gap: 10px;
+        padding: 6px 0;
         border-bottom: 1px solid var(--border);
+        font-size: 12px;
       }
-      .field-table td {
-        padding: 7px 10px;
-        border-bottom: 1px solid #f1f5f9;
-        vertical-align: top;
-      }
-      .field-table tr:last-child td {
+      .entity-props .prop-row:last-child {
         border-bottom: none;
       }
-      .field-table td:first-child {
+      .entity-props .prop-key {
         color: var(--muted);
-        white-space: nowrap;
+        min-width: 120px;
+        flex-shrink: 0;
       }
-      .field-table td:last-child {
+      .entity-props .prop-val {
         color: var(--text);
         word-break: break-word;
       }
-
-      /* Action row */
-      .action-row {
-        display: flex;
-        gap: 8px;
-        flex-wrap: wrap;
-        padding-top: 10px;
-        border-top: 1px solid var(--border);
+      .entity-badge {
+        font-size: 11px;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 20px;
+        background: #e0f2fe;
+        color: #0369a1;
+        display: inline-block;
       }
 
       /* ── Buttons ── */
@@ -340,90 +422,288 @@
         align-items: center;
         gap: 5px;
         padding: 7px 14px;
-        border: none;
-        border-radius: 6px;
+        border-radius: var(--radius);
         font-size: 13px;
         font-weight: 500;
         cursor: pointer;
-        transition: all 0.15s;
+        border: 1px solid transparent;
+        transition:
+          background 0.12s,
+          border-color 0.12s,
+          color 0.12s;
         white-space: nowrap;
       }
       .btn:disabled {
-        opacity: 0.5;
+        opacity: 0.55;
         cursor: not-allowed;
       }
       .btn-primary {
         background: var(--primary);
-        color: white;
+        color: #fff;
       }
       .btn-primary:hover:not(:disabled) {
-        background: var(--primary-hover);
+        background: var(--primary-dark);
       }
       .btn-outline {
-        background: white;
+        background: #fff;
+        border-color: var(--border);
         color: var(--text);
-        border: 1px solid var(--border);
       }
       .btn-outline:hover:not(:disabled) {
         background: var(--bg);
-      }
-      .btn-success {
-        background: var(--success);
-        color: white;
-      }
-      .btn-success:hover:not(:disabled) {
-        background: #047857;
+        border-color: #cbd5e1;
       }
       .btn-danger {
-        background: white;
-        color: var(--danger);
-        border: 1px solid #fecaca;
+        background: var(--danger);
+        color: #fff;
       }
       .btn-danger:hover:not(:disabled) {
-        background: var(--danger-light);
+        background: #b91c1c;
       }
       .btn-sm {
         padding: 5px 10px;
         font-size: 12px;
       }
 
-      /* ── Modal Overlay ── */
-      .modal-overlay {
+      /* ── Form fields ── */
+      .field-group {
+        margin-bottom: 14px;
+      }
+      .field-group label {
+        display: block;
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--muted);
+        margin-bottom: 4px;
+      }
+      .field-group input,
+      .field-group select {
+        width: 100%;
+        padding: 8px 10px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        font-size: 13px;
+        background: #fff;
+        outline: none;
+        transition:
+          border-color 0.15s,
+          box-shadow 0.15s;
+      }
+      .field-group input:focus,
+      .field-group select:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+      }
+      .field-group input[readonly] {
+        background: var(--bg);
+        color: var(--muted);
+        cursor: default;
+      }
+
+      /* ── Settings grid ── */
+      .settings-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+        gap: 20px;
+      }
+
+      /* ── Linked CIs table ── */
+      .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+      .data-table th {
+        text-align: left;
+        padding: 10px 12px;
+        background: var(--bg);
+        border-bottom: 2px solid var(--border);
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        white-space: nowrap;
+      }
+      .data-table td {
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--border);
+      }
+      .data-table tr:last-child td {
+        border-bottom: none;
+      }
+      .data-table tr:hover td {
+        background: var(--bg);
+      }
+
+      /* ── Badges ── */
+      .badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 600;
+      }
+      .badge-ok {
+        background: #dcfce7;
+        color: #15803d;
+      }
+      .badge-error {
+        background: #fee2e2;
+        color: #b91c1c;
+      }
+      .badge-partial {
+        background: #fef3c7;
+        color: #92400e;
+      }
+      .badge-none {
+        background: var(--bg);
+        color: var(--muted);
+        border: 1px solid var(--border);
+      }
+
+      /* ── Toggle switch ── */
+      .toggle {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        cursor: pointer;
+        user-select: none;
+      }
+      .toggle-track {
+        width: 36px;
+        height: 20px;
+        border-radius: 10px;
+        background: #cbd5e1;
+        transition: background 0.2s;
+        position: relative;
+        flex-shrink: 0;
+      }
+      .toggle-track::after {
+        content: "";
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #fff;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        transition: left 0.2s;
+      }
+      .toggle input {
         display: none;
+      }
+      .toggle input:checked + .toggle-track {
+        background: var(--primary);
+      }
+      .toggle input:checked + .toggle-track::after {
+        left: 18px;
+      }
+      .toggle-label {
+        font-size: 13px;
+      }
+
+      /* ── Spinner ── */
+      .spinner {
+        width: 20px;
+        height: 20px;
+        border: 2px solid var(--border);
+        border-top-color: var(--primary);
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+        display: inline-block;
+      }
+      .spinner.dark {
+        border-top-color: var(--text);
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* ── Empty state ── */
+      .empty {
+        text-align: center;
+        padding: 40px 20px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      /* ── Connection result ── */
+      .conn-result {
+        margin-top: 10px;
+        font-size: 12px;
+        padding: 8px 10px;
+        border-radius: var(--radius);
+        display: none;
+      }
+      .conn-result.ok {
+        background: var(--success-light);
+        color: var(--success);
+        display: block;
+      }
+      .conn-result.err {
+        background: var(--danger-light);
+        color: var(--danger);
+        display: block;
+      }
+
+      /* ── Config banner ── */
+      .config-bar {
+        background: var(--warn-light);
+        border: 1px solid #fde68a;
+        border-left: 4px solid var(--warn);
+        border-radius: var(--radius);
+        padding: 10px 14px;
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 20px;
+      }
+      .config-bar a {
+        color: var(--warn);
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      /* ── Modal ── */
+      .modal-overlay {
         position: fixed;
         inset: 0;
-        background: rgba(0, 0, 0, 0.5);
-        z-index: 1000;
+        background: rgba(0, 0, 0, 0.45);
+        display: none;
         align-items: center;
         justify-content: center;
+        z-index: 1000;
         padding: 20px;
       }
       .modal-overlay.open {
         display: flex;
       }
-
       .modal {
-        background: var(--card);
-        border-radius: 12px;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        background: #fff;
+        border-radius: 10px;
+        max-width: 600px;
         width: 100%;
-        max-width: 640px;
         max-height: 90vh;
         display: flex;
         flex-direction: column;
-        overflow: hidden;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
       }
       .modal-header {
-        padding: 18px 20px 14px;
-        border-bottom: 1px solid var(--border);
         display: flex;
         align-items: center;
         justify-content: space-between;
-        flex-shrink: 0;
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--border);
       }
       .modal-header h2 {
-        font-size: 16px;
-        font-weight: 600;
+        font-size: 15px;
+        font-weight: 700;
       }
       .modal-close {
         background: none;
@@ -432,31 +712,43 @@
         cursor: pointer;
         color: var(--muted);
         line-height: 1;
-        padding: 2px 6px;
+        padding: 0 4px;
+        transition: color 0.12s;
       }
       .modal-close:hover {
         color: var(--text);
       }
+      .modal-body {
+        padding: 20px;
+        overflow-y: auto;
+        flex: 1;
+      }
+      .modal-footer {
+        padding: 14px 20px;
+        border-top: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
 
-      /* Step indicator */
+      /* ── Step indicator ── */
       .steps {
         display: flex;
-        gap: 0;
-        padding: 12px 20px;
-        border-bottom: 1px solid var(--border);
-        flex-shrink: 0;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 20px;
       }
       .step {
         display: flex;
         align-items: center;
         gap: 6px;
         font-size: 12px;
-        font-weight: 500;
         color: var(--muted);
-        flex: 1;
       }
       .step.active {
         color: var(--primary);
+        font-weight: 600;
       }
       .step.done {
         color: var(--success);
@@ -471,923 +763,568 @@
         justify-content: center;
         font-size: 11px;
         font-weight: 700;
-        flex-shrink: 0;
-      }
-      .step.done .step-num {
-        background: var(--success);
-        border-color: var(--success);
-        color: white;
-      }
-      .step.active .step-num {
-        background: var(--primary);
-        border-color: var(--primary);
-        color: white;
       }
       .step-arrow {
-        color: #d1d5db;
-        margin: 0 4px;
-      }
-
-      .modal-body {
-        padding: 18px 20px;
-        overflow-y: auto;
-        flex: 1;
-      }
-      .modal-footer {
-        padding: 14px 20px;
-        border-top: 1px solid var(--border);
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        flex-shrink: 0;
-        background: #fafafa;
-      }
-      .modal-footer .selection-count {
-        font-size: 12px;
-        color: var(--muted);
+        color: var(--border);
+        font-size: 16px;
       }
 
       /* ── Search box ── */
       .search-box {
         position: relative;
-        margin-bottom: 14px;
+        margin-bottom: 12px;
       }
       .search-box input {
         width: 100%;
         padding: 9px 12px 9px 36px;
         border: 1px solid var(--border);
-        border-radius: 6px;
-        font-size: 14px;
+        border-radius: var(--radius);
+        font-size: 13px;
         outline: none;
-        transition: border-color 0.15s;
+        transition:
+          border-color 0.15s,
+          box-shadow 0.15s;
       }
       .search-box input:focus {
         border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
       }
-      .search-box .search-icon {
+      .search-box-icon {
         position: absolute;
         left: 11px;
         top: 50%;
         transform: translateY(-50%);
+        font-size: 14px;
         color: var(--muted);
-        font-size: 15px;
       }
 
-      /* Search results */
+      /* ── Search results ── */
       .search-results {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-        min-height: 120px;
+        max-height: 300px;
+        overflow-y: auto;
       }
-      .search-result-item {
-        display: flex;
-        align-items: flex-start;
-        gap: 10px;
-        padding: 10px 12px;
-        border: 1px solid var(--border);
-        border-radius: 6px;
+      .result-item {
+        padding: 9px 12px;
+        border-radius: var(--radius);
         cursor: pointer;
-        transition: all 0.12s;
-      }
-      .search-result-item:hover {
-        border-color: var(--primary);
-        background: #f0f7ff;
-      }
-      .search-result-item.selected {
-        border-color: var(--primary);
-        background: var(--primary-light);
-      }
-      .result-icon {
-        width: 32px;
-        height: 32px;
-        background: var(--primary-light);
-        border-radius: 6px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 16px;
-        flex-shrink: 0;
-      }
-      .result-info {
-        flex: 1;
-        min-width: 0;
-      }
-      .result-name {
-        font-weight: 600;
-        font-size: 13px;
-      }
-      .result-meta {
-        font-size: 11px;
-        color: var(--muted);
-        margin-top: 2px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-
-      /* ── Field selection ── */
-      .category-group {
-        margin-bottom: 14px;
-      }
-      .category-header {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 7px 10px;
-        background: var(--bg);
-        border: 1px solid var(--border);
-        border-radius: 6px;
-        cursor: pointer;
-        font-size: 12px;
-        font-weight: 700;
-        color: var(--muted);
-        text-transform: uppercase;
-        letter-spacing: 0.6px;
-        user-select: none;
-      }
-      .category-actions {
-        display: flex;
-        gap: 8px;
-      }
-      .cat-action {
-        font-size: 11px;
-        color: var(--primary);
-        cursor: pointer;
-        font-weight: 600;
-        background: none;
-        border: none;
-        padding: 0;
-      }
-      .cat-action:hover {
-        text-decoration: underline;
-      }
-      .category-fields {
-        padding-top: 4px;
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-      }
-      .field-item {
-        display: flex;
-        align-items: center;
         gap: 10px;
-        padding: 8px 10px;
-        border-radius: 5px;
-        cursor: pointer;
-        transition: background 0.1s;
+        border: 1px solid transparent;
+        transition:
+          background 0.1s,
+          border-color 0.1s;
+        margin-bottom: 4px;
       }
-      .field-item:hover {
+      .result-item:hover {
         background: var(--bg);
+        border-color: var(--border);
       }
-      .field-item input[type="checkbox"] {
-        width: 15px;
-        height: 15px;
-        cursor: pointer;
-        flex-shrink: 0;
-        accent-color: var(--primary);
+      .result-item.selected {
+        background: var(--primary-light);
+        border-color: var(--primary);
       }
-      .field-label {
-        flex: 1;
+      .result-name {
         font-size: 13px;
-      }
-      .field-label strong {
-        display: block;
         font-weight: 500;
       }
-      .field-label span {
+      .result-class {
         font-size: 11px;
         color: var(--muted);
         margin-top: 1px;
-        display: block;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        max-width: 280px;
       }
-      .field-type-badge {
-        font-size: 10px;
-        background: #f1f5f9;
-        color: var(--muted);
-        padding: 1px 6px;
-        border-radius: 3px;
-        flex-shrink: 0;
-      }
-      .recommended-badge {
-        font-size: 10px;
-        background: #fef3c7;
-        color: #92400e;
-        padding: 1px 6px;
-        border-radius: 3px;
-        flex-shrink: 0;
-      }
-
-      /* ── Confirm step ── */
-      .confirm-summary {
-        background: #f0fdf4;
-        border: 1px solid #bbf7d0;
-        border-radius: var(--radius);
-        padding: 16px;
-        margin-bottom: 16px;
-      }
-      .confirm-summary .ci-header {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-bottom: 12px;
-      }
-      .confirm-summary .ci-header strong {
-        font-size: 15px;
-      }
-      .confirm-summary ul {
-        list-style: none;
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-      }
-      .confirm-summary ul li {
-        font-size: 12px;
-        color: var(--muted);
-        display: flex;
-        gap: 6px;
-        align-items: center;
-      }
-      .confirm-summary ul li::before {
-        content: "→";
-        color: var(--success);
-      }
-      .confirm-keys-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 4px;
-        margin-top: 10px;
-      }
-      .confirm-key-chip {
-        background: #e0f2fe;
-        color: #0369a1;
-        border-radius: 4px;
-        padding: 3px 8px;
-        font-size: 11px;
-        font-family: monospace;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-
-      /* ── Unlink confirm modal ── */
-      .danger-zone {
-        background: var(--danger-light);
-        border: 1px solid #fecaca;
-        border-radius: var(--radius);
-        padding: 16px;
-        font-size: 13px;
-      }
-      .danger-zone p {
-        margin-bottom: 8px;
-      }
-      .danger-zone ul {
-        list-style: disc;
-        padding-left: 18px;
-        color: var(--muted);
-        font-size: 12px;
-      }
-      .danger-zone ul li + li {
-        margin-top: 4px;
-      }
-
-      /* ── Settings panel ── */
-      .settings-row {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-bottom: 12px;
-      }
-      .settings-row label {
-        font-size: 12px;
-        color: var(--muted);
-        width: 120px;
-        flex-shrink: 0;
-        font-weight: 600;
-      }
-      .settings-row input,
-      .settings-row select {
-        flex: 1;
-        padding: 7px 10px;
-        border: 1px solid var(--border);
-        border-radius: 5px;
-        font-size: 12px;
-        font-family: monospace;
-        background: white;
-      }
-      .settings-row input[type="password"] {
-        letter-spacing: 2px;
-      }
-      .connection-result {
-        margin-top: 10px;
-        padding: 10px 14px;
-        border-radius: 6px;
-        font-size: 13px;
+      .result-check {
+        color: var(--primary);
+        font-weight: 700;
         display: none;
       }
-      .connection-result.ok {
-        background: var(--success-light);
-        border: 1px solid #bbf7d0;
-        color: var(--success);
+      .result-item.selected .result-check {
+        display: block;
       }
-      .connection-result.err {
+
+      /* ── Field selection ── */
+      .field-group-section {
+        margin-bottom: 16px;
+      }
+      .field-group-label {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--muted);
+        padding: 6px 0;
+        border-bottom: 1px solid var(--border);
+        margin-bottom: 8px;
+      }
+      .field-checkbox-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 5px 6px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 13px;
+        transition: background 0.1s;
+      }
+      .field-checkbox-row:hover {
+        background: var(--bg);
+      }
+      .field-checkbox-row input {
+        cursor: pointer;
+      }
+
+      /* ── Confirm summary ── */
+      .confirm-section {
+        margin-bottom: 16px;
+      }
+      .confirm-section h4 {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        margin-bottom: 8px;
+      }
+      .confirm-section p {
+        font-size: 13px;
+      }
+
+      /* ── Danger zone ── */
+      .danger-zone {
         background: var(--danger-light);
-        border: 1px solid #fecaca;
-        color: var(--danger);
+        border: 1px solid #fca5a5;
+        border-radius: var(--radius);
+        padding: 16px;
+        font-size: 13px;
+      }
+      .danger-zone li {
+        margin: 4px 0 4px 16px;
+      }
+      .danger-zone p {
+        margin-bottom: 6px;
+      }
+
+      /* ── Selection count ── */
+      .selection-count {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      /* ── Suggestions panel ── */
+      .suggestions-panel {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 10px;
+        margin-bottom: 12px;
+      }
+      .suggestions-label {
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--muted);
+        margin-bottom: 8px;
+      }
+      .suggestion-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 6px 8px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        transition: background 0.1s;
+      }
+      .suggestion-item:hover {
+        background: #fff;
       }
 
       /* ── Toast ── */
       #toast-container {
         position: fixed;
-        bottom: 24px;
-        right: 24px;
-        z-index: 9999;
+        bottom: 20px;
+        right: 20px;
+        z-index: 9000;
         display: flex;
         flex-direction: column;
         gap: 8px;
       }
       .toast {
-        padding: 12px 18px;
-        border-radius: 8px;
+        padding: 10px 16px;
+        border-radius: var(--radius);
         font-size: 13px;
         font-weight: 500;
-        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-        min-width: 240px;
-        animation: slide-in 0.2s ease;
+        color: #fff;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        animation: fadeIn 0.2s ease;
       }
       .toast.success {
         background: var(--success);
-        color: white;
       }
       .toast.error {
         background: var(--danger);
-        color: white;
       }
       .toast.info {
-        background: #1e293b;
-        color: white;
+        background: #334155;
       }
-      @keyframes slide-in {
+      @keyframes fadeIn {
         from {
-          transform: translateX(40px);
           opacity: 0;
+          transform: translateY(8px);
         }
         to {
-          transform: none;
           opacity: 1;
+          transform: translateY(0);
         }
       }
 
-      /* ── Spinner ── */
-      .spinner {
-        width: 16px;
-        height: 16px;
-        border: 2px solid rgba(255, 255, 255, 0.3);
-        border-top-color: white;
-        border-radius: 50%;
-        animation: spin 0.6s linear infinite;
-        display: inline-block;
+      /* ── Inline schedule tables ── */
+      .sched-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 11px;
+        margin-top: 6px;
       }
-      .spinner.dark {
-        border-color: rgba(0, 0, 0, 0.1);
-        border-top-color: var(--primary);
-      }
-      @keyframes spin {
-        to {
-          transform: rotate(360deg);
-        }
-      }
-
-      /* ── Empty state ── */
-      .empty-state {
-        text-align: center;
-        padding: 32px 16px;
+      .sched-table th {
+        background: var(--bg);
+        padding: 4px 8px;
+        text-align: left;
+        font-weight: 600;
         color: var(--muted);
-        font-size: 13px;
+        border-bottom: 1px solid var(--border);
       }
-      .empty-state .icon {
-        font-size: 32px;
-        margin-bottom: 8px;
-      }
-
-      /* ── Admin settings page (compat) ── */
-      .settings-page {
-        display: none;
-      }
-      .settings-page.visible {
-        display: block;
-      }
-      .page-title {
-        font-size: 18px;
-        font-weight: 700;
-        margin-bottom: 4px;
-      }
-      .page-sub {
-        font-size: 13px;
-        color: var(--muted);
-        margin-bottom: 20px;
+      .sched-table td {
+        padding: 5px 8px;
+        border-bottom: 1px solid var(--border);
       }
 
-      /* ── Tab navigation ── */
-      .tab-bar {
-        background: #0f172a;
+      /* ── Pagination bar ── */
+      .pagination-bar {
         display: flex;
         align-items: center;
-        gap: 2px;
-        padding: 0 24px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-      }
-      .tab-btn {
-        background: none;
-        border: none;
-        color: rgba(255, 255, 255, 0.55);
-        padding: 13px 18px;
-        font-size: 13px;
-        font-weight: 500;
-        cursor: pointer;
-        border-bottom: 2px solid transparent;
-        transition:
-          color 0.15s,
-          border-color 0.15s;
-        white-space: nowrap;
-        letter-spacing: 0.01em;
-      }
-      .tab-btn:hover {
-        color: rgba(255, 255, 255, 0.85);
-      }
-      .tab-btn.active {
-        color: #fff;
-        border-bottom-color: #3b82f6;
-      }
-
-      /* ── Tab pages ── */
-      .tab-page {
-        display: none;
-      }
-      .tab-page.active {
-        display: block;
-      }
-
-      /* ── Settings grid ── */
-      .settings-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 20px;
-        max-width: 1100px;
-        margin: 0 auto;
-        padding: 24px 28px;
-      }
-      @media (max-width: 760px) {
-        .settings-grid {
-          grid-template-columns: 1fr;
-        }
-      }
-      .settings-card {
-        background: #fff;
-        border: 1px solid var(--border);
-        border-radius: 10px;
-        padding: 20px 22px;
-        box-shadow: var(--shadow-sm);
-      }
-      .settings-card-title {
-        font-size: 14px;
-        font-weight: 700;
-        color: var(--text);
-        margin-bottom: 4px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
-      .settings-card-sub {
+        justify-content: space-between;
+        margin-top: 10px;
         font-size: 12px;
         color: var(--muted);
-        margin-bottom: 16px;
-      }
-      .section-label {
-        font-size: 11px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        color: var(--muted);
-        margin-bottom: 6px;
-      }
-
-      /* ── Linked-CI page ── */
-      .linked-page-wrap {
-        max-width: 1100px;
-        margin: 0 auto;
-        padding: 24px 28px;
-      }
-
-      /* ── Environments page ── */
-      .env-page-wrap {
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 20px 28px;
-        display: grid;
-        grid-template-columns: 1fr 340px;
-        gap: 20px;
-      }
-      @media (max-width: 860px) {
-        .env-page-wrap {
-          grid-template-columns: 1fr;
-        }
-      }
-
-      /* ── Toggle switch ── */
-      .toggle-switch {
-        position: relative;
-        width: 40px;
-        height: 22px;
-        cursor: pointer;
-        display: inline-block;
-      }
-      .toggle-switch input {
-        opacity: 0;
-        width: 0;
-        height: 0;
-        position: absolute;
-      }
-      .toggle-track {
-        position: absolute;
-        inset: 0;
-        border-radius: 22px;
-        background: #cbd5e1;
-        transition: background 0.2s;
-      }
-      .toggle-switch input:checked + .toggle-track {
-        background: #2563eb;
-      }
-      .toggle-thumb {
-        position: absolute;
-        top: 3px;
-        left: 3px;
-        width: 16px;
-        height: 16px;
-        border-radius: 50%;
-        background: #fff;
-        transition: left 0.2s;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-        pointer-events: none;
-      }
-      .toggle-switch input:checked ~ .toggle-thumb {
-        left: 21px;
       }
     </style>
   </head>
   <body>
-    <!-- ── App Header ── -->
-    <div class="app-header" style="padding: 12px 24px">
-      <div style="display: flex; align-items: center; gap: 12px">
-        <div
-          style="
-            width: 32px;
-            height: 32px;
-            background: linear-gradient(135deg, #3b82f6, #6366f1);
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 16px;
-          "
+    <\!-- ── Top Navigation ── -->
+    <nav class="topnav">
+      <div class="topnav-brand">
+        <div>
+          <div class="topnav-brand-name">CMDB Integration</div>
+          <div class="topnav-brand-sub">EMS &mdash; ServiceNow</div>
+        </div>
+      </div>
+      <div class="topnav-tabs">
+        <button
+          class="nav-tab active"
+          id="tab-environments"
+          onclick="switchTab('environments')"
         >
-          🔗
-        </div>
+          Environments
+        </button>
+        <button
+          class="nav-tab"
+          id="tab-linked-cis"
+          onclick="switchTab('linked-cis')"
+        >
+          Linked CIs
+        </button>
+        <button
+          class="nav-tab"
+          id="tab-pipeline"
+          onclick="switchTab('pipeline')"
+        >
+          Refresh Pipeline
+        </button>
+        <button
+          class="nav-tab"
+          id="tab-settings"
+          onclick="switchTab('settings')"
+        >
+          Settings
+        </button>
+      </div>
+      <div class="topnav-end">
+        <div class="config-dot" id="config-dot"></div>
+        <span class="config-label" id="header-config-indicator"
+          >Not configured</span
+        >
+      </div>
+    </nav>
+
+    <\!-- ══════════════════════════════════════════════════ PAGE 1 —
+    Environments ══════════════════════════════════════════════════ -->
+    <div class="page active" id="page-environments">
+      <div class="page-header">
         <div>
-          <div
-            style="font-size: 15px; font-weight: 700; letter-spacing: -0.01em"
-          >
-            CMDB Integration
-          </div>
-          <div style="font-size: 11px; opacity: 0.55">
-            ServiceNow &mdash; Environment Management System
-          </div>
+          <h1>Environments</h1>
+          <p>
+            Select an environment to view and manage its linked ServiceNow CI.
+          </p>
         </div>
       </div>
-      <div
-        style="margin-left: auto; display: flex; align-items: center; gap: 8px"
-      >
-        <div id="header-config-indicator" style="font-size: 11px; opacity: 0.5">
-          Not configured
-        </div>
-      </div>
-    </div>
-
-    <!-- ── Tab Bar ── -->
-    <div class="tab-bar">
-      <button
-        class="tab-btn active"
-        onclick="switchTab('environments')"
-        id="tab-environments"
-      >
-        Environments
-      </button>
-      <button
-        class="tab-btn"
-        onclick="switchTab('linked-cis')"
-        id="tab-linked-cis"
-      >
-        Linked CIs
-      </button>
-      <button class="tab-btn" onclick="switchTab('pipeline')" id="tab-pipeline">
-        Refresh Pipeline
-      </button>
-      <button class="tab-btn" onclick="switchTab('settings')" id="tab-settings">
-        Settings
-      </button>
-    </div>
-
-    <!-- ═══ TAB 1 — Environments ═══ -->
-    <div class="tab-page active" id="page-environments">
-      <div class="env-page-wrap">
-        <!-- Left: entity selector + detail -->
-        <div>
-          <div class="card" style="margin-bottom: 16px">
-            <div class="card-title" style="justify-content: space-between">
-              <span>Select Environment</span>
-              <button
-                class="btn btn-outline btn-sm"
-                onclick="loadEntityList()"
-                id="refresh-entities-btn"
-              >
-                ↻ Refresh
-              </button>
-            </div>
-            <div style="margin-bottom: 10px">
+      <div class="page-body-wide">
+        <div class="env-layout">
+          <\!-- Left column: selector -->
+          <div>
+            <div class="card">
+              <div class="card-header">
+                <div class="card-title">Environments</div>
+                <button
+                  class="btn btn-outline btn-sm"
+                  onclick="loadEntityList()"
+                  id="refresh-entities-btn"
+                >
+                  Refresh
+                </button>
+              </div>
               <input
                 type="text"
+                class="entity-search"
                 id="entity-filter"
-                placeholder="Filter environments…"
-                style="
-                  width: 100%;
-                  padding: 7px 10px;
-                  border: 1px solid var(--border);
-                  border-radius: 6px;
-                  font-size: 13px;
-                "
+                placeholder="Filter environments..."
                 oninput="filterEntityList()"
               />
+              <div class="entity-scroll" id="entity-list-container">
+                <div class="empty">
+                  Configure API endpoints in Settings, then refresh.
+                </div>
+              </div>
             </div>
+          </div>
+
+          <\!-- Right column: entity detail + CMDB panel -->
+          <div>
+            <\!-- Entity detail -->
+            <div class="card" id="entity-card">
+              <div id="entity-placeholder" class="empty">
+                Select an environment to view its CMDB status.
+              </div>
+              <div id="entity-detail" style="display: none">
+                <div
+                  style="
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    margin-bottom: 12px;
+                  "
+                >
+                  <span class="entity-badge" id="entity-type-badge"></span>
+                  <div id="entity-detail-loading" style="display: none">
+                    <span
+                      class="spinner dark"
+                      style="width: 14px; height: 14px"
+                    ></span>
+                  </div>
+                </div>
+                <div id="entity-props-container" class="entity-props"></div>
+              </div>
+            </div>
+
+            <\!-- CMDB panel -->
             <div
-              id="entity-list-container"
-              style="
-                max-height: 240px;
-                overflow-y: auto;
-                display: flex;
-                flex-direction: column;
-                gap: 4px;
-              "
+              class="card"
+              id="cmdb-sidebar"
+              style="display: none; margin-top: 16px"
             >
-              <div class="empty-state" style="padding: 16px">
-                <p>
-                  Enter your Query URL and API Key in <strong>Settings</strong>,
-                  then click <strong>Save</strong>.
+              <div class="cmdb-panel-header">
+                <span class="cmdb-panel-title">ServiceNow CMDB</span>
+                <span class="status-badge" id="cmdb-status-badge">
+                  <span id="cmdb-status-dot">●</span>
+                  <span id="cmdb-status-text">Loading</span>
+                </span>
+              </div>
+
+              <\!-- Unlinked -->
+              <div
+                id="cmdb-unlinked"
+                class="unlinked-state"
+                style="display: none"
+              >
+                <p>No Configuration Item linked to this environment.</p>
+                <button class="btn btn-primary" onclick="openLinkModal()">
+                  Link CI
+                </button>
+                <small
+                  id="cmdb-provider-hint"
+                  style="
+                    display: block;
+                    margin-top: 8px;
+                    font-size: 11px;
+                    color: var(--muted);
+                  "
+                ></small>
+              </div>
+
+              <\!-- Linked -->
+              <div id="cmdb-linked" style="display: none">
+                <div class="ci-card">
+                  <div class="ci-name" id="ci-display-name"></div>
+                  <div class="ci-chips">
+                    <span class="chip chip-sn">ServiceNow</span>
+                    <span class="chip chip-class" id="ci-display-class"></span>
+                  </div>
+                  <div class="ci-meta">
+                    <span id="ci-linked-by"></span>
+                    <span id="ci-linked-at"></span>
+                    <span id="ci-last-synced"></span>
+                    <span id="ci-sync-status"></span>
+                  </div>
+                </div>
+
+                <div id="cmdb-fields-wrap">
+                  <table class="field-table">
+                    <thead>
+                      <tr>
+                        <th>Field</th>
+                        <th>Value</th>
+                      </tr>
+                    </thead>
+                    <tbody id="cmdb-field-rows"></tbody>
+                  </table>
+                </div>
+
+                <div class="action-row">
+                  <button
+                    class="btn btn-outline btn-sm"
+                    onclick="refreshCmdb()"
+                    id="refresh-btn"
+                  >
+                    Refresh
+                  </button>
+                  <button
+                    class="btn btn-outline btn-sm"
+                    onclick="openEditFieldsModal()"
+                  >
+                    Edit Fields
+                  </button>
+                  <button
+                    class="btn btn-outline btn-sm"
+                    onclick="openMappingModal()"
+                  >
+                    Field Mapping
+                  </button>
+                  <button
+                    class="btn btn-outline btn-sm"
+                    onclick="loadCiSchedule()"
+                    id="schedule-btn"
+                  >
+                    View Schedule
+                  </button>
+                  <button
+                    class="btn btn-danger btn-sm"
+                    onclick="openUnlinkModal()"
+                  >
+                    Unlink
+                  </button>
+                </div>
+
+                <\!-- Schedule panel -->
+                <div
+                  id="ci-schedule-panel"
+                  style="display: none; margin-top: 14px"
+                >
+                  <div
+                    style="
+                      font-size: 11px;
+                      font-weight: 700;
+                      text-transform: uppercase;
+                      letter-spacing: 0.05em;
+                      color: var(--muted);
+                      margin-bottom: 8px;
+                    "
+                  >
+                    Maintenance &amp; Changes
+                  </div>
+                  <div id="ci-schedule-content"></div>
+                </div>
+              </div>
+
+              <\!-- Loading -->
+              <div
+                id="cmdb-loading"
+                style="text-align: center; padding: 32px; display: none"
+              >
+                <div class="spinner dark" style="margin: 0 auto 10px"></div>
+                <p
+                  style="font-size: 12px; color: var(--muted)"
+                  id="cmdb-loading-text"
+                >
+                  Loading...
                 </p>
               </div>
             </div>
           </div>
-          <div class="card" id="entity-card">
-            <div id="entity-placeholder" class="empty-state">
-              <p>
-                Select an environment from the list to view its CMDB status.
-              </p>
-            </div>
-            <div id="entity-detail" style="display: none">
-              <div
-                style="
-                  display: flex;
-                  align-items: center;
-                  gap: 8px;
-                  margin-bottom: 12px;
-                "
-              >
-                <div
-                  class="entity-badge"
-                  id="entity-type-badge"
-                  style="margin-bottom: 0"
-                ></div>
-                <div id="entity-detail-loading" style="display: none">
-                  <span
-                    class="spinner dark"
-                    style="width: 14px; height: 14px"
-                  ></span>
-                </div>
-              </div>
-              <div id="entity-props-container" class="entity-props"></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Right: CMDB panel -->
-        <div id="cmdb-sidebar" style="display: none">
-          <div class="card">
-            <div class="cmdb-header">
-              <div class="cmdb-title">CMDB</div>
-              <span class="status-badge" id="cmdb-status-badge">
-                <span id="cmdb-status-dot">●</span>
-                <span id="cmdb-status-text">Loading…</span>
-              </span>
-            </div>
-            <div
-              id="cmdb-unlinked"
-              class="unlinked-state"
-              style="display: none"
-            >
-              <p>No Configuration Item linked to this environment.</p>
-              <button class="btn btn-primary" onclick="openLinkModal()">
-                Link CI
-              </button>
-              <small id="cmdb-provider-hint"></small>
-            </div>
-            <div id="cmdb-linked" class="linked-state" style="display: none">
-              <div class="ci-info-card">
-                <div class="ci-info-row">
-                  <span class="ci-name" id="ci-display-name"></span>
-                  <span class="sn-chip">SERVICENOW</span>
-                  <span class="ci-class-chip" id="ci-display-class"></span>
-                </div>
-                <div class="ci-meta">
-                  <span id="ci-linked-by"></span>
-                  <span id="ci-linked-at"></span>
-                  <span id="ci-last-synced"></span>
-                  <span id="ci-sync-status"></span>
-                </div>
-              </div>
-              <div id="cmdb-fields-wrap">
-                <table class="field-table">
-                  <thead>
-                    <tr>
-                      <th>Field</th>
-                      <th>Value</th>
-                    </tr>
-                  </thead>
-                  <tbody id="cmdb-field-rows"></tbody>
-                </table>
-              </div>
-              <div class="action-row">
-                <button
-                  class="btn btn-outline btn-sm"
-                  onclick="refreshCmdb()"
-                  id="refresh-btn"
-                >
-                  Refresh
-                </button>
-                <button
-                  class="btn btn-outline btn-sm"
-                  onclick="openEditFieldsModal()"
-                >
-                  Edit Fields
-                </button>
-                <button
-                  class="btn btn-outline btn-sm"
-                  onclick="openMappingModal()"
-                >
-                  Field Mapping
-                </button>
-                <button
-                  class="btn btn-outline btn-sm"
-                  onclick="loadCiSchedule()"
-                  id="schedule-btn"
-                >
-                  View Schedule
-                </button>
-                <button
-                  class="btn btn-danger btn-sm"
-                  onclick="openUnlinkModal()"
-                >
-                  Unlink
-                </button>
-              </div>
-              <div
-                id="ci-schedule-panel"
-                style="display: none; margin-top: 12px"
-              >
-                <div
-                  style="
-                    font-size: 11px;
-                    font-weight: 600;
-                    text-transform: uppercase;
-                    letter-spacing: 0.05em;
-                    color: var(--muted);
-                    margin-bottom: 8px;
-                  "
-                >
-                  Maintenance &amp; Changes
-                </div>
-                <div id="ci-schedule-content"></div>
-              </div>
-            </div>
-            <div
-              id="cmdb-loading"
-              style="text-align: center; padding: 24px; display: none"
-            >
-              <div
-                class="spinner dark"
-                style="width: 24px; height: 24px; margin: 0 auto 8px"
-              ></div>
-              <p
-                style="font-size: 12px; color: var(--muted)"
-                id="cmdb-loading-text"
-              >
-                Loading…
-              </p>
-            </div>
-          </div>
         </div>
       </div>
     </div>
 
-    <!-- ═══ TAB 2 — Linked CIs ═══ -->
-    <div class="tab-page" id="page-linked-cis">
-      <div
-        style="
-          background: #fff;
-          border-bottom: 1px solid var(--border);
-          padding: 18px 28px 16px;
-          display: flex;
-          align-items: flex-end;
-          justify-content: space-between;
-          flex-wrap: wrap;
-          gap: 12px;
-        "
-      >
+    <\!-- ══════════════════════════════════════════════════ PAGE 2 — Linked CIs
+    ══════════════════════════════════════════════════ -->
+    <div class="page" id="page-linked-cis">
+      <div class="page-header">
         <div>
-          <div style="font-size: 20px; font-weight: 700">
-            Linked Configuration Items
-          </div>
-          <div style="font-size: 13px; color: var(--muted); margin-top: 2px">
-            All EMS environments that have a ServiceNow CI linked
-          </div>
+          <h1>Linked Configuration Items</h1>
+          <p>All EMS environments that have a ServiceNow CI associated.</p>
         </div>
         <button class="btn btn-primary btn-sm" onclick="loadAllLinked()">
-          ↻ Refresh
+          Refresh
         </button>
       </div>
-      <div class="linked-page-wrap">
-        <div id="all-linked-content">
-          <div class="empty-state" style="padding: 40px 0">
-            <p style="color: var(--muted)">
-              Select this tab to load linked CIs.
-            </p>
+      <div class="page-body">
+        <div class="card">
+          <div id="all-linked-content">
+            <div class="empty">Navigate to this tab to load linked CIs.</div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- ═══ TAB 3 — Refresh Pipeline ═══ -->
-    <div class="tab-page" id="page-pipeline">
-      <div
-        style="
-          background: #fff;
-          border-bottom: 1px solid var(--border);
-          padding: 18px 28px 16px;
-        "
-      >
-        <div style="font-size: 20px; font-weight: 700">CI Refresh Pipeline</div>
-        <div style="font-size: 13px; color: var(--muted); margin-top: 2px">
-          Automated scheduled sync of all linked CIs from ServiceNow
+    <\!-- ══════════════════════════════════════════════════ PAGE 3 — Refresh
+    Pipeline ══════════════════════════════════════════════════ -->
+    <div class="page" id="page-pipeline">
+      <div class="page-header">
+        <div>
+          <h1>CI Refresh Pipeline</h1>
+          <p>
+            Automated scheduled sync of all linked CIs from ServiceNow into
+            Neptune.
+          </p>
         </div>
       </div>
-      <div style="max-width: 900px; margin: 0 auto; padding: 28px">
-        <div
-          style="
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            margin-bottom: 20px;
-          "
-        >
-          <div class="settings-card">
-            <div class="settings-card-title">
-              <span class="icon">⏱</span> Schedule
-            </div>
-            <div class="settings-card-sub">
-              Configure when the pipeline runs automatically.
-            </div>
-            <div class="settings-row" style="align-items: center">
-              <label>Auto-refresh</label>
-              <div style="display: flex; align-items: center; gap: 8px">
-                <label class="toggle-switch">
-                  <input
-                    type="checkbox"
-                    id="scheduler-enabled"
-                    onchange="schedulerToggleChanged()"
-                  />
-                  <div class="toggle-track"></div>
-                  <div class="toggle-thumb"></div>
-                </label>
-                <span
-                  id="scheduler-enabled-label"
-                  style="font-size: 12px; color: var(--muted)"
-                  >Disabled</span
-                >
+      <div class="page-body">
+        <div class="settings-grid" style="margin-bottom: 20px">
+          <\!-- Schedule card -->
+          <div class="card">
+            <div class="card-header" style="margin-bottom: 16px">
+              <div>
+                <div class="card-title">Schedule</div>
+                <div class="card-sub">
+                  Configure when the pipeline runs automatically.
+                </div>
               </div>
             </div>
-            <div class="settings-row">
+            <div class="field-group">
+              <label>Auto-refresh</label>
+              <label class="toggle">
+                <input
+                  type="checkbox"
+                  id="scheduler-enabled"
+                  onchange="schedulerToggleChanged()"
+                />
+                <div class="toggle-track"></div>
+                <span class="toggle-label" id="scheduler-enabled-label"
+                  >Disabled</span
+                >
+              </label>
+            </div>
+            <div class="field-group">
               <label>Frequency</label>
               <select
                 id="scheduler-frequency"
@@ -1397,49 +1334,68 @@
                 <option value="rate(6 hours)" selected>Every 6 hours</option>
                 <option value="rate(12 hours)">Every 12 hours</option>
                 <option value="rate(24 hours)">Daily</option>
-                <option value="cron(0 2 * * ? *)">Nightly 2 am UTC</option>
+                <option value="cron(0 2 * * ? *)">Nightly 2:00 am UTC</option>
               </select>
             </div>
-            <div style="display: flex; gap: 8px; margin-top: 14px">
-              <button
-                class="btn btn-primary btn-sm"
-                onclick="saveSchedulerConfig()"
-                id="save-scheduler-btn"
-              >
-                Save schedule
-              </button>
-            </div>
+            <button
+              class="btn btn-primary btn-sm"
+              onclick="saveSchedulerConfig()"
+              id="save-scheduler-btn"
+            >
+              Save schedule
+            </button>
           </div>
-          <div class="settings-card">
-            <div class="settings-card-title">
-              <span class="icon">▶</span> Manual Run
-            </div>
-            <div class="settings-card-sub">
-              Trigger the pipeline immediately regardless of schedule.
+
+          <\!-- Manual run card -->
+          <div class="card">
+            <div class="card-header" style="margin-bottom: 16px">
+              <div>
+                <div class="card-title">Manual Run</div>
+                <div class="card-sub">
+                  Trigger the pipeline immediately, regardless of schedule.
+                </div>
+              </div>
             </div>
             <button
               class="btn btn-primary"
               onclick="triggerRefreshNow()"
               id="run-now-btn"
-              style="width: 100%; justify-content: center; margin-bottom: 16px"
+              style="width: 100%; justify-content: center"
             >
               Run pipeline now
             </button>
-            <div class="section-label">Last run</div>
-            <div
-              id="scheduler-status"
-              style="font-size: 12px; color: var(--muted)"
-            >
-              —
+            <div style="margin-top: 16px">
+              <div
+                style="
+                  font-size: 11px;
+                  font-weight: 700;
+                  text-transform: uppercase;
+                  letter-spacing: 0.05em;
+                  color: var(--muted);
+                  margin-bottom: 6px;
+                "
+              >
+                Last run
+              </div>
+              <div
+                id="scheduler-status"
+                style="font-size: 13px; color: var(--muted)"
+              >
+                —
+              </div>
             </div>
           </div>
         </div>
-        <div class="settings-card">
-          <div class="settings-card-title">
-            <span class="icon">📋</span> Run History
-          </div>
-          <div class="settings-card-sub">
-            Recent pipeline executions (DynamoDB, retained 30 days).
+
+        <\!-- Run history card -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Run History</div>
+              <div class="card-sub">
+                Recent pipeline executions — stored in DynamoDB for 30 days.
+              </div>
+            </div>
           </div>
           <div
             id="pipeline-history-content"
@@ -1451,263 +1407,247 @@
       </div>
     </div>
 
-    <!-- ═══ TAB 4 — Settings ═══ -->
-    <div class="tab-page" id="page-settings">
-      <div
-        style="
-          background: #fff;
-          border-bottom: 1px solid var(--border);
-          padding: 18px 28px 16px;
-        "
-      >
-        <div style="font-size: 20px; font-weight: 700">Settings</div>
-        <div style="font-size: 13px; color: var(--muted); margin-top: 2px">
-          API endpoints, ServiceNow connection, and credentials
+    <\!-- ══════════════════════════════════════════════════ PAGE 4 — Settings
+    ══════════════════════════════════════════════════ -->
+    <div class="page" id="page-settings">
+      <div class="page-header">
+        <div>
+          <h1>Settings</h1>
+          <p>API endpoints, ServiceNow connection details, and credentials.</p>
         </div>
       </div>
-      <div class="settings-grid">
-        <div class="settings-card">
-          <div class="settings-card-title">
-            <span class="icon">🔌</span> API Endpoints
+      <div class="page-body">
+        <div class="settings-grid">
+          <\!-- API Endpoints -->
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <div class="card-title">API Endpoints</div>
+                <div class="card-sub">
+                  CDK stack outputs — required before first use.
+                </div>
+              </div>
+            </div>
+            <div class="field-group">
+              <label>CMDB API URL</label>
+              <input
+                type="text"
+                id="cfg-api-url"
+                placeholder="https://xxx.execute-api.region.amazonaws.com/prod"
+              />
+            </div>
+            <div class="field-group">
+              <label>CMDB API Key</label>
+              <input
+                type="password"
+                id="cfg-api-key"
+                placeholder="API key from CDK output"
+              />
+            </div>
+            <div class="field-group">
+              <label>Neptune Query URL</label>
+              <input
+                type="text"
+                id="cfg-query-url"
+                placeholder="https://xxx.execute-api.region.amazonaws.com/prod"
+              />
+            </div>
+            <div class="field-group">
+              <label>Neptune Query API Key</label>
+              <input
+                type="password"
+                id="cfg-query-key"
+                placeholder="Query API key"
+              />
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px">
+              <button class="btn btn-primary btn-sm" onclick="saveConfig()">
+                Save
+              </button>
+              <span
+                id="cfg-saved"
+                style="font-size: 12px; color: var(--success); display: none"
+                >Saved</span
+              >
+            </div>
           </div>
-          <div class="settings-card-sub">
-            CDK stack outputs — configure before first use.
-          </div>
-          <div class="settings-row">
-            <label>CMDB API URL</label
-            ><input
-              type="text"
-              id="cfg-api-url"
-              placeholder="CmdbConnectorApiUrl"
-            />
-          </div>
-          <div class="settings-row">
-            <label>CMDB API Key</label
-            ><input
-              type="password"
-              id="cfg-api-key"
-              placeholder="CMDB API key"
-            />
-          </div>
-          <div class="settings-row">
-            <label>Query URL</label
-            ><input
-              type="text"
-              id="cfg-query-url"
-              placeholder="Neptune QUERY_URL"
-            />
-          </div>
-          <div class="settings-row">
-            <label>Query API Key</label
-            ><input
-              type="password"
-              id="cfg-query-key"
-              placeholder="API_KEY_NEPTUNE"
-            />
-          </div>
-          <div
-            style="
-              display: flex;
-              align-items: center;
-              gap: 10px;
-              margin-top: 8px;
-            "
-          >
-            <button class="btn btn-primary btn-sm" onclick="saveConfig()">
-              Save
-            </button>
-            <span
-              id="cfg-saved"
-              style="font-size: 12px; color: #059669; display: none"
-              >✓ Saved</span
-            >
-          </div>
-        </div>
-        <div class="settings-card">
-          <div class="settings-card-title">
-            <span class="icon">☁</span> ServiceNow Config (SSM)
-          </div>
-          <div class="settings-card-sub">
-            Read-only — values loaded from AWS SSM parameters.
-          </div>
-          <div class="settings-row">
-            <label>Instance URL</label
-            ><input
-              type="text"
-              id="sn-instance-url"
-              placeholder="/ems/cmdb/instance_url"
-              readonly
-            />
-          </div>
-          <div class="settings-row">
-            <label>Username</label
-            ><input
-              type="text"
-              id="sn-username"
-              placeholder="/ems/cmdb/username"
-              readonly
-            />
-          </div>
-          <div class="settings-row">
-            <label>CI Classes</label
-            ><input
-              type="text"
-              id="sn-ci-classes"
-              placeholder="/ems/cmdb/ci_classes"
-              readonly
-            />
-          </div>
-          <div class="settings-row">
-            <label>Search Limit</label
-            ><input
-              type="text"
-              id="sn-search-limit"
-              placeholder="/ems/cmdb/search_limit"
-              readonly
-            />
-          </div>
-          <div style="margin-top: 8px">
+
+          <\!-- ServiceNow Config -->
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <div class="card-title">ServiceNow Configuration</div>
+                <div class="card-sub">
+                  Read from AWS SSM parameters — update via CLI.
+                </div>
+              </div>
+            </div>
+            <div class="field-group">
+              <label>Instance URL</label>
+              <input
+                type="text"
+                id="sn-instance-url"
+                placeholder="/ems/cmdb/instance_url"
+                readonly
+              />
+            </div>
+            <div class="field-group">
+              <label>Username</label>
+              <input
+                type="text"
+                id="sn-username"
+                placeholder="/ems/cmdb/username"
+                readonly
+              />
+            </div>
+            <div class="field-group">
+              <label>CI Classes</label>
+              <input
+                type="text"
+                id="sn-ci-classes"
+                placeholder="/ems/cmdb/ci_classes"
+                readonly
+              />
+            </div>
+            <div class="field-group">
+              <label>Search Limit</label>
+              <input
+                type="text"
+                id="sn-search-limit"
+                placeholder="/ems/cmdb/search_limit"
+                readonly
+              />
+            </div>
             <button
-              class="btn btn-primary btn-sm"
+              class="btn btn-outline btn-sm"
               onclick="testConnection()"
               id="test-conn-btn"
             >
               Test Connection
             </button>
+            <div id="conn-result" class="conn-result"></div>
+          </div>
+
+          <\!-- Credentials -->
+          <div class="card" style="grid-column: 1 / -1">
+            <div class="card-header">
+              <div>
+                <div class="card-title">Update Password</div>
+                <div class="card-sub">
+                  The password is stored as a SecureString — update it via AWS
+                  CLI or Console.
+                </div>
+              </div>
+            </div>
             <div
-              class="connection-result"
-              id="conn-result"
-              style="margin-top: 8px"
-            ></div>
-          </div>
-        </div>
-        <div class="settings-card" style="grid-column: 1/-1">
-          <div class="settings-card-title">
-            <span class="icon">🔑</span> Update Password
-          </div>
-          <div class="settings-card-sub">
-            Password is a SecureString — update it via AWS CLI or Console.
-          </div>
-          <div
-            style="
-              background: var(--bg);
-              border: 1px solid var(--border);
-              border-radius: 6px;
-              padding: 12px;
-              font-size: 12px;
-              color: var(--muted);
-            "
-          >
-            <strong style="color: var(--text)">CLI command:</strong><br />
-            <code
               style="
-                background: #e2e8f0;
-                padding: 2px 6px;
-                border-radius: 3px;
-                display: inline-block;
-                margin-top: 6px;
+                background: var(--bg);
+                border: 1px solid var(--border);
+                border-radius: var(--radius);
+                padding: 12px;
+                font-size: 12px;
               "
-              >aws ssm put-parameter --name /ems/cmdb/password --value "..."
-              --type SecureString --overwrite</code
             >
+              <strong>AWS CLI:</strong><br />
+              <code
+                style="
+                  background: #e2e8f0;
+                  padding: 3px 8px;
+                  border-radius: 3px;
+                  display: inline-block;
+                  margin-top: 6px;
+                  font-size: 12px;
+                "
+              >
+                aws ssm put-parameter --name /ems/cmdb/password --value
+                "YOUR_PASSWORD" --type SecureString --overwrite
+              </code>
+            </div>
           </div>
         </div>
       </div>
     </div>
-    <!-- hidden settings-page div kept for JS compat -->
+
+    <\!-- hidden settings-page div kept for JS compat -->
     <div id="settings-page" class="settings-page"></div>
-    <!-- ══════════════════════════════════════════════════════════════
-         MODAL: Link CI (3-step wizard)
-    ══════════════════════════════════════════════════════════════ -->
+
+    <\!-- ══════════════════════════════════════════════════ MODALS
+    ══════════════════════════════════════════════════ --> <\!-- Modal: Link CI
+    wizard -->
     <div class="modal-overlay" id="link-modal">
       <div class="modal">
         <div class="modal-header">
           <h2>Link CMDB CI</h2>
           <button class="modal-close" onclick="closeModal('link-modal')">
-            ×
+            &times;
           </button>
         </div>
+        <div class="modal-body" style="padding-top: 16px">
+          <div class="steps">
+            <div class="step" id="step-ind-1">
+              <div class="step-num">1</div>
+              <span>Search CI</span>
+            </div>
+            <span class="step-arrow">&#x203A;</span>
+            <div class="step" id="step-ind-2">
+              <div class="step-num">2</div>
+              <span>Select Fields</span>
+            </div>
+            <span class="step-arrow">&#x203A;</span>
+            <div class="step" id="step-ind-3">
+              <div class="step-num">3</div>
+              <span>Confirm</span>
+            </div>
+          </div>
 
-        <!-- Step indicator -->
-        <div class="steps">
-          <div class="step" id="step-ind-1">
-            <div class="step-num">1</div>
-            <span>Search CI</span>
-          </div>
-          <span class="step-arrow">›</span>
-          <div class="step" id="step-ind-2">
-            <div class="step-num">2</div>
-            <span>Select Fields</span>
-          </div>
-          <span class="step-arrow">›</span>
-          <div class="step" id="step-ind-3">
-            <div class="step-num">3</div>
-            <span>Confirm</span>
-          </div>
-        </div>
-
-        <!-- Step 1: Search -->
-        <div class="modal-body" id="step-1-body">
-          <!-- Auto-suggest panel (populated on modal open from entity name) -->
-          <div id="ci-suggestions" style="margin-bottom: 10px; display: none">
+          <\!-- Step 1 -->
+          <div id="step-1-body">
             <div
-              style="
-                font-size: 11px;
-                font-weight: 600;
-                text-transform: uppercase;
-                letter-spacing: 0.05em;
-                color: var(--muted);
-                margin-bottom: 6px;
-              "
+              id="ci-suggestions"
+              class="suggestions-panel"
+              style="display: none"
             >
-              Suggested matches for this entity
+              <div class="suggestions-label">
+                Suggested matches for this environment
+              </div>
+              <div id="ci-suggestions-list"></div>
             </div>
-            <div id="ci-suggestions-list"></div>
-          </div>
-
-          <div class="search-box">
-            <span
-              class="search-icon"
-              style="font-size: 13px; color: var(--muted)"
-              >&#x2315;</span
-            >
-            <input
-              type="text"
-              id="ci-search-input"
-              placeholder="Search CIs by name or description…"
-              oninput="debouncedSearch()"
-              autocomplete="off"
-            />
-          </div>
-          <div id="search-results" class="search-results">
-            <div class="empty-state">
-              <p>Type to search ServiceNow CIs</p>
+            <div class="search-box">
+              <span class="search-box-icon">&#x2315;</span>
+              <input
+                type="text"
+                id="ci-search-input"
+                placeholder="Search CIs by name or description..."
+                oninput="debouncedSearch()"
+                autocomplete="off"
+              />
+            </div>
+            <div id="search-results" class="search-results">
+              <div class="empty" style="padding: 24px 0">
+                Type to search ServiceNow CIs
+              </div>
             </div>
           </div>
-        </div>
 
-        <!-- Step 2: Field Selection -->
-        <div class="modal-body" id="step-2-body" style="display: none">
-          <div id="field-groups-container">
-            <div class="empty-state">
-              <div
-                class="spinner dark"
-                style="width: 24px; height: 24px; margin: 0 auto 8px"
-              ></div>
-              <p>Loading fields…</p>
+          <\!-- Step 2 -->
+          <div id="step-2-body" style="display: none">
+            <div id="field-groups-container">
+              <div class="empty">
+                <div class="spinner dark" style="margin: 0 auto 10px"></div>
+                Loading fields...
+              </div>
             </div>
           </div>
-        </div>
 
-        <!-- Step 3: Confirm -->
-        <div class="modal-body" id="step-3-body" style="display: none">
-          <div class="confirm-summary" id="confirm-summary-content"></div>
-          <p style="font-size: 12px; color: var(--muted)">
-            Click <strong>Confirm &amp; Store</strong> to save these CMDB fields
-            to the EMS entity in Neptune.
-          </p>
+          <\!-- Step 3 -->
+          <div id="step-3-body" style="display: none">
+            <div id="confirm-summary-content"></div>
+            <p style="font-size: 12px; color: var(--muted); margin-top: 12px">
+              Click <strong>Confirm &amp; Store</strong> to save these CMDB
+              fields to Neptune.
+            </p>
+          </div>
         </div>
-
         <div class="modal-footer">
           <div class="selection-count" id="selection-count-label"></div>
           <div style="display: flex; gap: 8px">
@@ -1717,7 +1657,7 @@
               style="display: none"
               onclick="linkWizardBack()"
             >
-              ← Back
+              Back
             </button>
             <button
               class="btn btn-primary"
@@ -1725,31 +1665,26 @@
               onclick="linkWizardNext()"
               disabled
             >
-              Next →
+              Next
             </button>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- ══════════════════════════════════════════════════════════════
-         MODAL: Edit Field Selection
-    ══════════════════════════════════════════════════════════════ -->
+    <\!-- Modal: Edit Field Selection -->
     <div class="modal-overlay" id="edit-fields-modal">
       <div class="modal">
         <div class="modal-header">
           <h2>Edit Field Selection</h2>
           <button class="modal-close" onclick="closeModal('edit-fields-modal')">
-            ×
+            &times;
           </button>
         </div>
         <div class="modal-body" id="edit-fields-body">
-          <div class="empty-state">
-            <div
-              class="spinner dark"
-              style="width: 24px; height: 24px; margin: 0 auto 8px"
-            ></div>
-            <p>Loading fields…</p>
+          <div class="empty">
+            <div class="spinner dark" style="margin: 0 auto 10px"></div>
+            Loading fields...
           </div>
         </div>
         <div class="modal-footer">
@@ -1773,21 +1708,19 @@
       </div>
     </div>
 
-    <!-- ══════════════════════════════════════════════════════════════
-         MODAL: Unlink Confirm
-    ══════════════════════════════════════════════════════════════ -->
+    <\!-- Modal: Unlink -->
     <div class="modal-overlay" id="unlink-modal">
       <div class="modal" style="max-width: 460px">
         <div class="modal-header">
           <h2>Unlink CMDB CI</h2>
           <button class="modal-close" onclick="closeModal('unlink-modal')">
-            ×
+            &times;
           </button>
         </div>
         <div class="modal-body">
           <div class="danger-zone">
             <p><strong>Are you sure you want to unlink this CI?</strong></p>
-            <p style="margin-bottom: 10px; color: var(--muted)">
+            <p>
               The following data will be permanently removed from this
               environment:
             </p>
@@ -1796,9 +1729,8 @@
               <li>CI name, class, and system ID</li>
               <li>Field selection and sync history</li>
             </ul>
-            <p style="margin-top: 12px; font-size: 12px; color: var(--muted)">
-              The environment itself and all its EMS integrations will not be
-              affected.
+            <p style="margin-top: 10px; font-size: 12px">
+              The environment and its EMS integrations will not be affected.
             </p>
           </div>
         </div>
@@ -1817,66 +1749,34 @@
       </div>
     </div>
 
-    <!-- ══════════════════════════════════════════════════════════════
-         MODAL: Field Mapping
-    ══════════════════════════════════════════════════════════════ -->
+    <\!-- Modal: Field Mapping -->
     <div class="modal-overlay" id="mapping-modal">
       <div class="modal" style="max-width: 660px">
         <div class="modal-header">
           <h2>CMDB Field Mapping</h2>
           <button class="modal-close" onclick="closeModal('mapping-modal')">
-            &#x00D7;
+            &times;
           </button>
         </div>
         <div class="modal-body" id="mapping-modal-body">
           <p style="font-size: 13px; color: var(--muted); margin-bottom: 14px">
-            Map each CMDB field to an existing EMS property. When a CI is
-            refreshed, the mapped EMS property will be overwritten with the CMDB
-            value. Leave blank to store only in
+            Map each CMDB field to an EMS property. On CI refresh the mapped EMS
+            property will be overwritten. Leave blank to store only as
             <code
-              style="background: #f1f5f9; padding: 1px 5px; border-radius: 3px"
+              style="
+                background: var(--bg);
+                padding: 1px 5px;
+                border-radius: 3px;
+              "
               >meta_cmdb_*</code
             >.
           </p>
-          <table
-            style="width: 100%; border-collapse: collapse; font-size: 13px"
-            id="mapping-table"
-          >
+          <table class="field-table" id="mapping-table">
             <thead>
-              <tr style="background: var(--bg)">
-                <th
-                  style="
-                    padding: 8px 10px;
-                    text-align: left;
-                    border-bottom: 1px solid var(--border);
-                    font-weight: 600;
-                    color: var(--muted);
-                  "
-                >
-                  CMDB Field
-                </th>
-                <th
-                  style="
-                    padding: 8px 10px;
-                    text-align: left;
-                    border-bottom: 1px solid var(--border);
-                    font-weight: 600;
-                    color: var(--muted);
-                  "
-                >
-                  Current Value
-                </th>
-                <th
-                  style="
-                    padding: 8px 10px;
-                    text-align: left;
-                    border-bottom: 1px solid var(--border);
-                    font-weight: 600;
-                    color: var(--muted);
-                  "
-                >
-                  Map to EMS Property
-                </th>
+              <tr>
+                <th>CMDB Field</th>
+                <th>Current Value</th>
+                <th>Map to EMS Property</th>
               </tr>
             </thead>
             <tbody id="mapping-rows"></tbody>
@@ -1884,7 +1784,7 @@
         </div>
         <div class="modal-footer">
           <div style="font-size: 12px; color: var(--muted)">
-            Changes are applied immediately on save.
+            Changes applied immediately on save.
           </div>
           <div style="display: flex; gap: 8px">
             <button
@@ -1905,7 +1805,7 @@
       </div>
     </div>
 
-    <!-- Toast container -->
+    <\!-- Toast container -->
     <div id="toast-container"></div>
 
     <script>
