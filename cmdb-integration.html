@@ -896,50 +896,11 @@
   <body>
     <!-- App Header -->
     <div class="app-header">
-      <span style="font-size: 20px">🔗</span>
-      <h1>EMS — CMDB ServiceNow Integration</h1>
+      <h1>EMS &mdash; CMDB ServiceNow Integration</h1>
       <div style="margin-left: auto; display: flex; gap: 8px">
         <button class="back-btn" onclick="toggleSettingsPage()">
-          ⚙️ Settings
+          Settings
         </button>
-      </div>
-    </div>
-
-    <!-- Config Banner -->
-    <div class="config-banner">
-      <div class="config-bar">
-        <label>CMDB API URL:</label>
-        <input
-          id="cfg-api-url"
-          type="text"
-          placeholder="CmdbConnectorApiUrl (CDK output)"
-        />
-        <label style="margin-left: 8px">CMDB Key:</label>
-        <input
-          id="cfg-api-key"
-          type="text"
-          class="key-input"
-          placeholder="CMDB API key"
-        />
-        <label style="margin-left: 8px">Query URL:</label>
-        <input
-          id="cfg-query-url"
-          type="text"
-          placeholder="Neptune QUERY_URL (CDK output)"
-        />
-        <label style="margin-left: 8px">Query Key:</label>
-        <input
-          id="cfg-query-key"
-          type="text"
-          class="key-input"
-          placeholder="API_KEY_NEPTUNE"
-        />
-        <button onclick="saveConfig()">Save</button>
-        <span
-          id="cfg-saved"
-          style="font-size: 12px; color: #059669; display: none"
-          >✓ Saved</span
-        >
       </div>
     </div>
 
@@ -950,7 +911,7 @@
         <!-- Entity selector -->
         <div class="card" style="margin-bottom: 16px">
           <div class="card-title" style="justify-content: space-between">
-            <span>🗂 Select Environment</span>
+            <span>Select Environment</span>
             <button
               class="btn btn-outline btn-sm"
               onclick="loadEntityList()"
@@ -996,31 +957,30 @@
         <!-- Entity Detail Card -->
         <div class="card" id="entity-card">
           <div id="entity-placeholder" class="empty-state">
-            <div class="icon">📋</div>
             <p>Select an environment from the list to view its CMDB status.</p>
           </div>
           <div id="entity-detail" style="display: none">
-            <div class="entity-badge" id="entity-type-badge"></div>
-            <div class="entity-props">
-              <div class="prop-row">
-                <span class="prop-label">Name</span
-                ><span class="prop-value" id="ep-name"></span>
-              </div>
-              <div class="prop-row">
-                <span class="prop-label">Status</span
-                ><span class="prop-value"
-                  ><span style="color: #059669">● Healthy</span></span
-                >
-              </div>
-              <div class="prop-row">
-                <span class="prop-label">Environment</span
-                ><span class="prop-value">Production</span>
-              </div>
-              <div class="prop-row">
-                <span class="prop-label">Owner</span
-                ><span class="prop-value">SRE Team</span>
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                margin-bottom: 12px;
+              "
+            >
+              <div
+                class="entity-badge"
+                id="entity-type-badge"
+                style="margin-bottom: 0"
+              ></div>
+              <div id="entity-detail-loading" style="display: none">
+                <span
+                  class="spinner dark"
+                  style="width: 14px; height: 14px"
+                ></span>
               </div>
             </div>
+            <div id="entity-props-container" class="entity-props"></div>
           </div>
         </div>
 
@@ -1032,8 +992,89 @@
         >
           <div class="page-title">CMDB Connection Settings</div>
           <div class="page-sub">
-            Read-only view of current ServiceNow configuration. Update values in
-            SSM Parameter Store via AWS Console.
+            Configure API endpoints and view ServiceNow connection details.
+          </div>
+
+          <!-- API endpoint config -->
+          <div
+            style="
+              background: var(--bg);
+              border: 1px solid var(--border);
+              border-radius: 6px;
+              padding: 14px;
+              margin-bottom: 16px;
+            "
+          >
+            <div
+              style="
+                font-size: 12px;
+                font-weight: 700;
+                color: var(--muted);
+                text-transform: uppercase;
+                letter-spacing: 0.6px;
+                margin-bottom: 10px;
+              "
+            >
+              API Endpoints (CDK outputs)
+            </div>
+            <div class="settings-row">
+              <label>CMDB API URL</label>
+              <input
+                type="text"
+                id="cfg-api-url"
+                placeholder="CmdbConnectorApiUrl"
+              />
+            </div>
+            <div class="settings-row">
+              <label>CMDB API Key</label>
+              <input type="text" id="cfg-api-key" placeholder="CMDB API key" />
+            </div>
+            <div class="settings-row">
+              <label>Query URL</label>
+              <input
+                type="text"
+                id="cfg-query-url"
+                placeholder="Neptune QUERY_URL"
+              />
+            </div>
+            <div class="settings-row">
+              <label>Query API Key</label>
+              <input
+                type="text"
+                id="cfg-query-key"
+                placeholder="API_KEY_NEPTUNE"
+              />
+            </div>
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                margin-top: 6px;
+              "
+            >
+              <button class="btn btn-primary btn-sm" onclick="saveConfig()">
+                Save
+              </button>
+              <span
+                id="cfg-saved"
+                style="font-size: 12px; color: #059669; display: none"
+                >Saved</span
+              >
+            </div>
+          </div>
+
+          <div
+            style="
+              font-size: 12px;
+              font-weight: 700;
+              color: var(--muted);
+              text-transform: uppercase;
+              letter-spacing: 0.6px;
+              margin-bottom: 10px;
+            "
+          >
+            ServiceNow Config (SSM)
           </div>
           <div class="settings-row">
             <label>Instance URL</label>
@@ -1104,10 +1145,7 @@
       <div id="cmdb-sidebar" style="display: none">
         <div class="card">
           <div class="cmdb-header">
-            <div class="cmdb-title">
-              <span>🔗</span>
-              CMDB
-            </div>
+            <div class="cmdb-title">CMDB</div>
             <span class="status-badge" id="cmdb-status-badge">
               <span id="cmdb-status-dot">●</span>
               <span id="cmdb-status-text">Loading…</span>
@@ -1118,7 +1156,7 @@
           <div id="cmdb-unlinked" class="unlinked-state" style="display: none">
             <p>No Configuration Item linked to this environment.</p>
             <button class="btn btn-primary" onclick="openLinkModal()">
-              🔗 Link CI
+              Link CI
             </button>
             <small id="cmdb-provider-hint"></small>
           </div>
@@ -1157,16 +1195,16 @@
                 onclick="refreshCmdb()"
                 id="refresh-btn"
               >
-                🔄 Refresh
+                Refresh
               </button>
               <button
                 class="btn btn-outline btn-sm"
                 onclick="openEditFieldsModal()"
               >
-                ✏️ Edit Fields
+                Edit Fields
               </button>
               <button class="btn btn-danger btn-sm" onclick="openUnlinkModal()">
-                🗑 Unlink
+                Unlink
               </button>
             </div>
           </div>
@@ -1224,7 +1262,11 @@
         <!-- Step 1: Search -->
         <div class="modal-body" id="step-1-body">
           <div class="search-box">
-            <span class="search-icon">🔍</span>
+            <span
+              class="search-icon"
+              style="font-size: 13px; color: var(--muted)"
+              >&#x2315;</span
+            >
             <input
               type="text"
               id="ci-search-input"
@@ -1235,7 +1277,6 @@
           </div>
           <div id="search-results" class="search-results">
             <div class="empty-state">
-              <div class="icon">🔍</div>
               <p>Type to search ServiceNow CIs</p>
             </div>
           </div>
@@ -1366,7 +1407,7 @@
             onclick="confirmUnlink()"
             id="confirm-unlink-btn"
           >
-            🗑 Yes, Unlink
+            Yes, Unlink
           </button>
         </div>
       </div>
@@ -1381,10 +1422,10 @@
       // ═══════════════════════════════════════════════════════════
 
       const CONFIG = {
-        CMDB_API_URL: localStorage.getItem("ems_cmdb_api_url") || "",
-        CMDB_API_KEY: localStorage.getItem("ems_cmdb_api_key") || "",
-        QUERY_URL: localStorage.getItem("ems_query_url") || "",
-        QUERY_KEY: localStorage.getItem("ems_query_key") || "",
+        CMDB_API_URL: "",
+        CMDB_API_KEY: "",
+        QUERY_URL: "",
+        QUERY_KEY: "",
       };
 
       // Pre-fill inputs from saved config
@@ -1556,19 +1597,113 @@
       // ENTITY SELECTION
       // ═══════════════════════════════════════════════════════════
 
-      function selectEntity(id, name, type) {
+      // Fields to surface in the detail panel (in display order)
+      const DETAIL_FIELDS = [
+        { key: "name", label: "Name" },
+        { key: "status", label: "Status", format: fmtStatus },
+        { key: "owner", label: "Owner" },
+        { key: "team", label: "Team" },
+        { key: "description", label: "Description" },
+        { key: "region", label: "Region" },
+        { key: "tier", label: "Tier" },
+        { key: "criticality", label: "Criticality" },
+      ];
+
+      function fmtStatus(val) {
+        if (!val) return "—";
+        const color = /healthy|active|up/i.test(val)
+          ? "#059669"
+          : /warn|degraded/i.test(val)
+            ? "#d97706"
+            : /down|error|fail/i.test(val)
+              ? "#dc2626"
+              : "#64748b";
+        return `<span style="color:${color}">● ${escHtml(val)}</span>`;
+      }
+
+      async function selectEntity(id, name, type) {
         currentEntity = { id, name, type };
         markActiveEntity(id);
 
-        // Update entity detail panel
+        // Show panel immediately with name + loading spinner
         document.getElementById("entity-placeholder").style.display = "none";
         document.getElementById("entity-detail").style.display = "block";
-        document.getElementById("ep-name").textContent = name;
         document.getElementById("entity-type-badge").textContent = type;
+        document.getElementById("entity-detail-loading").style.display =
+          "inline-flex";
+        document.getElementById("entity-props-container").innerHTML =
+          `<div class="prop-row"><span class="prop-label">Name</span><span class="prop-value">${escHtml(name)}</span></div>`;
 
-        // Show CMDB sidebar and load status
+        // Show CMDB sidebar and start loading both in parallel
         document.getElementById("cmdb-sidebar").style.display = "block";
         loadCmdbStatus();
+
+        // Fetch real entity detail
+        try {
+          if (!CONFIG.QUERY_URL) throw new Error("QUERY_URL not configured");
+          const resp = await fetch(
+            `${CONFIG.QUERY_URL}?operation=get-environment-detail&envId=${encodeURIComponent(id)}`,
+            { headers: { "x-api-key": CONFIG.QUERY_KEY } },
+          );
+          const json = await resp.json();
+          if (!resp.ok) throw new Error(json.error || `HTTP ${resp.status}`);
+          renderEntityDetail(json.data?.focus || json.focus || {});
+        } catch (e) {
+          // Fall back to just showing the name row
+          console.warn("Entity detail fetch failed:", e.message);
+        } finally {
+          document.getElementById("entity-detail-loading").style.display =
+            "none";
+        }
+      }
+
+      function renderEntityDetail(focus) {
+        const container = document.getElementById("entity-props-container");
+        container.innerHTML = "";
+
+        // Update type badge from real data
+        if (focus.type)
+          document.getElementById("entity-type-badge").textContent = focus.type;
+
+        // Render known fields first
+        const rendered = new Set();
+        for (const { key, label, format } of DETAIL_FIELDS) {
+          const val = focus[key];
+          if (!val) continue;
+          rendered.add(key);
+          const row = document.createElement("div");
+          row.className = "prop-row";
+          row.innerHTML = `<span class="prop-label">${escHtml(label)}</span><span class="prop-value">${format ? format(val) : escHtml(val)}</span>`;
+          container.appendChild(row);
+        }
+
+        // Render any remaining scalar fields not already shown (skip internal/config/meta)
+        const SKIP = new Set([
+          "id",
+          "type",
+          "configurations",
+          "configurationsNew",
+          "integrations",
+          "neighbors",
+          "customMetadata",
+          ...DETAIL_FIELDS.map((f) => f.key),
+        ]);
+        for (const [k, v] of Object.entries(focus)) {
+          if (SKIP.has(k) || typeof v === "object" || v === "" || v == null)
+            continue;
+          const row = document.createElement("div");
+          row.className = "prop-row";
+          const label = k
+            .replace(/_/g, " ")
+            .replace(/\b\w/g, (c) => c.toUpperCase());
+          row.innerHTML = `<span class="prop-label">${escHtml(label)}</span><span class="prop-value">${escHtml(String(v))}</span>`;
+          container.appendChild(row);
+        }
+
+        if (container.children.length === 0) {
+          container.innerHTML =
+            '<div class="prop-row"><span class="prop-value" style="color:var(--muted)">No details available</span></div>';
+        }
       }
 
       // ═══════════════════════════════════════════════════════════
@@ -1659,7 +1794,7 @@
         document.getElementById("cmdb-linked").style.display = "none";
         const badge = document.getElementById("cmdb-status-badge");
         badge.className = "status-badge error";
-        badge.innerHTML = "⚠ Error";
+        badge.innerHTML = "Error";
         showToast("error", msg);
       }
 
@@ -1676,7 +1811,7 @@
         allFields = [];
         document.getElementById("ci-search-input").value = "";
         document.getElementById("search-results").innerHTML =
-          '<div class="empty-state"><div class="icon">🔍</div><p>Type to search ServiceNow CIs</p></div>';
+          '<div class="empty-state"><p>Type to search ServiceNow CIs</p></div>';
         setWizardStep(1);
         openModal("link-modal");
       }
@@ -1692,7 +1827,7 @@
 
         if (!q) {
           container.innerHTML =
-            '<div class="empty-state"><div class="icon">🔍</div><p>Type to search ServiceNow CIs</p></div>';
+            '<div class="empty-state"><p>Type to search ServiceNow CIs</p></div>';
           return;
         }
 
@@ -1705,7 +1840,7 @@
 
           if (results.length === 0) {
             container.innerHTML =
-              '<div class="empty-state"><div class="icon">🔍</div><p>No CIs found for "' +
+              '<div class="empty-state"><p>No CIs found for "' +
               escHtml(q) +
               '"</p></div>';
             return;
@@ -1719,7 +1854,7 @@
             div.dataset.name = r.name;
             div.dataset.ciClass = r.ciClass;
             div.innerHTML = `
-              <div class="result-icon">📦</div>
+              <div class="result-icon">CI</div>
               <div class="result-info">
                 <div class="result-name">${escHtml(r.name)}</div>
                 <div class="result-meta">
@@ -1830,7 +1965,7 @@
                 <strong>${escHtml(f.label)}</strong>
                 ${f.currentValue ? `<span title="${escHtml(f.currentValue)}">Current: ${escHtml(f.currentValue.slice(0, 60))}${f.currentValue.length > 60 ? "…" : ""}</span>` : ""}
               </div>
-              ${f.recommended ? '<span class="recommended-badge">★ Recommended</span>' : ""}
+              ${f.recommended ? '<span class="recommended-badge">Recommended</span>' : ""}
               <span class="field-type-badge">${f.type}</span>
             `;
             catBody.appendChild(item);
@@ -1901,7 +2036,7 @@
 
         summary.innerHTML = `
           <div class="ci-header">
-            <span class="result-icon" style="width:36px;height:36px;">📦</span>
+            <span class="result-icon" style="width:36px;height:36px;">CI</span>
             <div>
               <strong>${escHtml(selectedCi.name)}</strong>
               <div style="margin-top:2px;">
@@ -1956,7 +2091,7 @@
           nextBtn.disabled = selectedFieldKeys.length === 0;
           nextBtn.onclick = linkWizardNext;
         } else {
-          nextBtn.textContent = "✓ Confirm & Store";
+          nextBtn.textContent = "Confirm & Store";
           nextBtn.disabled = false;
           nextBtn.onclick = doLinkEntity;
         }
@@ -2006,7 +2141,7 @@
         } catch (e) {
           showToast("error", "Link failed: " + e.message);
           btn.disabled = false;
-          btn.textContent = "✓ Confirm & Store";
+          btn.textContent = "Confirm & Store";
           btn.onclick = doLinkEntity;
         }
       }
@@ -2031,7 +2166,7 @@
           showToast("error", "Refresh failed: " + e.message);
         } finally {
           btn.disabled = false;
-          btn.textContent = "🔄 Refresh";
+          btn.textContent = "Refresh";
         }
       }
 
@@ -2121,7 +2256,7 @@
           showToast("error", "Unlink failed: " + e.message);
         } finally {
           btn.disabled = false;
-          btn.textContent = "🗑 Yes, Unlink";
+          btn.textContent = "Yes, Unlink";
         }
       }
 
@@ -2140,11 +2275,11 @@
           const data = await cmdbApi("cmdb-test-connection");
           result.style.display = "block";
           result.className = "connection-result ok";
-          result.textContent = `✓ ${data.message}`;
+          result.textContent = `OK: ${data.message}`;
         } catch (e) {
           result.style.display = "block";
           result.className = "connection-result err";
-          result.textContent = `✗ ${e.message}`;
+          result.textContent = `Error: ${e.message}`;
         } finally {
           btn.disabled = false;
           btn.innerHTML = "<span>Test Connection</span>";
