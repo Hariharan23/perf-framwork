@@ -107,7 +107,7 @@ export class CmdbConnectorStack extends cdk.Stack {
 
     new ssm.StringParameter(this, `${PREFIX}-CmdbRefreshLastRun`, {
       parameterName: '/ems/cmdb/refresh_last_run',
-      stringValue:   '',
+      stringValue:   'none',
       description:   'EMS CMDB: JSON summary of the most recent refresh pipeline run',
       tier: ssm.ParameterTier.STANDARD,
     });
