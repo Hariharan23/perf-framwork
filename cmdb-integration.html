@@ -3266,10 +3266,8 @@
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-api-key': CONFIG.QUERY_KEY },
             body: JSON.stringify({
-              operation:        'update-entity',
+              operation:        'patch-scheduled-updates',
               id:               currentEntity.id,
-              type:             currentEntity.type || 'Environment',
-              name:             currentEntity.name,
               scheduledUpdates: text,
             }),
           });
