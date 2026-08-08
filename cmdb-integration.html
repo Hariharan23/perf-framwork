@@ -1964,6 +1964,92 @@
       </div>
     </div>
 
+    <div class="modal-overlay" id="push-schedule-modal">
+      <div class="modal" style="max-width: 540px">
+        <div class="modal-header">
+          <h2>Push to Scheduled Updates</h2>
+          <button
+            class="modal-close"
+            onclick="closeModal('push-schedule-modal')"
+          >
+            &times;
+          </button>
+        </div>
+        <div class="modal-body">
+          <div
+            style="
+              background: var(--warn-bg);
+              border: 1px solid #fde68a;
+              border-left: 4px solid var(--warn);
+              border-radius: var(--radius);
+              padding: 12px 14px;
+              margin-bottom: 16px;
+              font-size: 13px;
+            "
+          >
+            <strong>Review before saving.</strong> This will overwrite the
+            <code
+              style="
+                background: rgba(0, 0, 0, 0.06);
+                padding: 1px 5px;
+                border-radius: 3px;
+              "
+              >scheduledUpdates</code
+            >
+            field on the linked environment in Neptune.
+          </div>
+          <div style="margin-bottom: 10px">
+            <div class="form-label" style="margin-bottom: 6px">Environment</div>
+            <div
+              id="psh-entity-name"
+              style="font-size: 13px; font-weight: 600"
+            ></div>
+          </div>
+          <div>
+            <div class="form-label" style="margin-bottom: 6px">
+              Scheduled Updates text (editable)
+            </div>
+            <textarea
+              id="psh-text"
+              style="
+                width: 100%;
+                min-height: 160px;
+                padding: 10px 12px;
+                border: 1px solid var(--border);
+                border-radius: var(--radius);
+                font-size: 12px;
+                font-family: monospace;
+                resize: vertical;
+                outline: none;
+                line-height: 1.6;
+              "
+              oninput="this.style.borderColor = 'var(--primary)'"
+            ></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <div style="font-size: 12px; color: var(--muted)">
+            Source: ServiceNow CMDB
+          </div>
+          <div class="fl">
+            <button
+              class="btn btn-outline"
+              onclick="closeModal('push-schedule-modal')"
+            >
+              Cancel
+            </button>
+            <button
+              class="btn btn-primary"
+              onclick="confirmPushSchedule()"
+              id="psh-confirm-btn"
+            >
+              Save to Neptune
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div id="toast-container"></div>
 
     <script>
@@ -3127,55 +3213,141 @@
         content.innerHTML = '<div style="font-size:12px;color:var(--muted);">No schedule data yet. Run a CI refresh to fetch maintenance windows and change requests.</div>';
       }
 
+      function buildScheduledUpdatesText(changes, incidents) {
+        const lines = [];
+        const fmtDate = (iso) => iso ? iso.slice(0, 16).replace('T', ' ') : '';
+
+        if (changes.length > 0) {
+          lines.push('=== Upcoming Changes ===');
+          changes.forEach(c => {
+            lines.push(`[${c.number}] ${c.description || 'No description'}`);
+            if (c.type)       lines.push(`  Type     : ${c.type}`);
+            if (c.state)      lines.push(`  State    : ${c.state}`);
+            if (c.startDate)  lines.push(`  Window   : ${fmtDate(c.startDate)}${c.endDate ? ' → ' + fmtDate(c.endDate) : ''}`);
+            if (c.assignedTo) lines.push(`  Assigned : ${c.assignedTo}`);
+            lines.push('');
+          });
+        }
+
+        if (incidents.length > 0) {
+          lines.push('=== Active Incidents ===');
+          incidents.forEach(i => {
+            lines.push(`[${i.number}] ${i.description || 'No description'}`);
+            if (i.priority) lines.push(`  Priority : ${i.priority}`);
+            if (i.state)    lines.push(`  State    : ${i.state}`);
+            if (i.openedAt) lines.push(`  Opened   : ${fmtDate(i.openedAt)}`);
+            lines.push('');
+          });
+        }
+
+        return lines.join('\n').trim();
+      }
+
+      function openPushScheduleModal(changes, incidents) {
+        if (!currentEntity) { showToast('error', 'No environment selected'); return; }
+        document.getElementById('psh-entity-name').textContent = currentEntity.name || currentEntity.id;
+        document.getElementById('psh-text').value = buildScheduledUpdatesText(changes, incidents);
+        openModal('push-schedule-modal');
+      }
+
+      async function confirmPushSchedule() {
+        const btn  = document.getElementById('psh-confirm-btn');
+        const text = document.getElementById('psh-text').value.trim();
+        if (!text) { showToast('error', 'Nothing to save — text is empty'); return; }
+        if (!currentEntity?.id || !currentEntity?.name) { showToast('error', 'No entity selected'); return; }
+
+        const ingestUrl = CONFIG.QUERY_URL.replace(/\/query$/, '/ingest');
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner" style="width:13px;height:13px;border-width:2px;"></span> Saving…';
+
+        try {
+          const resp = await fetch(ingestUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-api-key': CONFIG.QUERY_KEY },
+            body: JSON.stringify({
+              operation:        'update-entity',
+              id:               currentEntity.id,
+              type:             currentEntity.type || 'Environment',
+              name:             currentEntity.name,
+              scheduledUpdates: text,
+            }),
+          });
+          const json = await resp.json();
+          if (!resp.ok) throw new Error(json.error || `HTTP ${resp.status}`);
+          closeModal('push-schedule-modal');
+          showToast('success', 'Scheduled updates saved to Neptune');
+        } catch (e) {
+          showToast('error', 'Failed to save: ' + e.message);
+        } finally {
+          btn.disabled = false;
+          btn.textContent = 'Save to Neptune';
+        }
+      }
+
       function renderScheduleInfo(container, changes, incidents, fetchedAt) {
         const fmt = (iso) => iso ? new Date(iso).toLocaleString() : '\u2014';
         const stateColor = (s) => {
           s = (s || '').toLowerCase();
-          if (s.includes('scheduled') || s.includes('open')) return '#2563eb';
-          if (s.includes('progress'))  return '#d97706';
-          if (s.includes('critical'))  return '#dc2626';
-          return '#64748b';
+          if (s.includes('scheduled') || s.includes('open')) return 'var(--primary)';
+          if (s.includes('progress'))  return 'var(--warn)';
+          if (s.includes('critical') || s.includes('high'))  return 'var(--danger)';
+          return 'var(--muted)';
         };
 
+        const hasData = changes.length > 0 || incidents.length > 0;
         let html = '';
-        if (fetchedAt) html += `<div style="font-size:10px;color:var(--muted);margin-bottom:8px;">Last fetched: ${fmt(fetchedAt)}</div>`;
+        if (fetchedAt) html += `<div style="font-size:11px;color:var(--muted);margin-bottom:10px;">Last fetched: ${fmt(fetchedAt)}</div>`;
 
-        // Changes
-        html += `<div style="font-size:11px;font-weight:600;margin-bottom:4px;">Upcoming Changes (${changes.length})</div>`;
-        if (changes.length === 0) {
-          html += '<div style="font-size:11px;color:var(--muted);margin-bottom:10px;">No scheduled changes</div>';
-        } else {
-          html += '<table style="width:100%;font-size:11px;border-collapse:collapse;margin-bottom:10px;">';
-          html += '<thead><tr style="background:#f1f5f9;"><th style="padding:4px 6px;text-align:left;">Number</th><th style="padding:4px 6px;text-align:left;">Description</th><th style="padding:4px 6px;text-align:left;">State</th><th style="padding:4px 6px;text-align:left;">Window</th></tr></thead><tbody>';
+        if (changes.length > 0) {
+          html += `<div style="font-size:12px;font-weight:700;margin-bottom:6px;">Upcoming Changes <span style="font-weight:400;color:var(--muted);">(${changes.length})</span></div>`;
+          html += '<table class="data-table" style="margin-bottom:14px;">';
+          html += '<thead><tr><th>Number</th><th>Description</th><th>Type</th><th>State</th><th>Window</th><th>Assigned</th></tr></thead><tbody>';
           changes.forEach(c => {
-            html += `<tr style="border-bottom:1px solid var(--border);">
-              <td style="padding:4px 6px;font-family:monospace;white-space:nowrap;">${escHtml(c.number)}</td>
-              <td style="padding:4px 6px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escHtml(c.description)}">${escHtml(c.description)}</td>
-              <td style="padding:4px 6px;"><span style="color:${stateColor(c.state)};font-weight:600;">${escHtml(c.state)}</span></td>
-              <td style="padding:4px 6px;white-space:nowrap;">${c.startDate ? escHtml(c.startDate.slice(0,10)) : '\u2014'}${c.endDate ? ' \u2192 ' + escHtml(c.endDate.slice(0,10)) : ''}</td>
+            const win = c.startDate ? (c.startDate.slice(0,10) + (c.endDate ? ' → ' + c.endDate.slice(0,10) : '')) : '—';
+            html += `<tr>
+              <td style="white-space:nowrap;font-family:monospace;font-size:11px;">${escHtml(c.number)}</td>
+              <td style="max-width:200px;" title="${escHtml(c.description)}">${escHtml(c.description)}</td>
+              <td style="font-size:11px;">${escHtml(c.type || '—')}</td>
+              <td style="white-space:nowrap;"><span style="color:${stateColor(c.state)};font-weight:600;font-size:11px;">${escHtml(c.state || '—')}</span></td>
+              <td style="white-space:nowrap;font-size:11px;">${escHtml(win)}</td>
+              <td style="font-size:11px;">${escHtml(c.assignedTo || '—')}</td>
             </tr>`;
           });
           html += '</tbody></table>';
-        }
-
-        // Incidents
-        html += `<div style="font-size:11px;font-weight:600;margin-bottom:4px;">Active Incidents (${incidents.length})</div>`;
-        if (incidents.length === 0) {
-          html += '<div style="font-size:11px;color:var(--muted);">No active incidents</div>';
         } else {
-          html += '<table style="width:100%;font-size:11px;border-collapse:collapse;">';
-          html += '<thead><tr style="background:#f1f5f9;"><th style="padding:4px 6px;text-align:left;">Number</th><th style="padding:4px 6px;text-align:left;">Description</th><th style="padding:4px 6px;text-align:left;">Priority</th><th style="padding:4px 6px;text-align:left;">Opened</th></tr></thead><tbody>';
+          html += '<div style="font-size:12px;color:var(--muted);margin-bottom:12px;">No scheduled changes</div>';
+        }
+
+        if (incidents.length > 0) {
+          html += `<div style="font-size:12px;font-weight:700;margin-bottom:6px;">Active Incidents <span style="font-weight:400;color:var(--muted);">(${incidents.length})</span></div>`;
+          html += '<table class="data-table" style="margin-bottom:14px;">';
+          html += '<thead><tr><th>Number</th><th>Description</th><th>Priority</th><th>State</th><th>Opened</th></tr></thead><tbody>';
           incidents.forEach(i => {
-            html += `<tr style="border-bottom:1px solid var(--border);">
-              <td style="padding:4px 6px;font-family:monospace;white-space:nowrap;">${escHtml(i.number)}</td>
-              <td style="padding:4px 6px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escHtml(i.description)}">${escHtml(i.description)}</td>
-              <td style="padding:4px 6px;color:${stateColor(i.priority)};font-weight:600;">${escHtml(i.priority)}</td>
-              <td style="padding:4px 6px;white-space:nowrap;">${i.openedAt ? escHtml(i.openedAt.slice(0,10)) : '\u2014'}</td>
+            html += `<tr>
+              <td style="white-space:nowrap;font-family:monospace;font-size:11px;">${escHtml(i.number)}</td>
+              <td style="max-width:200px;" title="${escHtml(i.description)}">${escHtml(i.description)}</td>
+              <td style="white-space:nowrap;"><span style="color:${stateColor(i.priority)};font-weight:600;font-size:11px;">${escHtml(i.priority || '—')}</span></td>
+              <td style="font-size:11px;">${escHtml(i.state || '—')}</td>
+              <td style="white-space:nowrap;font-size:11px;">${escHtml(i.openedAt ? i.openedAt.slice(0,10) : '—')}</td>
             </tr>`;
           });
           html += '</tbody></table>';
+        } else {
+          html += '<div style="font-size:12px;color:var(--muted);margin-bottom:12px;">No active incidents</div>';
         }
 
+        if (hasData) {
+          html += `<div style="margin-top:6px;">
+            <button class="btn btn-primary btn-sm" onclick="openPushScheduleModal(window._schedChanges, window._schedIncidents)">
+              Push to Scheduled Updates
+            </button>
+            <span style="font-size:11px;color:var(--muted);margin-left:10px;">Saves formatted summary to the environment's Scheduled Updates field in Neptune</span>
+          </div>`;
+        }
+
+        window._schedChanges  = changes;
+        window._schedIncidents = incidents;
         container.innerHTML = html;
       }
 
