@@ -173,6 +173,51 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }) }));
       return response(200, { emsEntityId: body.emsEntityId, unlinked: true, unlinkedAt: now });
     }
+    if (operation === 'unlink-all') {
+      if (body.confirmation !== 'UNLINK_ALL') return response(400, { error: 'confirmation must equal UNLINK_ALL' });
+      const actor = body.unlinkedBy || 'unknown';
+      const now = new Date().toISOString();
+      // Neptune is authoritative for actual EMS metadata links. Include any
+      // DynamoDB-only LINKED records as a defensive cleanup for partial runs.
+      const [neptuneLinks, tableScan] = await Promise.all([
+        neptune.listLinkedCmdbEntities(),
+        ddb.send(new ScanCommand({ TableName: LINKS, FilterExpression: 'linkStatus = :linked', ExpressionAttributeValues: marshall({ ':linked': 'LINKED' }) })),
+      ]);
+      const targets = new Map<string, any>();
+      for (const link of neptuneLinks) targets.set(link.entityId, {
+        emsEntityId: link.entityId, emsEntityName: link.entityName, serviceNowSysId: link.sysId,
+        serviceNowClass: link.ciClass, serviceNowName: link.ciName,
+      });
+      for (const raw of tableScan.Items || []) {
+        const link = unmarshall(raw); targets.set(link.emsEntityId, { ...targets.get(link.emsEntityId), ...link });
+      }
+
+      const results: Array<{ emsEntityId: string; status: string; error?: string }> = [];
+      const allTargets = [...targets.values()];
+      for (let i = 0; i < allTargets.length; i += 5) {
+        await Promise.all(allTargets.slice(i, i + 5).map(async target => {
+          try {
+            // This removes every meta_cmdb_* triple, including imported field
+            // values, mappings, selection metadata, correlation IDs and status.
+            await neptune.deleteAllCmdbTriples(target.emsEntityId);
+            const record = { ...target, linkStatus: 'UNLINKED', healthStatus: 'NOT_APPLICABLE',
+              unlinkedAt: now, unlinkedBy: actor, updatedAt: now };
+            await ddb.send(new PutItemCommand({ TableName: LINKS, Item: marshall(record, { removeUndefinedValues: true }) }));
+            await ddb.send(new PutItemCommand({ TableName: EVENTS, Item: marshall({
+              emsEntityId: target.emsEntityId, eventId: `${now}#${randomUUID()}`, eventType: 'LINK_BULK_UNLINKED',
+              createdAt: now, actor, details: JSON.stringify(target),
+            }) }));
+            results.push({ emsEntityId: target.emsEntityId, status: 'UNLINKED' });
+          } catch (e: any) {
+            results.push({ emsEntityId: target.emsEntityId, status: 'FAILED', error: e.message || String(e) });
+          }
+        }));
+      }
+      const unlinked = results.filter(result => result.status === 'UNLINKED').length;
+      return response(unlinked === results.length ? 200 : 207, {
+        total: results.length, unlinked, failed: results.length - unlinked, results, unlinkedAt: now,
+      });
+    }
     if (operation === 'reject') {
       if (!body.emsEntityId) return response(400, { error: 'emsEntityId is required' });
       const now = new Date().toISOString();
@@ -225,6 +270,6 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }
       return response(200, { count: links.length, links });
     }
-    return response(400, { error: `Unknown operation ${operation}`, available: ['suggestions','approve','reject','unlink','links','health'] });
+    return response(400, { error: `Unknown operation ${operation}`, available: ['suggestions','approve','reject','unlink','unlink-all','links','health'] });
   } catch (e: any) { console.error(e); return response(500, { error: e.message || String(e) }); }
 };

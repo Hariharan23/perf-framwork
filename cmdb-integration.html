@@ -2019,6 +2019,7 @@
           <div><h1>CI Link Intelligence</h1><p>Review explainable ServiceNow CI matches and monitor existing link health.</p></div>
           <div class="fl" style="gap: 8px">
             <button class="btn btn-outline" onclick="cliLoadLinks()">Refresh health</button>
+            <button class="btn btn-danger" id="cli-unlink-all-btn" onclick="cliUnlinkAll()">Unlink all CIs</button>
             <button class="btn btn-primary" id="cli-scan-btn" onclick="cliLoadSuggestions()">Generate suggestions</button>
           </div>
         </div>
@@ -4300,6 +4301,23 @@
           showToast('success', `${link.emsEntityName || emsEntityId} was unlinked.`);
           await cliLoadLinks();
         } catch (e) { showToast('error', 'Unlink failed: ' + e.message); }
+      }
+
+      async function cliUnlinkAll() {
+        const linkedCount = cliLinks.filter(item => item.linkStatus === 'LINKED').length;
+        if (!linkedCount) { showToast('info', 'There are no linked CIs to unlink.'); return; }
+        const warning = `Unlink all ${linkedCount} CIs? This removes every CMDB metadata field from the corresponding EMS entities. This action cannot be undone automatically.`;
+        if (!confirm(warning)) return;
+        const btn = document.getElementById('cli-unlink-all-btn');
+        btn.disabled = true; btn.textContent = 'Unlinking all…';
+        try {
+          const result = await cliApi('POST', 'unlink-all', {
+            confirmation: 'UNLINK_ALL', unlinkedBy: localStorage.getItem('ems_current_user') || 'frontend-user'
+          });
+          showToast(result.failed ? 'warn' : 'success', `Bulk unlink completed: ${result.unlinked} unlinked, ${result.failed} failed.`);
+          await cliLoadLinks();
+        } catch (e) { showToast('error', 'Bulk unlink failed: ' + e.message); }
+        finally { btn.disabled = false; btn.textContent = 'Unlink all CIs'; }
       }
 
       // ═══════════════════════════════════════════════════════════
