@@ -2039,16 +2039,28 @@
               <thead><tr><th>EMS entity</th><th>Best ServiceNow CI</th><th>Confidence</th><th>Evidence</th><th>CI state</th><th>Action</th></tr></thead>
               <tbody id="cli-suggestions-body"><tr><td colspan="6" class="empty">Click Generate suggestions to scan unlinked entities.</td></tr></tbody>
             </table></div>
-            <div id="cli-load-more-wrap" style="display:none;padding:12px 20px;border-top:1px solid var(--border);text-align:center">
-              <button class="btn btn-outline btn-sm" id="cli-load-more-btn" onclick="cliLoadSuggestions(true)">Load next 10 entities</button>
+            <div id="cli-suggestion-pager" style="display:none;padding:12px 20px;border-top:1px solid var(--border);align-items:center;justify-content:center;gap:12px">
+              <button class="btn btn-outline btn-sm" id="cli-suggestion-prev" onclick="cliSuggestionPage(-1)">Previous</button>
+              <span id="cli-suggestion-page-label" style="font-size:12px;color:var(--muted)">Page 1</span>
+              <button class="btn btn-outline btn-sm" id="cli-suggestion-next" onclick="cliSuggestionPage(1)">Next</button>
             </div>
           </div>
           <div class="card">
-            <div class="card-header"><div><div class="card-title">Linked CI health</div><div class="card-sub">Lifecycle state from scheduled ServiceNow validation.</div></div></div>
+            <div class="card-header">
+              <div><div class="card-title">Linked CI health</div><div class="card-sub">Lifecycle state from scheduled ServiceNow validation.</div></div>
+              <select id="cli-link-status-filter" class="form-control" style="width:180px" onchange="cliResetLinkPage()">
+                <option value="ALL">All link statuses</option><option value="LINKED">Linked</option><option value="REJECTED">Rejected</option>
+              </select>
+            </div>
             <div style="overflow-x: auto"><table class="data-table">
-              <thead><tr><th>EMS entity ID</th><th>ServiceNow CI</th><th>Class</th><th>Link status</th><th>Health</th><th>Last verified</th></tr></thead>
+              <thead><tr><th>EMS entity</th><th>ServiceNow CI</th><th>Class</th><th>Link status</th><th>Health</th><th>Last verified</th></tr></thead>
               <tbody id="cli-links-body"><tr><td colspan="6" class="empty">Open this tab to load CI link health.</td></tr></tbody>
             </table></div>
+            <div id="cli-link-pager" style="display:none;padding:12px 20px;border-top:1px solid var(--border);align-items:center;justify-content:center;gap:12px">
+              <button class="btn btn-outline btn-sm" id="cli-link-prev" onclick="cliLinkPage(-1)">Previous</button>
+              <span id="cli-link-page-label" style="font-size:12px;color:var(--muted)">Page 1</span>
+              <button class="btn btn-outline btn-sm" id="cli-link-next" onclick="cliLinkPage(1)">Next</button>
+            </div>
           </div>
         </div>
       </div>
@@ -4120,6 +4132,10 @@
       let cliLinks = [];
       let cliLoaded = false;
       let cliNextOffset = 0;
+      let cliSuggestionOffset = 0;
+      let cliSuggestionTotal = 0;
+      let cliLinkPageIndex = 0;
+      const CLI_PAGE_SIZE = 10;
 
       async function cliApi(method, operation, body) {
         if (!CONFIG.CLI_URL) throw new Error('CI Link Intelligence API URL not configured — go to Settings.');
@@ -4135,27 +4151,43 @@
         if (!cliLoaded) cliLoadLinks();
       }
 
-      async function cliLoadSuggestions(append = false) {
+      async function cliLoadSuggestions(offset = 0) {
         const btn = document.getElementById('cli-scan-btn');
-        const moreBtn = document.getElementById('cli-load-more-btn');
         const tbody = document.getElementById('cli-suggestions-body');
-        if (!append) { cliNextOffset = 0; cliSuggestions = []; tbody.innerHTML = '<tr><td colspan="6" class="empty"><div class="spinner" style="margin:0 auto 10px"></div>Comparing the first 10 EMS identities with ServiceNow…</td></tr>'; }
+        cliSuggestionOffset = Math.max(0, offset);
+        cliSuggestions = [];
+        tbody.innerHTML = '<tr><td colspan="6" class="empty"><div class="spinner" style="margin:0 auto 10px"></div>Comparing EMS identities with ServiceNow…</td></tr>';
         btn.disabled = true; btn.textContent = 'Scanning…';
-        if (moreBtn) { moreBtn.disabled = true; moreBtn.textContent = 'Loading…'; }
         try {
-          const data = await cliApi('GET', `suggestions?offset=${cliNextOffset}&limit=10`);
-          cliSuggestions = append ? cliSuggestions.concat(data.suggestions || []) : (data.suggestions || []);
+          const data = await cliApi('GET', `suggestions?offset=${cliSuggestionOffset}&limit=${CLI_PAGE_SIZE}`);
+          cliSuggestions = data.suggestions || [];
           cliNextOffset = data.nextOffset;
+          cliSuggestionTotal = data.totalEntities || 0;
           cliRenderSuggestions();
-          document.getElementById('cli-load-more-wrap').style.display = cliNextOffset === null ? 'none' : '';
+          cliUpdateSuggestionPager();
           showToast('success', `Loaded ${data.count} suggestions (${Math.min((data.offset || 0) + data.limit, data.totalEntities)} of ${data.totalEntities} entities scanned).`);
         } catch (e) {
           tbody.innerHTML = `<tr><td colspan="6" class="empty" style="color:var(--danger)">${escHtml(e.message)}</td></tr>`;
           showToast('error', e.message);
         } finally {
           btn.disabled = false; btn.textContent = 'Generate suggestions';
-          if (moreBtn) { moreBtn.disabled = false; moreBtn.textContent = 'Load next 10 entities'; }
         }
+      }
+
+      function cliSuggestionPage(direction) {
+        const next = cliSuggestionOffset + direction * CLI_PAGE_SIZE;
+        if (next < 0 || next >= cliSuggestionTotal) return;
+        cliLoadSuggestions(next);
+      }
+
+      function cliUpdateSuggestionPager() {
+        const pages = Math.max(1, Math.ceil(cliSuggestionTotal / CLI_PAGE_SIZE));
+        const current = Math.floor(cliSuggestionOffset / CLI_PAGE_SIZE) + 1;
+        const pager = document.getElementById('cli-suggestion-pager');
+        pager.style.display = cliSuggestionTotal > CLI_PAGE_SIZE ? 'flex' : 'none';
+        document.getElementById('cli-suggestion-page-label').textContent = `Page ${current} of ${pages}`;
+        document.getElementById('cli-suggestion-prev').disabled = current <= 1;
+        document.getElementById('cli-suggestion-next').disabled = current >= pages;
       }
 
       function cliRenderSuggestions() {
@@ -4189,7 +4221,7 @@
         if (!s || !c) return;
         try {
           await cliApi('POST', 'approve', {
-            emsEntityId: s.entity.id, serviceNowSysId: c.sysId, serviceNowClass: c.ciClass,
+            emsEntityId: s.entity.id, emsEntityName: s.entity.name, serviceNowSysId: c.sysId, serviceNowClass: c.ciClass,
             serviceNowName: c.ciName, confidence: c.confidence, evidence: c.evidence,
             matchMethod: 'ci-link-intelligence-dashboard', approvedBy: localStorage.getItem('ems_current_user') || 'frontend-user'
           });
@@ -4218,15 +4250,43 @@
           const alerts = cliLinks.filter(l => ['RETIRED','NON_OPERATIONAL','MISSING'].includes(l.healthStatus)).length;
           document.getElementById('cli-stat-healthy').textContent = healthy;
           document.getElementById('cli-stat-alerts').textContent = alerts;
-          if (!cliLinks.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty">No CI intelligence links have been approved yet.</td></tr>'; return; }
-          tbody.innerHTML = cliLinks.map(l => {
-            const healthClass = l.healthStatus === 'HEALTHY' ? 'badge-ok' : l.healthStatus === 'UNKNOWN' ? 'badge-none' : 'badge-error';
-            return `<tr><td><code>${escHtml(l.emsEntityId)}</code></td><td><strong>${escHtml(l.serviceNowName || l.serviceNowSysId)}</strong><br><code style="font-size:10px;color:var(--muted)">${escHtml(l.serviceNowSysId)}</code></td><td>${escHtml(l.serviceNowClass)}</td><td><span class="badge badge-ok">${escHtml(l.linkStatus)}</span></td><td><span class="badge ${healthClass}">${escHtml(l.healthStatus || 'UNKNOWN')}</span></td><td>${escHtml(l.lastVerifiedAt || 'Pending first validation')}</td></tr>`;
-          }).join('');
+          cliLinkPageIndex = 0;
+          cliRenderLinks();
         } catch (e) {
           tbody.innerHTML = `<tr><td colspan="6" class="empty" style="color:var(--danger)">${escHtml(e.message)}</td></tr>`;
           showToast('error', e.message);
         }
+      }
+
+      function cliFilteredLinks() {
+        const status = document.getElementById('cli-link-status-filter').value;
+        return cliLinks.filter(link => status === 'ALL' || link.linkStatus === status);
+      }
+
+      function cliRenderLinks() {
+        const tbody = document.getElementById('cli-links-body');
+        const filtered = cliFilteredLinks();
+        const pages = Math.max(1, Math.ceil(filtered.length / CLI_PAGE_SIZE));
+        cliLinkPageIndex = Math.min(cliLinkPageIndex, pages - 1);
+        const visible = filtered.slice(cliLinkPageIndex * CLI_PAGE_SIZE, (cliLinkPageIndex + 1) * CLI_PAGE_SIZE);
+        if (!visible.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty">No CI links match this status.</td></tr>'; cliUpdateLinkPager(filtered.length); return; }
+        tbody.innerHTML = visible.map(l => {
+            const healthClass = l.healthStatus === 'HEALTHY' ? 'badge-ok' : l.healthStatus === 'UNKNOWN' ? 'badge-none' : 'badge-error';
+            const linkClass = l.linkStatus === 'LINKED' ? 'badge-ok' : l.linkStatus === 'REJECTED' ? 'badge-error' : 'badge-none';
+            return `<tr><td><strong>${escHtml(l.emsEntityName || l.emsEntityId)}</strong><br><code style="font-size:10px;color:var(--muted)">${escHtml(l.emsEntityId)}</code></td><td><strong>${escHtml(l.serviceNowName || 'Name unavailable')}</strong><br><code style="font-size:10px;color:var(--muted)">${escHtml(l.serviceNowSysId)}</code></td><td>${escHtml(l.serviceNowClass)}</td><td><span class="badge ${linkClass}">${escHtml(l.linkStatus)}</span></td><td><span class="badge ${healthClass}">${escHtml(l.healthStatus || 'UNKNOWN')}</span></td><td>${escHtml(l.lastVerifiedAt || 'Pending first validation')}</td></tr>`;
+          }).join('');
+        cliUpdateLinkPager(filtered.length);
+      }
+
+      function cliResetLinkPage() { cliLinkPageIndex = 0; cliRenderLinks(); }
+      function cliLinkPage(direction) { cliLinkPageIndex += direction; cliRenderLinks(); }
+      function cliUpdateLinkPager(total) {
+        const pages = Math.max(1, Math.ceil(total / CLI_PAGE_SIZE));
+        const pager = document.getElementById('cli-link-pager');
+        pager.style.display = total > CLI_PAGE_SIZE ? 'flex' : 'none';
+        document.getElementById('cli-link-page-label').textContent = `Page ${cliLinkPageIndex + 1} of ${pages}`;
+        document.getElementById('cli-link-prev').disabled = cliLinkPageIndex <= 0;
+        document.getElementById('cli-link-next').disabled = cliLinkPageIndex >= pages - 1;
       }
 
       // ═══════════════════════════════════════════════════════════

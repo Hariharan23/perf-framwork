@@ -125,7 +125,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     if (operation === 'approve') {
       if (!body.emsEntityId || !body.serviceNowSysId || !body.serviceNowClass) return response(400, { error: 'emsEntityId, serviceNowSysId and serviceNowClass are required' });
       const now = new Date().toISOString();
-      const item = { emsEntityId: body.emsEntityId, serviceNowSysId: body.serviceNowSysId, serviceNowClass: body.serviceNowClass,
+      const item = { emsEntityId: body.emsEntityId, emsEntityName: body.emsEntityName || '', serviceNowSysId: body.serviceNowSysId, serviceNowClass: body.serviceNowClass,
         serviceNowName: body.serviceNowName || '', confidence: Number(body.confidence || 0), evidence: body.evidence || [],
         matchMethod: body.matchMethod || 'dashboard-approval', linkStatus: 'LINKED', healthStatus: 'UNKNOWN',
         approvedBy: body.approvedBy || 'unknown', approvedAt: now, updatedAt: now };
@@ -143,7 +143,12 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
     if (operation === 'health' || operation === 'links') {
       const r = await ddb.send(new ScanCommand({ TableName: LINKS, Limit: Math.min(Number(event.queryStringParameters?.limit || 100), 500) }));
-      const links = (r.Items || []).map(item => unmarshall(item));
+      const entities = await listEntities();
+      const entityNames = new Map(entities.map(entity => [entity.id, entity.name]));
+      const links = (r.Items || []).map(item => {
+        const link = unmarshall(item);
+        return { ...link, emsEntityName: link.emsEntityName || entityNames.get(link.emsEntityId) || link.emsEntityId };
+      });
       return response(200, { count: links.length, links });
     }
     return response(400, { error: `Unknown operation ${operation}`, available: ['suggestions','approve','reject','links','health'] });
