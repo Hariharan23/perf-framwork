@@ -13,6 +13,7 @@ export interface CanonicalIdentity {
   tokens: string[];
   environments: string[];
   numericAnchors: string[];
+  coreKey: string;
   searchVariants: string[];
 }
 
@@ -46,7 +47,7 @@ export function canonicalizeIdentity(value = ''): CanonicalIdentity {
     [core, primaryEnv, number].filter(Boolean).join('-'),
     [primaryEnv, number].filter(Boolean).join(''), number,
   ].map(v => v.trim()).filter(v => v.length >= 3))].slice(0, 6);
-  return { original: value, compact, canonicalBase, tokens, environments, numericAnchors, searchVariants };
+  return { original: value, compact, canonicalBase, tokens, environments, numericAnchors, coreKey: core, searchVariants };
 }
 
 function jaccard(a: string[], b: string[]): number {
@@ -57,26 +58,46 @@ function jaccard(a: string[], b: string[]): number {
 
 export function compareCanonicalIdentities(ems: CanonicalIdentity, ci: CanonicalIdentity): {
   score: number; evidence: string[]; numericConflict: boolean; environmentConflict: boolean;
+  identityEligible: boolean; identityStrength: 'DETERMINISTIC' | 'STRONG' | 'WEAK' | 'NONE';
 } {
   let score = 0; const evidence: string[] = [];
-  if (ems.canonicalBase && ems.canonicalBase === ci.canonicalBase) { score += 60; evidence.push(`canonical base matched: ${ems.canonicalBase}`); }
-  else if (ems.compact === ci.compact) { score += 55; evidence.push('compact name matched'); }
-  else { score += Math.round(jaccard(ems.tokens, ci.tokens) * 35); }
+  const canonicalExact = !!ems.canonicalBase && ems.canonicalBase === ci.canonicalBase;
+  const coreExact = ems.coreKey.length >= 3 && ems.coreKey === ci.coreKey;
+  const coreSimilarity = jaccard(
+    ems.tokens.filter(t => !ENV_ALIASES[t] && !/^\d+$/.test(t)),
+    ci.tokens.filter(t => !ENV_ALIASES[t] && !/^\d+$/.test(t)),
+  );
+  if (canonicalExact) { score += 55; evidence.push(`canonical identity matched: ${ems.canonicalBase}`); }
+  else if (coreExact) { score += 40; evidence.push(`application key matched: ${ems.coreKey}`); }
+  else if (coreSimilarity >= 0.8) { score += 25; evidence.push(`strong application-token similarity: ${Math.round(coreSimilarity * 100)}%`); }
 
   const numericConflict = ems.numericAnchors.length > 0 && ci.numericAnchors.length > 0
     && !ems.numericAnchors.some(n => ci.numericAnchors.includes(n));
-  if (numericConflict) { score -= 80; evidence.push(`numeric identifier conflict: ${ems.numericAnchors.join('/')} vs ${ci.numericAnchors.join('/')}`); }
-  else if (ems.numericAnchors.some(n => ci.numericAnchors.includes(n))) { score += 15; evidence.push(`numeric identifier matched: ${ems.numericAnchors.find(n => ci.numericAnchors.includes(n))}`); }
+  const numericMatch = ems.numericAnchors.some(n => ci.numericAnchors.includes(n));
+  if (numericConflict) { score = 0; evidence.push(`numeric identifier conflict: ${ems.numericAnchors.join('/')} vs ${ci.numericAnchors.join('/')}`); }
+  else if (numericMatch) { score += 25; evidence.push(`numeric identifier matched: ${ems.numericAnchors.find(n => ci.numericAnchors.includes(n))}`); }
 
   const environmentConflict = ems.environments.length > 0 && ci.environments.length > 0
     && !ems.environments.some(env => ci.environments.includes(env));
-  if (environmentConflict) { score -= 35; evidence.push(`environment conflict: ${ems.environments.join('/')} vs ${ci.environments.join('/')}`); }
-  else if (ems.environments.some(env => ci.environments.includes(env))) { score += 10; evidence.push(`environment matched: ${ems.environments.find(env => ci.environments.includes(env))}`); }
+  const environmentMatch = ems.environments.some(env => ci.environments.includes(env));
+  if (environmentConflict) { score = 0; evidence.push(`environment conflict: ${ems.environments.join('/')} vs ${ci.environments.join('/')}`); }
+  else if (environmentMatch) { score += 5; evidence.push(`environment confirmed: ${ems.environments.find(env => ci.environments.includes(env))}`); }
   let lastNonEnvironment = -1;
   ci.tokens.forEach((token, index) => { if (!ENV_ALIASES[token]) lastNonEnvironment = index; });
   const ignored = ci.tokens.slice(lastNonEnvironment + 1);
   if (ignored.length) evidence.push(`ignored trailing environment suffix: ${ignored.join(', ')}`);
-  return { score, evidence, numericConflict, environmentConflict };
+  // Environment words never establish identity. A candidate needs a matching
+  // application/core key, and when both names contain numeric anchors they must
+  // agree. Canonical equality is deterministic; core+number is strong.
+  const hasCoreEvidence = canonicalExact || coreExact || coreSimilarity >= 0.8;
+  const requiredNumberSatisfied = !ems.numericAnchors.length || !ci.numericAnchors.length || numericMatch;
+  const identityEligible = hasCoreEvidence && requiredNumberSatisfied && !numericConflict && !environmentConflict;
+  const identityStrength: 'DETERMINISTIC' | 'STRONG' | 'WEAK' | 'NONE' = !identityEligible ? 'NONE'
+    : canonicalExact ? 'DETERMINISTIC'
+    : coreExact && numericMatch ? 'STRONG'
+    : 'WEAK';
+  if (!hasCoreEvidence) evidence.push('rejected: no matching application identity');
+  return { score: identityEligible ? score : 0, evidence, numericConflict, environmentConflict, identityEligible, identityStrength };
 }
 
 export function ciClassPreference(emsType: string, ciClass: string): { score: number; label: string } {
