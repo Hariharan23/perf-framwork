@@ -1,6 +1,8 @@
 const ENV_ALIASES: Record<string, string> = {
   dev: 'development', development: 'development', qa: 'qa', test: 'test',
   tst: 'test', uat: 'uat', stage: 'staging', stg: 'staging', staging: 'staging',
+  perf: 'performance', performance: 'performance',
+  cert: 'certification', certification: 'certification',
   prod: 'production', prd: 'production', production: 'production',
 };
 
@@ -15,7 +17,7 @@ export interface CanonicalIdentity {
 }
 
 function splitToken(token: string): string[] {
-  const embeddedWhole = token.match(/^(.+?)(dev|qa|test|tst|uat|stage|stg|prod|prd)(\d+)$/);
+  const embeddedWhole = token.match(/^(.+?)(dev|qa|test|tst|uat|stage|stg|perf|performance|cert|certification|prod|prd)(\d+)$/);
   if (embeddedWhole) return [embeddedWhole[1], embeddedWhole[2], embeddedWhole[3]].filter(Boolean);
   const pieces: string[] = [];
   for (const part of token.match(/[a-z]+|\d+/g) || []) {
